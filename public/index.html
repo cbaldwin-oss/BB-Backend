@@ -21,11 +21,15 @@
         position: relative; /* Allows us to position controls if needed */
     }
 
-.logo {
-        color: #2e7d32; /* A nice, deep professional green */
-        font-weight: bold;
-        font-size: 32px;
-        letter-spacing: -1px;
+.logo img {
+        height: 50px;       /* Change this number to resize your logo */
+        width: auto;        /* Keeps the image from looking stretched */
+        display: block;     /* Helps with clean alignment */
+    }
+    
+    /* Optional: If the text feels too close or too far after resizing */
+    .logo {
+        gap: 15px;          /* Adjust the space between the logo and "CloudSheets" */
     }
 
     /* Position controls to the right so the logo stays perfectly centered */
@@ -55,7 +59,7 @@
 <div class="header">
     <div class="logo">
         <img src="https://cdn-icons-png.flaticon.com/512/732/732220.png" alt="Logo">
-        <span>CloudSheets</span>
+        <span>LaunchPad</span>
     </div>
     
     <div class="controls">
