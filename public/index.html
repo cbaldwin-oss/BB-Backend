@@ -4,33 +4,76 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Cloud Spreadsheet</title>
-    <style>
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: auto; }
-        table { border-collapse: collapse; width: 100%; table-layout: fixed; background: white; }
-        td { border: 1px solid #e0e0e0; height: 35px; padding: 0; }
-        input { 
-            width: 100%; height: 100%; border: none; outline: none; 
-            padding: 0 8px; font-size: 14px; box-sizing: border-box; 
-        }
-        input:focus { outline: 2px solid #1a73e8; z-index: 10; position: relative; }
-    </style>
+<style>
+    /* ... existing body styles ... */
+
+    .header {
+        height: 80px; /* Increased from 50px */
+        background-color: #ffffff;
+        border-bottom: 1px solid #dcdcdc;
+        display: flex;
+        align-items: center;
+        /* Changed to center everything */
+        justify-content: center; 
+        padding: 0 20px;
+        flex-shrink: 0;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        position: relative; /* Allows us to position controls if needed */
+    }
+
+    .logo {
+        color: #1a73e8;
+        font-weight: bold;
+        font-size: 32px; /* Increased from 20px */
+        letter-spacing: -1px;
+    }
+
+    /* Position controls to the right so the logo stays perfectly centered */
+    .controls {
+        position: absolute;
+        right: 20px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .controls button {
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: 1px solid #dadce0;
+        background: #f8f9fa;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.2s;
+    }
+
+    .controls button:hover {
+        background: #f1f3f4;
+    }
+</style>
 </head>
 <body>
-    <div class="header">
-        <div class="logo">LaunchPad</div>
-        <div class="controls">
-            <button onclick="window.location.reload()">Refresh</button>
-            <button id="saveIndicator">Saved</button>
-        </div>
+<div class="header">
+    <div class="logo">CloudSheets</div>
+    
+    <div class="controls">
+        <button onclick="loadData()">Sync Now</button>
+        <button id="saveIndicator" style="border: none; font-weight: bold; color: green;">Saved</button>
     </div>
+</div>
 
     <table id="grid"></table>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        setInterval(() => {
-    window.location.reload();
+// This runs every 10 seconds without any flickering
+setInterval(() => {
+    // We check if you are currently typing. 
+    // If you are, we DON'T refresh so we don't overwrite your typing.
+    if (document.activeElement.tagName !== 'INPUT') {
+        console.log("Syncing with cloud...");
+        loadData();
+    }
 }, 10000);
         // --- CONFIGURE THESE ---
         const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
@@ -78,15 +121,18 @@ for (let r = 0; r < totalRows; r++) {
         // 3. Load Data from Supabase
 async function loadData() {
     const { data, error } = await _supabase.from('cells').select('*');
+    
     if (error) {
-        console.error("Load Error:", error.message);
+        console.error("Sync Error:", error.message);
         return;
     }
+
     if (data) {
         data.forEach(row => {
-            // Use [id='...'] to find elements with numeric IDs reliably
-            const cell = document.querySelector(`input[id='${row.id}']`);
-            if (cell) {
+            const cell = document.getElementById(row.id);
+            // Only update the value if it's actually different 
+            // This prevents the cursor from jumping around
+            if (cell && cell.value !== row.content) {
                 cell.value = row.content;
             }
         });
