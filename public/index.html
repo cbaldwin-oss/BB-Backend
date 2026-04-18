@@ -21,10 +21,10 @@
         position: relative; /* Allows us to position controls if needed */
     }
 
-    .logo {
-        color: #1a73e8;
+.logo {
+        color: #2e7d32; /* A nice, deep professional green */
         font-weight: bold;
-        font-size: 32px; /* Increased from 20px */
+        font-size: 32px;
         letter-spacing: -1px;
     }
 
@@ -53,11 +53,13 @@
 </head>
 <body>
 <div class="header">
-    <div class="logo">LaunchPad</div>
+    <div class="logo">
+        <img src="https://cdn-icons-png.flaticon.com/512/732/732220.png" alt="Logo">
+        <span>CloudSheets</span>
+    </div>
     
     <div class="controls">
-        <button onclick="loadData()">Sync Now</button>
-        <button id="saveIndicator" style="border: none; font-weight: bold; color: green;">Saved</button>
+        <button id="saveIndicator">Saved</button>
     </div>
 </div>
 
