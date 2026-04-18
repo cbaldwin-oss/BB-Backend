@@ -11,46 +11,58 @@
         border-bottom: 1px solid #dcdcdc;
         display: flex;
         align-items: center;
-        /* This centers the logo group (image + text) */
-        justify-content: center; 
-        padding: 0 20px;
-        position: relative;
+        padding: 0 30px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
 
-    .logo {
+    /* This makes the left and right sections take up equal space */
+    .header-left, .header-right {
+        flex: 1; 
         display: flex;
         align-items: center;
-        gap: 15px; /* Space between image and "LaunchPad" */
     }
 
-    .logo span {
-        color: #2e7d32;      /* Bolded Green */
-        font-weight: 800;    /* Extra Bold */
-        font-size: 36px;     /* Large and impactful */
+    .header-right {
+        justify-content: flex-end; /* Pushes save indicator to the far right */
+    }
+
+    /* This section stays in the dead center */
+    .header-center {
+        flex: 0; /* Only takes up as much space as the text needs */
+        white-space: nowrap;
+    }
+
+    .header-center span {
+        color: #2e7d32;
+        font-weight: 800;
+        font-size: 36px;
         letter-spacing: -1px;
     }
 
-    .logo img {
-        height: 60px;        /* Adjust size as needed */
+    .header-left img {
+        height: 50px;
         width: auto;
     }
 
-    .controls {
-        position: absolute;
-        right: 20px;
+    #saveIndicator {
+        font-weight: bold;
+        color: #2e7d32;
+        font-size: 14px;
     }
 </style>
 </head>
 <body>
 <div class="header">
-    <div class="logo">
+    <div class="header-left">
         <img src="https://lh3.googleusercontent.com/u/0/d/1Wy_ftXtce-UG5jV-5vwS80lV1yt7QTbG" alt="Logo">
+    </div>
+
+    <div class="header-center">
         <span>LaunchPad</span>
     </div>
-    
-    <div class="controls">
-        <button id="saveIndicator">Saved</button>
+
+    <div class="header-right">
+        <div id="saveIndicator">Saved</div>
     </div>
 </div>
 
