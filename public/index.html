@@ -63,3 +63,143 @@
     color: #2e7d32;
     border-bottom: 2px solid #2e7d32;
 }
+</style>
+</head>
+<body>
+<div class="header">
+    
+    <div class="header-left">
+        <img src="https://lh3.googleusercontent.com/u/0/d/1Wy_ftXtce-UG5jV-5vwS80lV1yt7QTbG" alt="Logo">
+    </div>
+    <div class="header-center">
+        <span>LaunchPad</span>
+    </div>
+    <div class="header-right">
+        <button class="view-btn active" onclick="switchView('view1', this)">Overall Schedule</button>
+        <button class="view-btn" onclick="switchView('view2', this)">3 Day Look Ahead</button>
+        <button class="view-btn" onclick="switchView('view3', this)">1 Week Look Ahead</button>
+    </div>
+</div>
+
+<div class="subheader">
+    <div class="subheader-item">
+        <strong>Mode:</strong> <span id="mode-text">Live Sync</span>
+    </div>
+    <div class="subheader-item" id="last-sync-time">
+        Last synced: Just now
+    </div>
+    <div class="subheader-item">
+        <button class="tool-btn" onclick="loadData()">Manual Sync</button>
+    </div>
+</div>
+
+<div id="grid-container">
+    <table id="grid"></table>
+</div>
+
+    <table id="grid"></table>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+// This runs every 10 seconds without any flickering
+setInterval(() => {
+    // We check if you are currently typing. 
+    // If you are, we DON'T refresh so we don't overwrite your typing.
+    if (document.activeElement.tagName !== 'INPUT') {
+        console.log("Syncing with cloud...");
+        loadData();
+    }
+}, 10000);
+        // --- CONFIGURE THESE ---
+        const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjbnhldGNvbWRybHh2bGFycW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NDIyMjksImV4cCI6MjA5MjAxODIyOX0.gP37sT5OrCOVRZXekMrBZHm5mtfnr6JrC2YGflWsDQU';
+
+        // 1. Initialize Supabase
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const grid = document.getElementById('grid');
+        const totalRows = 40; 
+        const totalCols = 15;
+
+// 2. Generate the Grid automatically
+for (let r = 0; r < totalRows; r++) {
+    let tr = document.createElement('tr');
+    for (let c = 0; c < totalCols; c++) {
+        let td = document.createElement('td');
+        let input = document.createElement('input');
+        
+        // Generate a unique NUMBER for the ID (e.g., Row 2, Col 5 = 205)
+        // This ensures the ID is always an integer for your int4 column
+        let numericId = (r * 100) + c; 
+        
+        input.id = numericId; 
+        
+        input.onblur = async () => {
+            console.log("Saving numeric ID:", numericId);
+            const { error } = await _supabase
+                .from('cells')
+                .upsert({ 
+                    id: numericId,        // This is now a Number, not a String
+                    content: input.value 
+                }, { onConflict: 'id' });
+            
+            if (error) console.error("Database Error:", error.message);
+        };
+
+        td.appendChild(input);
+        tr.appendChild(td);
+    }
+    grid.appendChild(tr);
+}
+
+        // 3. Load Data from Supabase
+let currentView = 'view1'; // Default view
+
+async function switchView(viewId, buttonElement) {
+    currentView = viewId;
+    
+    // 1. Update Button Styles
+    document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+    buttonElement.classList.add('active');
+
+    // 2. Clear the screen immediately for the new view
+    document.querySelectorAll('input').forEach(input => input.value = '');
+
+    // 3. Load data for the new view
+    await loadData();
+}
+
+// UPDATE YOUR SAVE LOGIC (inside the loop)
+input.onblur = async () => {
+    const { error } = await _supabase
+        .from('cells')
+        .upsert({ 
+            id: `${currentView}-${cellId}`, // Unique ID for this view/cell combo
+            content: input.value,
+            view_id: currentView 
+        }, { onConflict: 'id' });
+};
+
+// UPDATE YOUR LOAD LOGIC
+async function loadData() {
+    const { data, error } = await _supabase
+        .from('cells')
+        .select('*')
+        .eq('view_id', currentView); // Only get data for the active view
+
+    if (data) {
+        data.forEach(row => {
+            // Strip the view prefix to find the local input ID
+            const localId = row.id.replace(`${currentView}-`, '');
+            const cell = document.getElementById(localId);
+            if (cell) cell.value = row.content;
+        });
+    }
+}
+
+        loadData();
+    </script>
+</body>
+</html>
