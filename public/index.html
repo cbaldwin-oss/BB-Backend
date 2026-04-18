@@ -63,6 +63,63 @@
     color: #2e7d32;
     border-bottom: 2px solid #2e7d32;
 }
+.section-container {
+        margin-bottom: 10px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .date-header {
+        background-color: #f1f3f4;
+        padding: 10px 30px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: bold;
+        color: #2e7d32;
+        border-top: 1px solid #ddd;
+    }
+
+    .date-header:hover {
+        background-color: #e8eaed;
+    }
+
+    .rows-container {
+        display: block; /* Shown by default */
+        padding: 10px 20px;
+    }
+
+    .rows-container.hidden {
+        display: none;
+    }
+
+    .cell-row {
+        display: flex;
+        gap: 5px;
+        margin-bottom: 4px;
+    }
+
+    .cell-row input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #eee;
+        border-radius: 3px;
+    }
+
+    .add-rows-btn {
+        margin: 10px 0 20px 10px;
+        padding: 5px 15px;
+        background-color: #ffffff;
+        border: 1px dashed #2e7d32;
+        color: #2e7d32;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .add-rows-btn:hover {
+        background-color: #e8f5e9;
+    }
 </style>
 </head>
 <body>
@@ -96,6 +153,13 @@
 <div id="grid-container">
     <table id="grid"></table>
 </div>
+<div id="main-content-area">
+    </div>
+
+<script>
+    const DAYS_TO_SHOW = 7;      // Adjust how many days/sections to show
+    const INITIAL_ROWS = 20;     // Starting rows per section
+</script>
 
     <table id="grid"></table>
 
@@ -123,36 +187,87 @@ setInterval(() => {
         const totalRows = 40; 
         const totalCols = 15;
 
-// 2. Generate the Grid automatically
-for (let r = 0; r < totalRows; r++) {
-    let tr = document.createElement('tr');
-    for (let c = 0; c < totalCols; c++) {
-        let td = document.createElement('td');
-        let input = document.createElement('input');
+const contentArea = document.getElementById('main-content-area');
+
+function createSections() {
+    contentArea.innerHTML = ''; // Clear existing
+    
+    for (let i = 0; i < DAYS_TO_SHOW; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        const dateString = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        const dateId = date.toISOString().split('T')[0]; // YYYY-MM-DD
+
+        // 1. Create Section Wrapper
+        const section = document.createElement('div');
+        section.className = 'section-container';
+
+        // 2. Create Header (Collapsable)
+        const header = document.createElement('div');
+        header.className = 'date-header';
+        header.innerHTML = `<span>${dateString}</span> <span>▼</span>`;
         
-        // Generate a unique NUMBER for the ID (e.g., Row 2, Col 5 = 205)
-        // This ensures the ID is always an integer for your int4 column
-        let numericId = (r * 100) + c; 
-        
-        input.id = numericId; 
-        
-        input.onblur = async () => {
-            console.log("Saving numeric ID:", numericId);
-            const { error } = await _supabase
-                .from('cells')
-                .upsert({ 
-                    id: numericId,        // This is now a Number, not a String
-                    content: input.value 
-                }, { onConflict: 'id' });
-            
-            if (error) console.error("Database Error:", error.message);
+        // 3. Create Rows Container
+        const rowsDiv = document.createElement('div');
+        rowsDiv.className = 'rows-container';
+        rowsDiv.id = `rows-${dateId}`;
+
+        // Toggle Visibility
+        header.onclick = () => {
+            rowsDiv.classList.toggle('hidden');
+            header.querySelector('span:last-child').innerText = rowsDiv.classList.contains('hidden') ? '▶' : '▼';
         };
 
-        td.appendChild(input);
-        tr.appendChild(td);
+        // 4. Add initial rows
+        addRowsToContainer(rowsDiv, dateId, INITIAL_ROWS);
+
+        // 5. Add "+ 5 Rows" Button
+        const addBtn = document.createElement('button');
+        addBtn.className = 'add-rows-btn';
+        addBtn.innerText = "+ Add 5 Rows";
+        addBtn.onclick = () => addRowsToContainer(rowsDiv, dateId, 5);
+
+        section.appendChild(header);
+        section.appendChild(rowsDiv);
+        section.appendChild(addBtn);
+        contentArea.appendChild(section);
     }
-    grid.appendChild(tr);
 }
+
+function addRowsToContainer(container, dateId, count) {
+    const existingRowCount = container.querySelectorAll('.cell-row').length;
+    
+    for (let r = 0; r < count; r++) {
+        const rowIdx = existingRowCount + r;
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'cell-row';
+        
+        // Let's create 3 columns for this example
+        for (let col = 0; col < 3; col++) {
+            const input = document.createElement('input');
+            const cellId = `${dateId}-r${rowIdx}-c${col}`;
+            input.id = cellId;
+            input.placeholder = `Row ${rowIdx + 1}, Col ${col + 1}`;
+            
+            // Re-use your existing save logic
+            input.onblur = () => saveCell(cellId, input.value);
+            
+            rowDiv.appendChild(input);
+        }
+        container.appendChild(rowDiv);
+    }
+    loadData(); // Reload data to fill the new rows
+}
+
+async function saveCell(id, content) {
+    const indicator = document.getElementById('saveIndicator');
+    indicator.innerText = "Saving...";
+    await _supabase.from('cells').upsert({ id, content }, { onConflict: 'id' });
+    indicator.innerText = "Saved";
+}
+
+// Initialize
+createSections();
 
         // 3. Load Data from Supabase
 let currentView = 'view1'; // Default view
@@ -184,16 +299,10 @@ input.onblur = async () => {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    const { data, error } = await _supabase
-        .from('cells')
-        .select('*')
-        .eq('view_id', currentView); // Only get data for the active view
-
+    const { data } = await _supabase.from('cells').select('*');
     if (data) {
         data.forEach(row => {
-            // Strip the view prefix to find the local input ID
-            const localId = row.id.replace(`${currentView}-`, '');
-            const cell = document.getElementById(localId);
+            const cell = document.getElementById(row.id);
             if (cell) cell.value = row.content;
         });
     }
