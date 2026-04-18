@@ -5,60 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LaunchPad</title>
 <style>
-    /* ... existing body styles ... */
-
     .header {
-        height: 80px; /* Increased from 50px */
+        height: 80px;
         background-color: #ffffff;
         border-bottom: 1px solid #dcdcdc;
         display: flex;
         align-items: center;
-        /* Changed to center everything */
+        /* This centers the logo group (image + text) */
         justify-content: center; 
         padding: 0 20px;
-        flex-shrink: 0;
+        position: relative;
         box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-        position: relative; /* Allows us to position controls if needed */
     }
 
-.logo img {
-        height: 50px;       /* Change this number to resize your logo */
-        width: auto;        /* Keeps the image from looking stretched */
-        display: block;     /* Helps with clean alignment */
-    }
-    
-    /* Optional: If the text feels too close or too far after resizing */
     .logo {
-        gap: 15px;          /* Adjust the space between the logo and "CloudSheets" */
+        display: flex;
+        align-items: center;
+        gap: 15px; /* Space between image and "LaunchPad" */
     }
 
-    /* Position controls to the right so the logo stays perfectly centered */
+    .logo span {
+        color: #2e7d32;      /* Bolded Green */
+        font-weight: 800;    /* Extra Bold */
+        font-size: 36px;     /* Large and impactful */
+        letter-spacing: -1px;
+    }
+
+    .logo img {
+        height: 50px;        /* Adjust size as needed */
+        width: auto;
+    }
+
     .controls {
         position: absolute;
         right: 20px;
-        display: flex;
-        gap: 10px;
-    }
-
-    .controls button {
-        padding: 8px 16px;
-        border-radius: 6px;
-        border: 1px solid #dadce0;
-        background: #f8f9fa;
-        cursor: pointer;
-        font-size: 14px;
-        transition: background 0.2s;
-    }
-
-    .controls button:hover {
-        background: #f1f3f4;
     }
 </style>
 </head>
 <body>
 <div class="header">
     <div class="logo">
-        <img src="https://cdn-icons-png.flaticon.com/512/732/732220.png" alt="Logo">
+        <img src="https://drive.google.com/file/d/1G5Tverw0QiEt0j9aSzWvS4Tc6lbBukAt/view?usp=drive_link" alt="Logo">
         <span>LaunchPad</span>
     </div>
     
