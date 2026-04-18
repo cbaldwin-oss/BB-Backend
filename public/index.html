@@ -50,10 +50,24 @@
         color: #2e7d32;
         font-size: 14px;
     }
+    .view-btn {
+    background: none;
+    border: none;
+    padding: 5px 15px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #5f6368;
+    border-bottom: 2px solid transparent;
+}
+.view-btn.active {
+    color: #2e7d32;
+    border-bottom: 2px solid #2e7d32;
+}
 </style>
 </head>
 <body>
 <div class="header">
+    
     <div class="header-left">
         <img src="https://lh3.googleusercontent.com/u/0/d/1Wy_ftXtce-UG5jV-5vwS80lV1yt7QTbG" alt="Logo">
     </div>
@@ -61,7 +75,9 @@
         <span>LaunchPad</span>
     </div>
     <div class="header-right">
-        <div id="saveIndicator">Saved</div>
+        <button class="view-btn active" onclick="switchView('view1', this)">Overall Schedule</button>
+        <button class="view-btn" onclick="switchView('view2', this)">3 Day Look Ahead</button>
+        <button class="view-btn" onclick="switchView('view3', this)">1 Week Look Ahead</button>
     </div>
 </div>
 
@@ -139,22 +155,46 @@ for (let r = 0; r < totalRows; r++) {
 }
 
         // 3. Load Data from Supabase
-async function loadData() {
-    const { data, error } = await _supabase.from('cells').select('*');
+let currentView = 'view1'; // Default view
+
+async function switchView(viewId, buttonElement) {
+    currentView = viewId;
     
-    if (error) {
-        console.error("Sync Error:", error.message);
-        return;
-    }
+    // 1. Update Button Styles
+    document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+    buttonElement.classList.add('active');
+
+    // 2. Clear the screen immediately for the new view
+    document.querySelectorAll('input').forEach(input => input.value = '');
+
+    // 3. Load data for the new view
+    await loadData();
+}
+
+// UPDATE YOUR SAVE LOGIC (inside the loop)
+input.onblur = async () => {
+    const { error } = await _supabase
+        .from('cells')
+        .upsert({ 
+            id: `${currentView}-${cellId}`, // Unique ID for this view/cell combo
+            content: input.value,
+            view_id: currentView 
+        }, { onConflict: 'id' });
+};
+
+// UPDATE YOUR LOAD LOGIC
+async function loadData() {
+    const { data, error } = await _supabase
+        .from('cells')
+        .select('*')
+        .eq('view_id', currentView); // Only get data for the active view
 
     if (data) {
         data.forEach(row => {
-            const cell = document.getElementById(row.id);
-            // Only update the value if it's actually different 
-            // This prevents the cursor from jumping around
-            if (cell && cell.value !== row.content) {
-                cell.value = row.content;
-            }
+            // Strip the view prefix to find the local input ID
+            const localId = row.id.replace(`${currentView}-`, '');
+            const cell = document.getElementById(localId);
+            if (cell) cell.value = row.content;
         });
     }
 }
