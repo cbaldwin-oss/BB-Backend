@@ -57,14 +57,28 @@
     <div class="header-left">
         <img src="https://lh3.googleusercontent.com/u/0/d/1Wy_ftXtce-UG5jV-5vwS80lV1yt7QTbG" alt="Logo">
     </div>
-
     <div class="header-center">
         <span>LaunchPad</span>
     </div>
-
     <div class="header-right">
         <div id="saveIndicator">Saved</div>
     </div>
+</div>
+
+<div class="subheader">
+    <div class="subheader-item">
+        <strong>Mode:</strong> <span id="mode-text">Live Sync</span>
+    </div>
+    <div class="subheader-item" id="last-sync-time">
+        Last synced: Just now
+    </div>
+    <div class="subheader-item">
+        <button class="tool-btn" onclick="loadData()">Manual Sync</button>
+    </div>
+</div>
+
+<div id="grid-container">
+    <table id="grid"></table>
 </div>
 
     <table id="grid"></table>
