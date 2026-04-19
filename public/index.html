@@ -217,9 +217,9 @@
         background: #fff;
     }
 
-    .week-content.hidden {
-        display: none !important;
-    }
+.week-content.hidden {
+    display: none !important;
+}
 
     .week-arrow {
         font-size: 16px;
@@ -416,27 +416,30 @@ function createInput(id, placeholder) {
     return input;
 }
 
-let allCollapsed = false; // Track the state globally
+let allWeeksCollapsed = false; // Track the global state
 
 function toggleAllSections() {
-    const containers = document.querySelectorAll('.rows-container');
-    const headers = document.querySelectorAll('.date-header');
+    const weekContents = document.querySelectorAll('.week-content');
+    const weekArrows = document.querySelectorAll('.week-arrow');
     const btn = document.getElementById('collapse-all-btn');
     
-    allCollapsed = !allCollapsed; // Flip the state
+    // Toggle the state
+    allWeeksCollapsed = !allWeeksCollapsed;
 
-    containers.forEach((container, index) => {
-        if (allCollapsed) {
-            container.classList.add('hidden');
-            headers[index].querySelector('.arrow').innerText = '▶';
+    weekContents.forEach((content, index) => {
+        if (allWeeksCollapsed) {
+            // Force collapse
+            content.classList.add('hidden');
+            if (weekArrows[index]) weekArrows[index].innerText = '▶';
         } else {
-            container.classList.remove('hidden');
-            headers[index].querySelector('.arrow').innerText = '▼';
+            // Force expand
+            content.classList.remove('hidden');
+            if (weekArrows[index]) weekArrows[index].innerText = '▼';
         }
     });
 
-    // Update the button text so you know what it will do next
-    btn.innerText = allCollapsed ? "Expand All" : "Collapse All";
+    // Update the button text to show the next action
+    btn.innerText = allWeeksCollapsed ? "Expand All Weeks" : "Collapse All Weeks";
 }
 
 async function deleteFullRow(wrapperId, cellIds) {
