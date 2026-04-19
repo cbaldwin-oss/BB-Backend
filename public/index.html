@@ -190,6 +190,38 @@
         font-weight: bold;
         color: #2e7d32;
     }
+    .week-container {
+        margin-bottom: 20px;
+        border: 2px solid #e8f5e9;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .week-header {
+        background-color: #2e7d32; /* Solid Green */
+        color: white;
+        padding: 12px 30px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: bold;
+        font-size: 18px;
+    }
+
+    .week-content {
+        display: block; /* Shown by default */
+    }
+
+    .week-content.hidden {
+        display: none;
+    }
+
+    /* Keep day headers slightly lighter to show hierarchy */
+    .date-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #eee;
+    }
 </style>
 </head>
 <body>
@@ -224,9 +256,85 @@
     </div>
 
 <script>
-    const START_DATE = "2026-05-01"; // Format: YYYY-MM-DD
-    const DAYS_TO_SHOW = 7;      // Adjust how many days/sections to show
-    const INITIAL_ROWS = 20;     // Starting rows per section
+// --- CODER SETTINGS ---
+const START_DATE = "2026-04-20"; // Pro-tip: Set this to a Monday for best results
+const WEEKS_TO_SHOW = 2;         // How many weeks to generate
+const INITIAL_ROWS = 20;
+
+function createSections() {
+    contentArea.innerHTML = ''; 
+    const baseDate = new Date(START_DATE + "T00:00:00");
+
+    for (let w = 0; w < WEEKS_TO_SHOW; w++) {
+        // 1. Create Week Wrapper
+        const weekDiv = document.createElement('div');
+        weekDiv.className = 'week-container';
+
+        // 2. Create Week Header
+        const weekHeader = document.createElement('div');
+        weekHeader.className = 'week-header';
+        
+        // Calculate week range text
+        const weekStart = new Date(baseDate);
+        weekStart.setDate(baseDate.getDate() + (w * 7));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        
+        weekHeader.innerHTML = `
+            <span>Week of ${weekStart.toLocaleDateString([], {month:'short', day:'numeric'})} - ${weekEnd.toLocaleDateString([], {month:'short', day:'numeric'})}</span>
+            <span class="week-arrow">▼</span>
+        `;
+
+        const weekContent = document.createElement('div');
+        weekContent.className = 'week-content';
+
+        weekHeader.onclick = () => {
+            weekContent.classList.toggle('hidden');
+            weekHeader.querySelector('.week-arrow').innerText = weekContent.classList.contains('hidden') ? '▶' : '▼';
+        };
+
+        // 3. Create 7 Days inside this week
+        for (let d = 0; d < 7; d++) {
+            const sectionDate = new Date(weekStart);
+            sectionDate.setDate(weekStart.getDate() + d);
+            
+            const dateString = sectionDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            const dateId = sectionDate.toISOString().split('T')[0];
+
+            const section = document.createElement('div');
+            section.className = 'section-container';
+
+            const header = document.createElement('div');
+            header.className = 'date-header';
+            header.innerHTML = `<span>${dateString}</span> <span class="arrow">▼</span>`;
+            
+            const rowsDiv = document.createElement('div');
+            rowsDiv.className = 'rows-container';
+            rowsDiv.id = `rows-${dateId}`;
+
+            header.onclick = () => {
+                rowsDiv.classList.toggle('hidden');
+                header.querySelector('.arrow').innerText = rowsDiv.classList.contains('hidden') ? '▶' : '▼';
+            };
+
+            addRowsToContainer(rowsDiv, dateId, INITIAL_ROWS);
+
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-rows-btn';
+            addBtn.innerText = "+ Add 5 Rows";
+            addBtn.onclick = () => addRowsToContainer(rowsDiv, dateId, 5, addBtn);
+
+            rowsDiv.appendChild(addBtn);
+            section.appendChild(header);
+            section.appendChild(rowsDiv);
+            weekContent.appendChild(section);
+        }
+
+        weekDiv.appendChild(weekHeader);
+        weekDiv.appendChild(weekContent);
+        contentArea.appendChild(weekDiv);
+    }
+}
 </script>
 
     <table id="grid"></table>
@@ -355,24 +463,23 @@ function createInput(id, placeholder) {
 let allCollapsed = false; // Track the state globally
 
 function toggleAllSections() {
-    const containers = document.querySelectorAll('.rows-container');
-    const headers = document.querySelectorAll('.date-header');
+    const weekContents = document.querySelectorAll('.week-content');
+    const weekArrows = document.querySelectorAll('.week-arrow');
     const btn = document.getElementById('collapse-all-btn');
     
-    allCollapsed = !allCollapsed; // Flip the state
+    allCollapsed = !allCollapsed;
 
-    containers.forEach((container, index) => {
+    weekContents.forEach((content, index) => {
         if (allCollapsed) {
-            container.classList.add('hidden');
-            headers[index].querySelector('.arrow').innerText = '▶';
+            content.classList.add('hidden');
+            weekArrows[index].innerText = '▶';
         } else {
-            container.classList.remove('hidden');
-            headers[index].querySelector('.arrow').innerText = '▼';
+            content.classList.remove('hidden');
+            weekArrows[index].innerText = '▼';
         }
     });
 
-    // Update the button text so you know what it will do next
-    btn.innerText = allCollapsed ? "Expand All" : "Collapse All";
+    btn.innerText = allCollapsed ? "Expand All Weeks" : "Collapse All Weeks";
 }
 
 async function deleteFullRow(wrapperId, cellIds) {
