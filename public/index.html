@@ -269,7 +269,7 @@
     </div>
     <div class="header-right">
         <button class="view-btn active" onclick="switchView('view1', this)">Overall Schedule</button>
-        <button class="tool-btn" onclick="showThreeDayLookAhead(this)">3-Day Look Ahead</button>
+        <button class="view-btn" onclick="switchView('view2', this)">3 Day Look Ahead</button>
         <button class="view-btn" onclick="switchView('view3', this)">1 Week Look Ahead</button>
     </div>
 </div>
@@ -407,65 +407,6 @@ function createSections() {
     }
     loadData(); // Final sync with Supabase
 }
-
-function showFullView(buttonElement) {
-    // Reset active button
-    document.querySelectorAll('.view-btn, .tool-btn').forEach(btn => btn.classList.remove('active'));
-    buttonElement.classList.add('active');
-
-    // Show every section and every week
-    document.querySelectorAll('.section-container, .week-container').forEach(el => {
-        el.style.display = 'block';
-    });
-}
-
-function showThreeDayLookAhead(buttonElement) {
-    // 1. Mark this button as active (UI update)
-    document.querySelectorAll('.view-btn, .tool-btn').forEach(btn => btn.classList.remove('active'));
-    buttonElement.classList.add('active');
-
-    // 2. Define the Date Range
-    const today = new Date();
-    const dayAfterTomorrow = new Date();
-    dayAfterTomorrow.setDate(today.getDate() + 2);
-
-    // Format to YYYY-MM-DD for easy string comparison
-    const startStr = today.toISOString().split('T')[0];
-    const endStr = dayAfterTomorrow.toISOString().split('T')[0];
-
-    console.log(`Filtering for range: ${startStr} to ${endStr}`);
-
-    // 3. Filter the Day Sections
-    const sections = document.querySelectorAll('.section-container');
-    
-    sections.forEach(section => {
-        // Find the internal rows-container to get the date ID (rows-YYYY-MM-DD)
-        const rowsDiv = section.querySelector('.rows-container');
-        if (!rowsDiv) return;
-
-        const sectionDate = rowsDiv.id.replace('rows-', '');
-
-        // Comparison Logic
-        if (sectionDate >= startStr && sectionDate <= endStr) {
-            section.style.display = 'block'; // Show it
-            rowsDiv.classList.remove('hidden'); // Auto-expand for easy viewing
-        } else {
-            section.style.display = 'none'; // Hide it
-        }
-    });
-
-    // 4. Hide empty Week Containers
-    document.querySelectorAll('.week-container').forEach(week => {
-        // Check if any days inside this week are visible
-        const visibleDays = week.querySelectorAll('.section-container[style="display: block;"]');
-        if (visibleDays.length === 0) {
-            week.style.display = 'none';
-        } else {
-            week.style.display = 'block';
-            week.querySelector('.week-content').classList.remove('hidden'); // Expand week
-        }
-    });
-}s
 
 function addRowsToContainer(container, dateId, count, anchorBtn = null) {
     const existingRowCount = container.querySelectorAll('.cell-row').length;
