@@ -159,15 +159,6 @@
     .rows-container.hidden {
         display: none;
     }
-    .subheader {
-        height: 50px;
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #dcdcdc;
-        display: flex;
-        align-items: center;
-        justify-content: space-between; /* Pushes button to left and Save to right */
-        padding: 0 30px;
-    }
 
     .tool-btn {
         background-color: #2e7d32; /* Solid green for visibility */
@@ -224,6 +215,40 @@
     .week-arrow {
         font-size: 16px;
     }
+    .subheader {
+        gap: 10px;
+        display: flex;
+        align-items: center;
+        padding: 0 30px;
+        height: 60px;
+        background: #f1f3f4;
+    }
+
+    .tool-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+        border: 1px solid #2e7d32;
+        background: white;
+        color: #2e7d32;
+        cursor: pointer;
+        border-radius: 4px;
+        font-weight: bold;
+        transition: 0.2s;
+    }
+
+    .tool-btn:hover {
+        background: #e8f5e9;
+    }
+    
+    /* Special styling for the destructive reset button */
+    .tool-btn[onclick="collapseEverything()"] {
+        border-color: #d32f2f;
+        color: #d32f2f;
+    }
+    
+    .tool-btn[onclick="collapseEverything()"]:hover {
+        background: #ffebee;
+    }
 </style>
 </head>
 <body>
@@ -244,7 +269,9 @@
 
 <div class="subheader">
     <div class="subheader-item">
-        <button class="tool-btn" id="collapse-all-btn" onclick="toggleAllSections()">Collapse All</button>
+        <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
+        <button class="tool-btn" onclick="expandAllDays()">Expand Days</button>
+        <button class="tool-btn" onclick="collapseEverything()" style="background-color: #d32f2f;">Collapse All</button>
     </div>
     <div class="subheader-item">
         <span id="saveIndicator">Saved</span>
@@ -481,6 +508,41 @@ async function switchView(viewId, buttonElement) {
 
     // 3. Load data for the new view
     await loadData();
+}
+
+// 1. Only targets the green Week bars
+function expandAllWeeks() {
+    document.querySelectorAll('.week-content').forEach((content, i) => {
+        content.classList.remove('hidden');
+        const arrow = document.querySelectorAll('.week-arrow')[i];
+        if (arrow) arrow.innerText = '▼';
+    });
+}
+
+// 2. Only targets the grey Day bars
+function expandAllDays() {
+    document.querySelectorAll('.rows-container').forEach((container, i) => {
+        container.classList.remove('hidden');
+        const arrow = document.querySelectorAll('.arrow')[i];
+        if (arrow) arrow.innerText = '▼';
+    });
+}
+
+// 3. The "Reset" - hides everything
+function collapseEverything() {
+    // Hide all Week contents
+    document.querySelectorAll('.week-content').forEach((content, i) => {
+        content.classList.add('hidden');
+        const arrow = document.querySelectorAll('.week-arrow')[i];
+        if (arrow) arrow.innerText = '▶';
+    });
+
+    // Hide all Day contents
+    document.querySelectorAll('.rows-container').forEach((container, i) => {
+        container.classList.add('hidden');
+        const arrow = document.querySelectorAll('.arrow')[i];
+        if (arrow) arrow.innerText = '▶';
+    });
 }
 
 // UPDATE YOUR SAVE LOGIC (inside the loop)
