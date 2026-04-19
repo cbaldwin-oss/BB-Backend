@@ -217,9 +217,9 @@
         background: #fff;
     }
 
-.week-content.hidden {
-    display: none !important;
-}
+    .week-content.hidden {
+        display: none !important;
+    }
 
     .week-arrow {
         font-size: 16px;
@@ -373,59 +373,6 @@ function createSections() {
     }
     loadData(); // Final sync with Supabase
 }
-function showThreeDayFocus(buttonElement) {
-    // 1. Update UI styles
-    document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
-    buttonElement.classList.add('active');
-
-    // 2. Calculate Date Range (Today + 2 days)
-    const today = new Date();
-    const endDate = new Date();
-    endDate.setDate(today.getDate() + 2);
-
-    // Format to YYYY-MM-DD for comparison
-    const todayStr = today.toISOString().split('T')[0];
-    const endStr = endDate.toISOString().split('T')[0];
-
-    // 3. Filter Day Sections
-    const daySections = document.querySelectorAll('.section-container');
-    
-    daySections.forEach(section => {
-        // Find the rows-container inside this section to get its date-based ID
-        const rowsDiv = section.querySelector('.rows-container');
-        if (!rowsDiv) return;
-
-        const sectionDate = rowsDiv.id.replace('rows-', ''); // Extracts "YYYY-MM-DD"
-
-        if (sectionDate >= todayStr && sectionDate <= endStr) {
-            section.style.display = 'block'; // Show if in range
-            rowsDiv.classList.remove('hidden'); // Ensure it's expanded
-        } else {
-            section.style.display = 'none'; // Hide if out of range
-        }
-    });
-
-    // 4. Handle Week Containers
-    // If a week has no visible days left, we should hide the whole week box
-    document.querySelectorAll('.week-container').forEach(week => {
-        const visibleDays = week.querySelectorAll('.section-container[style="display: block;"]');
-        if (visibleDays.length === 0) {
-            week.style.display = 'none';
-        } else {
-            week.style.display = 'block';
-            week.querySelector('.week-content').classList.remove('hidden'); // Expand the week
-        }
-    });
-}
-function showAllData(buttonElement) {
-    document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
-    buttonElement.classList.add('active');
-
-    // Show everything
-    document.querySelectorAll('.section-container, .week-container').forEach(el => {
-        el.style.display = 'block';
-    });
-}
 
 function addRowsToContainer(container, dateId, count, anchorBtn = null) {
     const existingRowCount = container.querySelectorAll('.cell-row').length;
@@ -469,30 +416,27 @@ function createInput(id, placeholder) {
     return input;
 }
 
-let allWeeksCollapsed = false; // Track the global state
+let allCollapsed = false; // Track the state globally
 
 function toggleAllSections() {
-    const weekContents = document.querySelectorAll('.week-content');
-    const weekArrows = document.querySelectorAll('.week-arrow');
+    const containers = document.querySelectorAll('.rows-container');
+    const headers = document.querySelectorAll('.date-header');
     const btn = document.getElementById('collapse-all-btn');
     
-    // Toggle the state
-    allWeeksCollapsed = !allWeeksCollapsed;
+    allCollapsed = !allCollapsed; // Flip the state
 
-    weekContents.forEach((content, index) => {
-        if (allWeeksCollapsed) {
-            // Force collapse
-            content.classList.add('hidden');
-            if (weekArrows[index]) weekArrows[index].innerText = '▶';
+    containers.forEach((container, index) => {
+        if (allCollapsed) {
+            container.classList.add('hidden');
+            headers[index].querySelector('.arrow').innerText = '▶';
         } else {
-            // Force expand
-            content.classList.remove('hidden');
-            if (weekArrows[index]) weekArrows[index].innerText = '▼';
+            container.classList.remove('hidden');
+            headers[index].querySelector('.arrow').innerText = '▼';
         }
     });
 
-    // Update the button text to show the next action
-    btn.innerText = allWeeksCollapsed ? "Expand All Weeks" : "Collapse All Weeks";
+    // Update the button text so you know what it will do next
+    btn.innerText = allCollapsed ? "Expand All" : "Collapse All";
 }
 
 async function deleteFullRow(wrapperId, cellIds) {
@@ -510,45 +454,17 @@ async function deleteFullRow(wrapperId, cellIds) {
     }
 }
 
-async function saveCell(cellDateId, content) {
-    // We combine view + date + row to make a truly unique database key
-    const databaseId = `${currentView}-${cellDateId}`;
-    
+async function saveCell(id, content) {
     const indicator = document.getElementById('saveIndicator');
     indicator.innerText = "Saving...";
-
-    const { error } = await _supabase
-        .from('cells')
-        .upsert({ 
-            id: databaseId, 
-            content: content,
-            view_id: currentView // Useful if you want to query by view later
-        }, { onConflict: 'id' });
-
-    if (!error) indicator.innerText = "Saved";
+    await _supabase.from('cells').upsert({ id, content }, { onConflict: 'id' });
+    indicator.innerText = "Saved";
 }
 
 // Initialize
 createSections();
         // 3. Load Data from Supabase
-let currentView = 'view1'; // Default
-
-function showThreeDayFocus(buttonElement) {
-    currentView = 'view2'; // Set reference to view2
-    
-    // ... your existing filter logic (hiding/showing sections) ...
-    
-    // Refresh data for the new view
-    loadData(); 
-}
-
-function showAllData(buttonElement) {
-    currentView = 'view1'; // Set reference back to view1
-    
-    // ... your existing reset logic (showing everything) ...
-    
-    loadData();
-}
+let currentView = 'view1'; // Default view
 
 async function switchView(viewId, buttonElement) {
     currentView = viewId;
