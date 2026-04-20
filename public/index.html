@@ -121,30 +121,31 @@
     .add-rows-btn:hover {
         background-color: #e8f5e9;
     }
-    .cell-row {
+
+.cell-row {
         display: flex;
-        gap: 10px;
+        gap: 5px; /* Tightened gap to fit 8 columns */
         margin-bottom: 8px;
         align-items: center;
+        width: 100%;
     }
 
     .cell-row input {
-        flex: 1;
-        padding: 10px;
+        flex: 1; /* Each of the 8 cells will take up equal width */
+        min-width: 0; /* Prevents inputs from pushing past the screen width */
+        padding: 8px 4px;
         border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
+        border-radius: 3px;
+        font-size: 13px;
     }
 
     .delete-btn {
+        flex: 0 0 30px; /* Keeps the delete button small and fixed-width */
+        color: #d32f2f;
         background: none;
         border: none;
-        color: #d32f2f;
         cursor: pointer;
         font-size: 18px;
-        padding: 5px 10px;
-        border-radius: 4px;
-        transition: background 0.2s;
     }
 
     .delete-btn:hover {
@@ -288,6 +289,7 @@
     .separator {
         opacity: 0.5;
     }
+    
 </style>
 </head>
 <body>
@@ -455,27 +457,35 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
     const existingRowCount = container.querySelectorAll('.cell-row').length;
     
     for (let r = 0; r < count; r++) {
-        const rowIdx = Date.now() + Math.random(); // Unique timestamp ID for the row
+        const rowId = Date.now() + Math.random(); 
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
-        rowDiv.id = `row-wrapper-${rowIdx}`;
+        rowDiv.id = `row-wrapper-${rowId}`;
         
-        // Create 2 Inputs (e.g., Task Name and Notes)
-        const input1 = createInput(`${dateId}-r${rowIdx}-c1`, "Task...");
-        const input2 = createInput(`${dateId}-r${rowIdx}-c2`, "Notes...");
+        // Track cell IDs for the delete function
+        let cellIdsInRow = [];
+
+        // --- NEW: Loop 8 times for 8 columns ---
+        for (let col = 1; col <= 8; col++) {
+            const cellId = `${dateId}-r${rowId}-c${col}`;
+            cellIdsInRow.push(cellId);
+            
+            const input = document.createElement('input');
+            input.id = cellId;
+            input.placeholder = `Col ${col}`;
+            input.onblur = () => saveCell(cellId, input.value);
+            
+            rowDiv.appendChild(input);
+        }
 
         // Create Delete Button
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×';
-        delBtn.title = "Delete Line";
-        delBtn.onclick = () => deleteFullRow(rowDiv.id, [`${dateId}-r${rowIdx}-c1`, `${dateId}-r${rowIdx}-c2`]);
+        delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
 
-        rowDiv.appendChild(input1);
-        rowDiv.appendChild(input2);
         rowDiv.appendChild(delBtn);
 
-        // If button exists, insert rows BEFORE the button
         if (anchorBtn) {
             container.insertBefore(rowDiv, anchorBtn);
         } else {
