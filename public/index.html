@@ -257,16 +257,25 @@
     }
 
 .frozen-bar {
-        position: sticky;
-        top: 44px; /* Adjust to match your button header height */
+position: sticky;
+        top: 44px;      /* Adjust to match your subheader height */
         z-index: 999;
         background-color: #2e7d32;
         color: white;
         height: 24px;
         display: flex;
         align-items: center;
-        padding: 0 30px; /* Must match the padding of your main content area */
+
+        /* THE CENTERING MATH */
+        width: 90%;             /* 90% of screen width */
+        margin: 0 auto;         /* Centers the block itself */
+        left: 5%;               /* Required for sticky centering in some browsers */
+        
+        /* THE ALIGNMENT MATH */
+        padding: 0 15px;        /* Internal padding for labels */
+        border-radius: 4px;     /* Optional: makes it look like a floating bar */
         border-bottom: 1px solid #1b5e20;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
     .frozen-grid {
