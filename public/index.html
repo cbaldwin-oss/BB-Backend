@@ -256,35 +256,41 @@
         margin: 0;              /* Ensure no margin is creating a gap */
     }
 
-    /* 2. The Frozen Green Bar (Status) */
 .frozen-bar {
         position: sticky;
-        top: 44px; /* Adjust to match your button header height */
+        top: 44px; /* Adjust to match your subheader height */
         z-index: 999;
         background-color: #2e7d32;
         color: white;
-        height: 22px;
+        height: 24px;
         display: flex;
         align-items: center;
-        
-        /* THE WIDTH CONTROLS */
-        width: fit-content;      /* Makes it only as wide as the text */
-        min-width: 300px;        /* ...or set a specific width like 50% */
-        margin: 0 auto;          /* Centers it horizontally */
-        
-        padding: 0 20px;
-        border-radius: 0 0 8px 8px; /* Optional: rounds the bottom corners */
-        border: 1px solid #1b5e20;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        width: 100%; /* Must be full width to align with rows */
+        border-bottom: 1px solid #1b5e20;
     }
 
     .frozen-content {
         display: flex;
-        align-items: center;
-        gap: 12px;
+        width: 100%;
+        /* MATCH THESE to your .rows-container and .cell-row */
+        padding: 0 30px; 
+        gap: 5px; 
+    }
+
+    .col-label {
+        flex: 1;            /* Each header takes 1/8th of the space */
+        text-align: center; /* Centers text over the column */
+        font-size: 11px;    /* Smaller font helps 8 columns fit without overlap */
         font-weight: bold;
-        font-size: 20px;
-        line-height: 1;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* This aligns with the width of your delete button (30px) */
+    .col-spacer {
+        flex: 0 0 30px; 
     }
 
     /* Ensure the main content starts immediately after the bars */
@@ -327,21 +333,15 @@
 
 <div class="frozen-bar">
     <div class="frozen-content">
-        <span id="current-view-label">Time</span> 
-        <span class="separator">|</span>
-        <span id="date-display">Place</span>
-                <span class="separator">|</span>
-        <span id="date-display">Activity</span>
-                <span class="separator">|</span>
-        <span id="date-display">Asset</span>
-                <span class="separator">|</span>
-        <span id="date-display">Status</span>
-                <span class="separator">|</span>
-        <span id="date-display">Trade Partners</span>
-                <span class="separator">|</span>
-        <span id="date-display">Result</span>
-        <span class="separator">|</span>
-        <span id="date-display">Notes</span>
+        <span class="col-label">Header 1</span>
+        <span class="col-label">Header 2</span>
+        <span class="col-label">Header 3</span>
+        <span class="col-label">Header 4</span>
+        <span class="col-label">Header 5</span>
+        <span class="col-label">Header 6</span>
+        <span class="col-label">Header 7</span>
+        <span class="col-label">Header 8</span>
+        <span class="col-spacer"></span>
     </div>
 </div>
 
