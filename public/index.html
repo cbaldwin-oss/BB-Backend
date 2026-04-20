@@ -258,46 +258,41 @@
         background-color: #ffebee !important;
     }
 
-    .subheader {
+ .subheader {
         position: sticky;
         top: 0;
         z-index: 1000;
         background-color: #f1f3f4;
-        /* ... existing styles ... */
-    }
-
-  .frozen-bar {
-        position: sticky;
-        top: 50px; /* Adjust this to match the exact height of your button bar */
-        z-index: 999;
-        background-color: #2e7d32; 
-        color: white;
-        
-        /* Smaller Dimensions */
-        padding: 4px 30px;  /* Reduced from 10px to 4px */
-        height: 24px;       /* Explicit small height */
-        
+        height: 50px; /* Force a consistent height for the top bar */
         display: flex;
         align-items: center;
+        padding: 0 30px;
+        border-bottom: 1px solid #dcdcdc;
+    }
+
+    .frozen-bar {
+        position: sticky;
+        top: 50px; /* This must match the height of .subheader exactly */
+        z-index: 999;
+        background-color: #2e7d32;
+        color: white;
+        /* Vertical padding reduced from 10px to 4px to shrink the block size */
+        padding: 4px 30px; 
         border-bottom: 1px solid #1b5e20;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
     .frozen-content {
         display: flex;
         align-items: center;
-        gap: 12px;
-        
-        /* Smaller Text */
-        font-size: 11px;    /* Reduced from 14px */
-        text-transform: uppercase; /* Makes small text very readable */
-        letter-spacing: 0.5px;
-        font-weight: 600;
+        gap: 15px;
+        font-weight: bold;
+        font-size: 14px; /* Text size remains the same */
+        line-height: 1.2; /* Ensures text doesn't add extra vertical space */
     }
 
     .separator {
-        opacity: 0.4;
-        font-weight: normal;
+        opacity: 0.5;
     }
 
     /* This ensures content doesn't jump under the header awkwardly */
