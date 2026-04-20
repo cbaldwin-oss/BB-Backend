@@ -266,27 +266,38 @@
         /* ... existing styles ... */
     }
 
-    .frozen-bar {
+  .frozen-bar {
         position: sticky;
-        top: 60px; /* Adjust this to the exact height of your button subheader */
+        top: 50px; /* Adjust this to match the exact height of your button bar */
         z-index: 999;
-        background-color: #2e7d32; /* Match your green theme */
+        background-color: #2e7d32; 
         color: white;
-        padding: 10px 30px;
-        border-bottom: 2px solid #1b5e20;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        
+        /* Smaller Dimensions */
+        padding: 4px 30px;  /* Reduced from 10px to 4px */
+        height: 24px;       /* Explicit small height */
+        
+        display: flex;
+        align-items: center;
+        border-bottom: 1px solid #1b5e20;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
     }
 
     .frozen-content {
         display: flex;
         align-items: center;
-        gap: 15px;
-        font-weight: bold;
-        font-size: 14px;
+        gap: 12px;
+        
+        /* Smaller Text */
+        font-size: 11px;    /* Reduced from 14px */
+        text-transform: uppercase; /* Makes small text very readable */
+        letter-spacing: 0.5px;
+        font-weight: 600;
     }
 
     .separator {
-        opacity: 0.5;
+        opacity: 0.4;
+        font-weight: normal;
     }
 
     /* This ensures content doesn't jump under the header awkwardly */
