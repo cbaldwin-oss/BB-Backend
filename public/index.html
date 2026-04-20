@@ -257,18 +257,24 @@
     }
 
     /* 2. The Frozen Green Bar (Status) */
-    .frozen-bar {
+.frozen-bar {
         position: sticky;
-        top: 50px;              /* MUST match the height of .subheader exactly */
+        top: 44px; /* Adjust to match your button header height */
         z-index: 999;
         background-color: #2e7d32;
         color: white;
-        height: 40px;           /* Slim block size */
-        padding: 0 30px;
+        height: 22px;
         display: flex;
         align-items: center;
-        margin: 0;              /* Ensure no margin is creating a gap */
-        border-bottom: 1px solid #1b5e20;
+        
+        /* THE WIDTH CONTROLS */
+        width: fit-content;      /* Makes it only as wide as the text */
+        min-width: 300px;        /* ...or set a specific width like 50% */
+        margin: 0 auto;          /* Centers it horizontally */
+        
+        padding: 0 20px;
+        border-radius: 0 0 8px 8px; /* Optional: rounds the bottom corners */
+        border: 1px solid #1b5e20;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
