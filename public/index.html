@@ -257,6 +257,42 @@
     #btn-reset:hover {
         background-color: #ffebee !important;
     }
+
+    .subheader {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background-color: #f1f3f4;
+        /* ... existing styles ... */
+    }
+
+    .frozen-bar {
+        position: sticky;
+        top: 60px; /* Adjust this to the exact height of your button subheader */
+        z-index: 999;
+        background-color: #2e7d32; /* Match your green theme */
+        color: white;
+        padding: 10px 30px;
+        border-bottom: 2px solid #1b5e20;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .frozen-content {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        font-weight: bold;
+        font-size: 14px;
+    }
+
+    .separator {
+        opacity: 0.5;
+    }
+
+    /* This ensures content doesn't jump under the header awkwardly */
+    #main-content-area {
+        padding-top: 10px;
+    }
 </style>
 </head>
 <body>
@@ -285,6 +321,20 @@
         <span id="saveIndicator">Saved</span>
     </div>
 </div>
+
+<div class="subheader">
+    </div>
+
+<div class="frozen-bar">
+    <div class="frozen-content">
+        <span id="current-view-label">Main Sheet</span> 
+        <span class="separator">|</span>
+        <span id="date-display">April 20, 2026</span>
+    </div>
+</div>
+
+<div id="main-content-area">
+    </div>
 
 <div id="grid-container">
     <table id="grid"></table>
