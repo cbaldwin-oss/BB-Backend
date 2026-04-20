@@ -258,15 +258,43 @@
 
 .frozen-bar {
         position: sticky;
-        top: 44px; /* Adjust to match your subheader height */
+        top: 44px; /* Adjust to match your button header height */
         z-index: 999;
         background-color: #2e7d32;
         color: white;
         height: 24px;
         display: flex;
         align-items: center;
-        width: 100%; /* Must be full width to align with rows */
+        padding: 0 30px; /* Must match the padding of your main content area */
         border-bottom: 1px solid #1b5e20;
+    }
+
+    .frozen-grid {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 5px; /* Must match the gap in .cell-row exactly */
+    }
+
+    .header-cell {
+        flex: 1; /* Match the flex: 1 of your inputs */
+        text-align: center;
+        font-size: 11px; /* Smaller font helps fit 8 labels across */
+        font-weight: bold;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .sep {
+        color: rgba(255, 255, 255, 0.4);
+        font-weight: normal;
+        user-select: none;
+    }
+
+    /* This accounts for the width of the 'X' button in the rows below */
+    .frozen-grid .spacer {
+        flex: 0 0 30px; 
     }
 
     .frozen-content {
