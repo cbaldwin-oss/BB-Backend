@@ -555,15 +555,15 @@ function applyCellColor(element, text) {
         element.classList.add('bg-red');
     } 
     // GREEN: Success
-    else if (val.includes('done') || val.includes('complete') || val.includes('yes') || val.includes('pass')) {
+    else if (val.includes('level 4') || val.includes('complete') || val.includes('yes') || val.includes('pass')) {
         element.classList.add('bg-green');
     } 
     // YELLOW: Warning
-    else if (val.includes('wait') || val.includes('hold') || val.includes('pending')) {
+    else if (val.includes('level 2') || val.includes('hold') || val.includes('pending')) {
         element.classList.add('bg-yellow');
     } 
     // BLUE: Active
-    else if (val.includes('progress') || val.includes('active') || val.includes('run')) {
+    else if (val.includes('progress') || val.includes('level 3') || val.includes('run')) {
         element.classList.add('bg-blue');
     } 
     // GREY: Neutral
