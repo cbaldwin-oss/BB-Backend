@@ -377,14 +377,12 @@ position: sticky;
         color: #01579b !important;
         border-color: #b3e5fc !important;
     }
-    /* Force colors on both Inputs and Dropdowns */
-    select.bg-green, input.bg-green  { background-color: #c8e6c9 !important; color: #1b5e20 !important; }
-    select.bg-yellow, input.bg-yellow { background-color: #fff9c4 !important; color: #f57f17 !important; }
-    select.bg-blue, input.bg-blue   { background-color: #e3f2fd !important; color: #0d47a1 !important; }
-    select.bg-red, input.bg-red    { background-color: #ffcdd2 !important; color: #b71c1c !important; }
-    select.bg-grey, input.bg-grey   { background-color: #f5f5f5 !important; color: #616161 !important; }
-    select.bg-filled, input.bg-filled   { background-color: #f5f5f5 !important; color: #616161 !important; }
-
+/* Specific Status Colors */
+    .cell-row select.bg-green, .cell-row input.bg-green   { background-color: #c8e6c9 !important; color: #1b5e20 !important; }
+    .cell-row select.bg-yellow, .cell-row input.bg-yellow { background-color: #fff9c4 !important; color: #f57f17 !important; }
+    .cell-row select.bg-blue, .cell-row input.bg-blue     { background-color: #e3f2fd !important; color: #0d47a1 !important; }
+    .cell-row select.bg-red, .cell-row input.bg-red       { background-color: #ffcdd2 !important; color: #b71c1c !important; }
+    .cell-row select.bg-grey, .cell-row input.bg-grey     { background-color: #f5f5f5 !important; color: #616161 !important; }
     /* Remove the default 'gray' look of disabled or unselected dropdowns */
     select {
         appearance: none; /* Removes the default OS styling in some browsers */
@@ -526,7 +524,41 @@ async function startApp() {
 }
 
 window.onload = startApp;
+function applyCellColor(element, text) {
+    if (!element) return;
 
+    // Convert to lowercase and trim spaces for accurate matching
+    const val = (text || "").toLowerCase().trim();
+    
+    // 1. Always clear ALL potential color classes first
+    element.classList.remove('bg-green', 'bg-yellow', 'bg-blue', 'bg-red', 'bg-grey', 'bg-filled');
+
+    // 2. If the cell is empty, stop here (it stays the default background)
+    if (val === "") {
+        return;
+    }
+
+    // 3. Status Keyword Checks (Priority Order)
+    if (val.includes('done') || val.includes('complete') || val.includes('yes')) {
+        element.classList.add('bg-green');
+    } 
+    else if (val.includes('wait') || val.includes('hold') || val.includes('pending')) {
+        element.classList.add('bg-yellow');
+    } 
+    else if (val.includes('progress') || val.includes('active') || val.includes('run')) {
+        element.classList.add('bg-blue');
+    } 
+    else if (val.includes('block') || val.includes('stop') || val.includes('urgent')) {
+        element.classList.add('bg-red');
+    }
+    else if (val.includes('n/a') || val.includes('cancel')) {
+        element.classList.add('bg-grey');
+    }
+    // 4. Fallback: If it has data but didn't match a status keyword, make it Light Blue
+    else {
+        element.classList.add('bg-filled');
+    }
+}
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/a/macros/criticalarccx.com/s/AKfycbyuW0oVb01V8bZiuMTNGmJbZYU1Lnu0eVjEZ8kW1VDrGINS_ZaQaBB9Xp5MJcNo4nxq/exec';
 
@@ -728,6 +760,39 @@ function toggleAllSections() {
     // Update the button text to show the next action
     btn.innerText = allWeeksCollapsed ? "Expand All Weeks" : "Collapse All Weeks";
 }
+async function updateMultiValue(cellId, newValue) {
+    const selectElement = document.getElementById(cellId);
+    
+    // 1. Fetch the existing string for this cell from Supabase
+    const { data } = await _supabase
+        .from('cells')
+        .select('content')
+        .eq('id', cellId)
+        .single();
+
+    let currentContent = data ? data.content : "";
+    let items = currentContent ? currentContent.split(', ') : [];
+
+    // 2. Toggle logic: Add the item if missing, remove if already there
+    const index = items.indexOf(newValue);
+    if (index === -1) {
+        items.push(newValue);
+    } else {
+        items.splice(index, 1);
+    }
+
+    const updatedString = items.join(', ');
+
+    // 3. Apply color to the select element based on the new joined string
+    // (This will make it Light Blue because it now 'has information')
+    applyCellColor(selectElement, updatedString);
+
+    // 4. Send the updated string to our standard save function
+    saveCell(cellId, updatedString);
+    
+    // Optional: Show selected items in a tooltip when hovering
+    selectElement.title = "Selected: " + (updatedString || "None");
+}
 
 async function deleteFullRow(wrapperId, cellIds) {
     if (confirm("Delete this entire line?")) {
@@ -744,13 +809,28 @@ async function deleteFullRow(wrapperId, cellIds) {
     }
 }
 
-async function saveCell(id, content) {
-    const indicator = document.getElementById('saveIndicator');
-    indicator.innerText = "Saving...";
-    await _supabase.from('cells').upsert({ id, content }, { onConflict: 'id' });
-    indicator.innerText = "Saved";
-}
+async function saveCell(cellId, content) {
+    const element = document.getElementById(cellId);
+    
+    // Apply the color formatting immediately to the UI
+    if (element) {
+        applyCellColor(element, content);
+    }
 
+    // Save/Update the data in Supabase
+    const { error } = await _supabase
+        .from('cells')
+        .upsert({ 
+            id: cellId, 
+            content: content 
+        }, { onConflict: 'id' });
+
+    if (error) {
+        console.error("Error saving to Supabase:", error);
+    } else {
+        console.log("Saved successfully:", cellId);
+    }
+}
 // Initialize
 createSections();
         // 3. Load Data from Supabase
@@ -818,12 +898,28 @@ input.onblur = async () => {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    const { data } = await _supabase.from('cells').select('*');
+    console.log("Loading data from Supabase...");
+    const { data, error } = await _supabase
+        .from('cells')
+        .select('*');
+
+    if (error) {
+        console.error("Error loading data:", error);
+        return;
+    }
+
     if (data) {
-        data.forEach(row => {
-            const cell = document.getElementById(row.id);
-            if (cell) cell.value = row.content;
+        data.forEach(item => {
+            const el = document.getElementById(item.id);
+            if (el) {
+                // Set the stored content
+                el.value = item.content;
+                
+                // Apply the correct color (Status color or the Light Blue 'filled' color)
+                applyCellColor(el, item.content);
+            }
         });
+        console.log("Data and colors fully restored.");
     }
 }
     </script>
