@@ -344,7 +344,7 @@ position: sticky;
         min-width: 0;
         padding: 7px 2px; /* Slightly adjusted for select internal height */
         border: 1px solid #ddd;
-        border-radius: 3px;o
+        border-radius: 3px;
         font-size: 13px;
         background-color: white;
         cursor: pointer;
@@ -377,16 +377,26 @@ position: sticky;
         color: #01579b !important;
         border-color: #b3e5fc !important;
     }
-/* Specific Status Colors */
-    .cell-row select.bg-green, .cell-row input.bg-green   { background-color: #c8e6c9 !important; color: #1b5e20 !important; }
-    .cell-row select.bg-yellow, .cell-row input.bg-yellow { background-color: #fff9c4 !important; color: #f57f17 !important; }
-    .cell-row select.bg-blue, .cell-row input.bg-blue     { background-color: #e3f2fd !important; color: #0d47a1 !important; }
-    .cell-row select.bg-red, .cell-row input.bg-red       { background-color: #ffcdd2 !important; color: #b71c1c !important; }
-    .cell-row select.bg-grey, .cell-row input.bg-grey     { background-color: #f5f5f5 !important; color: #616161 !important; }
-    /* Remove the default 'gray' look of disabled or unselected dropdowns */
+/* Base style for all cells */
+    .cell-row input, .cell-row select {
+        background-color: #f9f9f9;
+        transition: all 0.2s ease;
+    }
+
+    /* FORCED COLORS - We add 'select' and 'input' explicitly with !important */
+    select.bg-green, input.bg-green   { background-color: #c8e6c9 !important; color: #1b5e20 !important; }
+    select.bg-yellow, input.bg-yellow { background-color: #fff9c4 !important; color: #f57f17 !important; }
+    select.bg-blue, input.bg-blue     { background-color: #e3f2fd !important; color: #0d47a1 !important; }
+    select.bg-red, input.bg-red       { background-color: #ffcdd2 !important; color: #b71c1c !important; }
+    select.bg-grey, input.bg-grey     { background-color: #f5f5f5 !important; color: #616161 !important; }
+    select.bg-filled, input.bg-filled { background-color: #e1f5fe !important; color: #01579b !important; }
+
+    /* Fix for some browsers that won't style selects unless this is off */
     select {
-        appearance: none; /* Removes the default OS styling in some browsers */
         -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        padding-right: 20px; /* Make room for a custom arrow if needed */
     }
 </style>
 </head>
@@ -481,17 +491,20 @@ setInterval(() => {
         const totalCols = 15;
 
         function applyCellColor(element, text) {
-    if (!element) return;
+    if (!element) {
+        console.warn("Color Logic: Element not found.");
+        return;
+    }
 
     const val = (text || "").toLowerCase().trim();
-    
-    // 1. Clear all color classes
+    console.log(`Applying color to ${element.id} with text: "${val}"`);
+
+    // 1. Reset
     element.classList.remove('bg-green', 'bg-yellow', 'bg-blue', 'bg-red', 'bg-grey', 'bg-filled');
 
-    // 2. If it's truly empty, stop here (it stays your default off-white)
+    // 2. Logic
     if (val === "") return;
 
-    // 3. Check for specific status keywords FIRST
     if (val.includes('done') || val.includes('complete') || val.includes('yes')) {
         element.classList.add('bg-green');
     } 
@@ -507,8 +520,8 @@ setInterval(() => {
     else if (val.includes('n/a') || val.includes('cancel')) {
         element.classList.add('bg-grey');
     }
-    // 4. If none of the above matched, but there IS text, apply the "Filled" color
     else {
+        // Fallback for any other text
         element.classList.add('bg-filled');
     }
 }
