@@ -551,7 +551,7 @@ function applyCellColor(element, text) {
     // 3. Status Keyword Checks (Now including 'fail')
     
     // RED: Urgent / Negative
-    if (val.includes('Fail') || val.includes('block') || val.includes('stop') || val.includes('urgent')) {
+    if (val.includes('fail') || val.includes('block') || val.includes('stop') || val.includes('urgent')) {
         element.classList.add('bg-red');
     } 
     // GREEN: Success
