@@ -356,6 +356,21 @@ position: sticky;
         outline: none;
     }
     
+    .cell-row input, 
+    .cell-row select {
+        background-color: #949494; /* Off-white / Very light grey */
+        border: 1px solid #e0e0e0;
+        color: #333;
+        transition: background-color 0.2s ease; /* Makes color changes smooth */
+    }
+
+    /* Change the color when you click into a cell */
+    .cell-row input:focus, 
+    .cell-row select:focus {
+        background-color: #ffffff; /* Turns white only when active */
+        border-color: #2e7d32;     /* Green border when typing */
+        outline: none;
+    }
 </style>
 </head>
 <body>
