@@ -338,6 +338,23 @@ position: sticky;
     .separator {
         opacity: 0.5;
     }
+
+    .cell-row select {
+        flex: 1;
+        min-width: 0;
+        padding: 7px 2px; /* Slightly adjusted for select internal height */
+        border: 1px solid #ddd;
+        border-radius: 3px;o
+        font-size: 13px;
+        background-color: white;
+        cursor: pointer;
+    }
+
+    /* Styling the dropdown when it is focused */
+    .cell-row select:focus {
+        border-color: #2e7d32;
+        outline: none;
+    }
     
 </style>
 </head>
@@ -430,6 +447,22 @@ setInterval(() => {
         const totalRows = 40; 
         const totalCols = 15;
 
+        let dropdownOptions = []; // Global storage for dropdown items
+
+async function fetchDropdownOptions() {
+    const { data, error } = await _supabase
+        .from('BackEndData')
+        .select('Times');
+
+    if (data) {
+        dropdownOptions = data.map(item => item.label);
+        // Re-build sections once options are loaded to ensure the dropdowns populate
+        createSections(); 
+    }
+}
+
+// Call this at the very start of your script
+fetchDropdownOptions();
 
 const contentArea = document.getElementById('main-content-area');
 
@@ -527,18 +560,41 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
         // Track cell IDs for the delete function
         let cellIdsInRow = [];
 
-        // --- NEW: Loop 8 times for 8 columns ---
-        for (let col = 1; col <= 8; col++) {
-            const cellId = `${dateId}-r${rowId}-c${col}`;
-            cellIdsInRow.push(cellId);
-            
-            const input = document.createElement('input');
-            input.id = cellId;
-            input.placeholder = `Col ${col}`;
-            input.onblur = () => saveCell(cellId, input.value);
-            
-            rowDiv.appendChild(input);
-        }
+for (let col = 1; col <= 8; col++) {
+    const cellId = `${dateId}-r${rowId}-c${col}`;
+    let element;
+
+    if (col === 1) {
+        // Create a Dropdown for Column 1
+        element = document.createElement('select');
+        element.id = cellId;
+        
+        // Add a default blank option
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = "";
+        defaultOpt.text = "Select...";
+        element.appendChild(defaultOpt);
+
+        // Fill with database options
+        dropdownOptions.forEach(optText => {
+            const opt = document.createElement('option');
+            opt.value = optText;
+            opt.text = optText;
+            element.appendChild(opt);
+        });
+
+        // Use 'onchange' for selects instead of 'onblur'
+        element.onchange = () => saveCell(cellId, element.value);
+    } else {
+        // Create standard Input for Columns 2-8
+        element = document.createElement('input');
+        element.id = cellId;
+        element.placeholder = `Col ${col}`;
+        element.onblur = () => saveCell(cellId, element.value);
+    }
+
+    rowDiv.appendChild(element);
+}
 
         // Create Delete Button
         const delBtn = document.createElement('button');
@@ -554,6 +610,7 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
             container.appendChild(rowDiv);
         }
     }
+    
     loadData();
 }
 
