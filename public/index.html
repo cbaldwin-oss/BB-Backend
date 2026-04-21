@@ -554,15 +554,32 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    // 1. Wait for Google Sheets data FIRST
-    await fetchDropdownOptions();
+    console.log("App starting...");
     
-    // 2. ONLY THEN build the sections and load Supabase data
+    // 1. First, set up a fallback so the app doesn't crash if Google fails
+    window.dropdownData = { col1:[], col2:[], col3:[], col4:[], col5:[], col6:[], col7:[] };
+
+    try {
+        // 2. Wait for Google
+        await fetchDropdownOptions();
+        console.log("Google Data loaded.");
+    } catch (e) {
+        console.warn("Using default empty menus due to fetch error.");
+    }
+
+    // 3. NOW build the UI
     createSections(); 
-    loadData(); 
+    console.log("UI Built.");
+
+    // 4. Finally, pull the saved data from Supabase
+    await loadData();
+    console.log("Supabase data loaded.");
 }
 
+// Make sure this is at the very bottom of your script
+document.addEventListener('DOMContentLoaded', startApp);
 window.onload = startApp;
+
 function applyCellColor(element, text) {
     if (!element) return;
 
@@ -622,6 +639,15 @@ async function fetchDropdownOptions() {
 
 fetchDropdownOptions();
 
+function generateNumericId(dateId, index) {
+    // We create a simple unique number: Day Index (0-6) + Row Index (0-99)
+    // Example: Monday (0) Row 5 becomes 1005. 
+    // This is well within the 2-billion limit of int4.
+    const dayMap = { "Monday": 10000, "Tuesday": 20000, "Wednesday": 30000, "Thursday": 40000, "Friday": 50000, "Saturday": 60000, "Sunday": 70000 };
+    const base = dayMap[dateId] || 0;
+    return base + index;
+}
+
 function addRowsToContainer(container, dateId, count) {
     for (let r = 0; r < count; r++) {
         // STABLE ID: Based on Day + Index
@@ -651,33 +677,24 @@ function addRowsToContainer(container, dateId, count) {
 const contentArea = document.getElementById('main-content-area');
 
 function createSections() {
-    const mainContainer = document.getElementById('main-content');
-    if (!mainContainer) return;
-    
-    mainContainer.innerHTML = ''; // Clear any old content
+    const main = document.getElementById('main-content');
+    if (!main) {
+        console.error("Could not find <div id='main-content'> in your HTML!");
+        return;
+    }
+    main.innerHTML = ""; // Clear "Loading..." message
 
-    // Example: Create 7 days of the week
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
     
-    days.forEach(dayName => {
-        // 1. Create a wrapper for the day
-        const dayWrapper = document.createElement('div');
-        dayWrapper.className = 'day-container';
-        
-        // 2. Add a Title (e.g., Monday)
-        const title = document.createElement('h2');
-        title.innerText = dayName;
-        dayWrapper.appendChild(title);
+    days.forEach(day => {
+        const section = document.createElement('div');
+        section.className = 'day-section';
+        section.innerHTML = `<h2>${day}</h2><div id="container-${day}"></div>`;
+        main.appendChild(section);
 
-        // 3. Create the "Line Container" where rows live
-        const rowList = document.createElement('div');
-        rowList.id = `container-${dayName}`;
-        dayWrapper.appendChild(rowList);
-
-        mainContainer.appendChild(dayWrapper);
-
-        // 4. Fill the day with rows (e.g., 5 rows per day)
-        addRowsToContainer(rowList, dayName, 5);
+        // Build 5 rows for this day
+        const container = document.getElementById(`container-${day}`);
+        addRowsToContainer(container, day, 5);
     });
 }
 
