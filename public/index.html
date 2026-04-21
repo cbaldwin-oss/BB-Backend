@@ -355,39 +355,6 @@ position: sticky;
         border-color: #2e7d32;
         outline: none;
     }
-
-    /* Styling for the Multi-Select Dropdown */
-    .multi-select-container {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        min-width: 0;
-    }
-
-    .multi-select-display {
-        font-size: 11px;
-        background: #fff;
-        border: 1px solid #ddd;
-        border-radius: 3px;
-        padding: 2px 5px;
-        min-height: 22px;
-        color: #1b5e20;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 3px;
-        cursor: pointer;
-        overflow: hidden;
-    }
-
-    .tag-chip {
-        background: #e8f5e9;
-        border: 1px solid #c8e6c9;
-        border-radius: 2px;
-        padding: 0 4px;
-        display: inline-flex;
-        align-items: center;
-    }
     
 </style>
 </head>
@@ -483,21 +450,14 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    console.log("App Starting...");
-    try {
-        // We try to get Google data, but we don't let a failure stop the whole app
-        await fetchDropdownOptions();
-    } catch (e) {
-        console.error("Google Sync Failed, loading app with empty dropdowns:", e);
-    }
+    // 1. Wait for Google Sheets data FIRST
+    await fetchDropdownOptions();
     
-    // These MUST run even if the Google Sheet fails
+    // 2. ONLY THEN build the sections and load Supabase data
     createSections(); 
     loadData(); 
-    console.log("Sections Created.");
 }
 
-// Make sure this is the ONLY thing calling startApp
 window.onload = startApp;
 
 
@@ -530,49 +490,42 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
         
         let cellIdsInRow = [];
 
-for (let col = 1; col <= 8; col++) {
+        for (let col = 1; col <= 8; col++) {
     const cellId = `${dateId}-r${rowId}-c${col}`;
     let element;
 
-    const dropdownCols = [1, 2, 3, 4, 7]; // Removed 6 from here
-    const multiSelectCol = 6;
+    // Define which columns are dropdowns: 1, 2, 3, 4, 6, 7
+    const dropdownCols = [1, 2, 3, 4, 6, 7];
 
-    if (col === multiSelectCol) {
-        // --- MULTI-SELECT DROPDOWN (COLUMN 6) ---
-        const container = document.createElement('div');
-        container.className = 'multi-select-container';
-
-        const select = document.createElement('select');
-        select.id = cellId;
+    if (dropdownCols.includes(col)) {
+        // --- CREATE DROPDOWN ---
+        element = document.createElement('select');
+        element.id = cellId;
         
         const defaultOpt = document.createElement('option');
         defaultOpt.value = "";
-        defaultOpt.text = "+ Add Item";
-        select.appendChild(defaultOpt);
+        defaultOpt.text = "Select...";
+        element.appendChild(defaultOpt);
 
-        const options = dropdownData['col6'] || [];
+        const colKey = `col${col}`;
+        const options = dropdownData[colKey] || [];
+        
         options.forEach(optText => {
             const opt = document.createElement('option');
             opt.value = optText;
             opt.text = optText;
-            select.appendChild(opt);
+            element.appendChild(opt);
         });
 
-        // The Logic: When changed, append the value instead of replacing
-        select.onchange = () => {
-            if (select.value !== "") {
-                updateMultiValue(cellId, select.value);
-                select.value = ""; // Reset dropdown to "+ Add Item"
-            }
-        };
-
-        container.appendChild(select);
-        element = container;
-    } else if (dropdownCols.includes(col)) {
-        // ... standard dropdown code for 1, 2, 3, 4, 7 ...
+        element.onchange = () => saveCell(cellId, element.value);
     } else {
-        // ... standard input code for 5, 8 ...
+        // --- CREATE TEXT INPUT (Columns 5 and 8) ---
+        element = document.createElement('input');
+        element.id = cellId;
+        element.placeholder = col === 5 ? "Status (Col 5)" : "Notes (Col 8)";
+        element.onblur = () => saveCell(cellId, element.value);
     }
+    
     rowDiv.appendChild(element);
 }
 
@@ -590,253 +543,3 @@ for (let col = 1; col <= 8; col++) {
         }
     }
 }
-
-async function updateMultiValue(cellId, newValue) {
-    // 1. Get existing data from the DOM or Supabase
-    const selectElement = document.getElementById(cellId);
-    
-    // We fetch current value from Supabase first to ensure we don't overwrite
-    const { data } = await _supabase
-        .from('cells')
-        .select('content')
-        .eq('id', cellId)
-        .single();
-
-    let currentContent = data ? data.content : "";
-    let items = currentContent ? currentContent.split(', ') : [];
-
-    // 2. Add item if it's not already there (prevents duplicates)
-    if (!items.includes(newValue)) {
-        items.push(newValue);
-    } else {
-        // Optional: If item exists, remove it (toggle behavior)
-        items = items.filter(i => i !== newValue);
-    }
-
-    const updatedString = items.join(', ');
-
-    // 3. Save to Supabase
-    saveCell(cellId, updatedString);
-    
-    // 4. Update the UI tooltip so you can see what's selected
-    selectElement.title = "Selected: " + updatedString;
-}
-
-const contentArea = document.getElementById('main-content-area');
-
-function createSections() {
-    const contentArea = document.getElementById('main-content-area');
-    if (!contentArea) return;
-    
-    contentArea.innerHTML = ''; 
-    const baseDate = new Date(START_DATE + "T00:00:00");
-
-    for (let w = 0; w < WEEKS_TO_SHOW; w++) {
-        // --- 1. BUILD WEEK CONTAINER ---
-        const weekDiv = document.createElement('div');
-        weekDiv.className = 'week-container';
-
-        const weekStart = new Date(baseDate);
-        weekStart.setDate(baseDate.getDate() + (w * 7));
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-
-        const weekHeader = document.createElement('div');
-        weekHeader.className = 'week-header';
-        weekHeader.innerHTML = `
-            <span>Week of ${weekStart.toLocaleDateString([], {month:'short', day:'numeric'})} - ${weekEnd.toLocaleDateString([], {month:'short', day:'numeric'})}</span>
-            <span class="week-arrow">▼</span>
-        `;
-
-        const weekContent = document.createElement('div');
-        weekContent.className = 'week-content';
-
-        // Week Toggle
-        weekHeader.onclick = () => {
-            const isHidden = weekContent.classList.toggle('hidden');
-            weekHeader.querySelector('.week-arrow').innerText = isHidden ? '▶' : '▼';
-        };
-
-        // --- 2. BUILD DAYS INSIDE WEEK ---
-        for (let d = 0; d < 7; d++) {
-            const sectionDate = new Date(weekStart);
-            sectionDate.setDate(weekStart.getDate() + d);
-            const dateId = sectionDate.toISOString().split('T')[0];
-            const dateString = sectionDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-
-            const section = document.createElement('div');
-            section.className = 'section-container';
-
-            const header = document.createElement('div');
-            header.className = 'date-header';
-            header.innerHTML = `<span>${dateString}</span> <span class="arrow">▼</span>`;
-            
-            const rowsDiv = document.createElement('div');
-            rowsDiv.className = 'rows-container';
-            rowsDiv.id = `rows-${dateId}`;
-
-            // Day Toggle (Crucial: stopPropagation prevents week-header from firing)
-            header.onclick = (e) => {
-                e.stopPropagation();
-                const isHidden = rowsDiv.classList.toggle('hidden');
-                header.querySelector('.arrow').innerText = isHidden ? '▶' : '▼';
-            };
-
-            // Reuse your existing addRows function
-            addRowsToContainer(rowsDiv, dateId, INITIAL_ROWS);
-
-            const addBtn = document.createElement('button');
-            addBtn.className = 'add-rows-btn';
-            addBtn.innerText = "+ Add 5 Rows";
-            addBtn.onclick = (e) => {
-                e.stopPropagation(); // Keep week from collapsing when adding rows
-                addRowsToContainer(rowsDiv, dateId, 5, addBtn);
-            };
-
-            rowsDiv.appendChild(addBtn);
-            section.appendChild(header);
-            section.appendChild(rowsDiv);
-            weekContent.appendChild(section);
-        }
-
-        weekDiv.appendChild(weekHeader);
-        weekDiv.appendChild(weekContent);
-        contentArea.appendChild(weekDiv);
-    }
-    loadData(); // Final sync with Supabase
-}
-
-function createInput(id, placeholder) {
-    const input = document.createElement('input');
-    input.id = id;
-    input.placeholder = placeholder;
-    input.onblur = () => saveCell(id, input.value);
-    return input;
-}
-
-let allWeeksCollapsed = false; // Track the global state
-
-function toggleAllSections() {
-    const weekContents = document.querySelectorAll('.week-content');
-    const weekArrows = document.querySelectorAll('.week-arrow');
-    const btn = document.getElementById('collapse-all-btn');
-    
-    // Toggle the state
-    allWeeksCollapsed = !allWeeksCollapsed;
-
-    weekContents.forEach((content, index) => {
-        if (allWeeksCollapsed) {
-            // Force collapse
-            content.classList.add('hidden');
-            if (weekArrows[index]) weekArrows[index].innerText = '▶';
-        } else {
-            // Force expand
-            content.classList.remove('hidden');
-            if (weekArrows[index]) weekArrows[index].innerText = '▼';
-        }
-    });
-
-    // Update the button text to show the next action
-    btn.innerText = allWeeksCollapsed ? "Expand All Weeks" : "Collapse All Weeks";
-}
-
-async function deleteFullRow(wrapperId, cellIds) {
-    if (confirm("Delete this entire line?")) {
-        // 1. Remove from Screen
-        document.getElementById(wrapperId).remove();
-
-        // 2. Remove from Supabase
-        const { error } = await _supabase
-            .from('cells')
-            .delete()
-            .in('id', cellIds);
-
-        if (error) console.error("Delete error:", error.message);
-    }
-}
-
-async function saveCell(id, content) {
-    const indicator = document.getElementById('saveIndicator');
-    indicator.innerText = "Saving...";
-    await _supabase.from('cells').upsert({ id, content }, { onConflict: 'id' });
-    indicator.innerText = "Saved";
-}
-
-// Initialize
-createSections();
-        // 3. Load Data from Supabase
-let currentView = 'view1'; // Default view
-
-async function switchView(viewId, buttonElement) {
-    currentView = viewId;
-    
-    // 1. Update Button Styles
-    document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
-    buttonElement.classList.add('active');
-
-    // 2. Clear the screen immediately for the new view
-    document.querySelectorAll('input').forEach(input => input.value = '');
-
-    // 3. Load data for the new view
-    await loadData();
-}
-
-// 1. Only targets the green Week bars
-function expandAllWeeks() {
-    document.querySelectorAll('.week-content').forEach((content, i) => {
-        content.classList.remove('hidden');
-        const arrow = document.querySelectorAll('.week-arrow')[i];
-        if (arrow) arrow.innerText = '▼';
-    });
-}
-
-// 2. Only targets the grey Day bars
-function expandAllDays() {
-    document.querySelectorAll('.rows-container').forEach((container, i) => {
-        container.classList.remove('hidden');
-        const arrow = document.querySelectorAll('.arrow')[i];
-        if (arrow) arrow.innerText = '▼';
-    });
-}
-
-// 3. The "Reset" - hides everything
-function collapseEverything() {
-    // Hide all Week contents
-    document.querySelectorAll('.week-content').forEach((content, i) => {
-        content.classList.add('hidden');
-        const arrow = document.querySelectorAll('.week-arrow')[i];
-        if (arrow) arrow.innerText = '▶';
-    });
-
-    // Hide all Day contents
-    document.querySelectorAll('.rows-container').forEach((container, i) => {
-        container.classList.add('hidden');
-        const arrow = document.querySelectorAll('.arrow')[i];
-        if (arrow) arrow.innerText = '▶';
-    });
-}
-
-// UPDATE YOUR SAVE LOGIC (inside the loop)
-input.onblur = async () => {
-    const { error } = await _supabase
-        .from('cells')
-        .upsert({ 
-            id: `${currentView}-${cellId}`, // Unique ID for this view/cell combo
-            content: input.value,
-            view_id: currentView 
-        }, { onConflict: 'id' });
-};
-
-// UPDATE YOUR LOAD LOGIC
-async function loadData() {
-    const { data } = await _supabase.from('cells').select('*');
-    if (data) {
-        data.forEach(row => {
-            const cell = document.getElementById(row.id);
-            if (cell) cell.value = row.content;
-        });
-    }
-}
-    </script>
-</body>
-</html>
