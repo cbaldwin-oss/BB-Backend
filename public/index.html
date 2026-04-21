@@ -377,6 +377,19 @@ position: sticky;
         color: #01579b !important;
         border-color: #b3e5fc !important;
     }
+    /* Force colors on both Inputs and Dropdowns */
+    select.bg-green, input.bg-green  { background-color: #c8e6c9 !important; color: #1b5e20 !important; }
+    select.bg-yellow, input.bg-yellow { background-color: #fff9c4 !important; color: #f57f17 !important; }
+    select.bg-blue, input.bg-blue   { background-color: #e3f2fd !important; color: #0d47a1 !important; }
+    select.bg-red, input.bg-red    { background-color: #ffcdd2 !important; color: #b71c1c !important; }
+    select.bg-grey, input.bg-grey   { background-color: #f5f5f5 !important; color: #616161 !important; }
+    select.bg-filled, input.bg-filled   { background-color: #f5f5f5 !important; color: #616161 !important; }
+
+    /* Remove the default 'gray' look of disabled or unselected dropdowns */
+    select {
+        appearance: none; /* Removes the default OS styling in some browsers */
+        -webkit-appearance: none;
+    }
 </style>
 </head>
 <body>
@@ -468,6 +481,39 @@ setInterval(() => {
         const grid = document.getElementById('grid');
         const totalRows = 40; 
         const totalCols = 15;
+
+        function applyCellColor(element, text) {
+    if (!element) return;
+
+    const val = (text || "").toLowerCase().trim();
+    
+    // 1. Clear all color classes
+    element.classList.remove('bg-green', 'bg-yellow', 'bg-blue', 'bg-red', 'bg-grey', 'bg-filled');
+
+    // 2. If it's truly empty, stop here (it stays your default off-white)
+    if (val === "") return;
+
+    // 3. Check for specific status keywords FIRST
+    if (val.includes('done') || val.includes('complete') || val.includes('yes')) {
+        element.classList.add('bg-green');
+    } 
+    else if (val.includes('wait') || val.includes('hold') || val.includes('pending')) {
+        element.classList.add('bg-yellow');
+    } 
+    else if (val.includes('progress') || val.includes('active') || val.includes('run')) {
+        element.classList.add('bg-blue');
+    } 
+    else if (val.includes('block') || val.includes('stop') || val.includes('urgent')) {
+        element.classList.add('bg-red');
+    }
+    else if (val.includes('n/a') || val.includes('cancel')) {
+        element.classList.add('bg-grey');
+    }
+    // 4. If none of the above matched, but there IS text, apply the "Filled" color
+    else {
+        element.classList.add('bg-filled');
+    }
+}
 
         // Change your window.onload or initial call to this:
 async function startApp() {
