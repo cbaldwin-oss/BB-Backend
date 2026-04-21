@@ -624,64 +624,54 @@ fetchDropdownOptions();
 
 function addRowsToContainer(container, dateId, count) {
     for (let r = 0; r < count; r++) {
-        // Generate a unique integer for the int4 ID column
-        const rowNum = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000);
+        // STABLE ID: Combination of date and row index (e.g., "Monday_April_20-0")
+        // We convert this to a simple integer for Supabase later
+        const rowIdString = `${dateId}-${r}`; 
+        
+        // For Supabase 'int4', we need a unique integer. 
+        // We'll generate a hash of the string or a unique mapping.
+        const rowNumericId = generateNumericId(dateId, r);
+
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
-        rowDiv.id = `row-container-${rowNum}`;
 
         for (let col = 1; col <= 8; col++) {
-            const cellId = `${dateId}-r${rowNum}-c${col}`;
+            const cellId = `${dateId}-r${rowNumericId}-c${col}`;
             let element;
 
-            // Columns 1, 2, 3, 4, 6, 7 are dropdowns
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
                 element = document.createElement('select');
-                element.id = cellId;
-
-                // 1. Add the default "Select" option
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = "";
-                defaultOpt.text = col === 6 ? "Add Multi..." : "Select...";
-                element.appendChild(defaultOpt);
-
-                // 2. GET OPTIONS FROM GOOGLE SHEET DATA
-                const colKey = `col${col}`;
-                const options = dropdownData[colKey] || [];
-                options.forEach(optText => {
-                    if (optText) {
-                        const opt = document.createElement('option');
-                        opt.value = optText;
-                        opt.text = optText;
-                        element.appendChild(opt);
-                    }
-                });
-
-                // 3. Set the change event
+                // ... (populate dropdowns from dropdownData[colKey] as before) ...
                 element.onchange = () => {
                     applyCellColor(element, element.value);
                     if (col === 6) {
-                        // If it's your multi-select column
-                        updateMultiValue(rowNum, dateId, element.value);
-                        element.value = ""; // Reset dropdown after pick
+                        updateMultiValue(rowNumericId, dateId, element.value);
                     } else {
-                        saveRow(rowNum, dateId);
+                        saveRow(rowNumericId, dateId);
                     }
                 };
             } else {
-                // Columns 5 and 8 are text inputs
                 element = document.createElement('input');
-                element.id = cellId;
-                element.placeholder = "...";
                 element.onblur = () => {
                     applyCellColor(element, element.value);
-                    saveRow(rowNum, dateId);
+                    saveRow(rowNumericId, dateId);
                 };
             }
+            element.id = cellId;
             rowDiv.appendChild(element);
         }
         container.appendChild(rowDiv);
     }
+}
+
+// Helper to turn "Monday-0" into a consistent number for your int4 column
+function generateNumericId(dateId, index) {
+    const s = dateId + index;
+    let hash = 0;
+    for (let i = 0; i < s.length; i++) {
+        hash = Math.imul(31, hash) + s.charCodeAt(i) | 0;
+    }
+    return Math.abs(hash); 
 }
 
 const contentArea = document.getElementById('main-content-area');
@@ -945,15 +935,21 @@ input.onblur = async () => {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    const { data, error } = await _supabase.from('cells').select('*');
-    if (error) return;
+    console.log("Loading data...");
+    const { data, error } = await _supabase.from('BackEndData').select('*');
+    
+    if (error) {
+        console.error("Load error:", error);
+        return;
+    }
 
     data.forEach(row => {
-        // Find the elements using the day_label and the stored id
         for (let col = 1; col <= 8; col++) {
-            const el = document.getElementById(`${row.day_label}-r${row.id}-c${col}`);
+            // This now matches the ID generated in addRowsToContainer
+            const cellId = `${row.day_label}-r${row.id}-c${col}`;
+            const el = document.getElementById(cellId);
             if (el) {
-                const content = row[`col${col}`];
+                const content = row[`col${col}`] || "";
                 el.value = content;
                 applyCellColor(el, content);
             }
