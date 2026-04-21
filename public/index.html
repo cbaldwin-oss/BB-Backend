@@ -483,14 +483,21 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    // 1. Wait for Google Sheets data FIRST
-    await fetchDropdownOptions();
+    console.log("App Starting...");
+    try {
+        // We try to get Google data, but we don't let a failure stop the whole app
+        await fetchDropdownOptions();
+    } catch (e) {
+        console.error("Google Sync Failed, loading app with empty dropdowns:", e);
+    }
     
-    // 2. ONLY THEN build the sections and load Supabase data
+    // These MUST run even if the Google Sheet fails
     createSections(); 
     loadData(); 
+    console.log("Sections Created.");
 }
 
+// Make sure this is the ONLY thing calling startApp
 window.onload = startApp;
 
 
