@@ -355,6 +355,24 @@ position: sticky;
         border-color: #2e7d32;
         outline: none;
     }
+
+    .cell-row select.multi-select {
+        height: 28px; /* Match the height of your other inputs */
+        padding: 2px;
+        overflow-y: auto; /* Adds a tiny scrollbar inside the cell if needed */
+    }
+
+    /* Hint for the user */
+    .cell-row select.multi-select:hover::after {
+        content: "Hold Ctrl/Cmd to select multiple";
+        position: absolute;
+        background: #333;
+        color: #fff;
+        font-size: 10px;
+        padding: 2px 5px;
+        border-radius: 3px;
+        z-index: 10;
+    }
     
 </style>
 </head>
@@ -497,28 +515,41 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
     // Define which columns are dropdowns: 1, 2, 3, 4, 6, 7
     const dropdownCols = [1, 2, 3, 4, 6, 7];
 
-    if (dropdownCols.includes(col)) {
-        // --- CREATE DROPDOWN ---
-        element = document.createElement('select');
-        element.id = cellId;
-        
+if (dropdownCols.includes(col)) {
+    element = document.createElement('select');
+    element.id = cellId;
+
+    // --- NEW: Multi-select logic for Column 6 ---
+    if (col === 6) {
+        element.multiple = true; // Allows holding Ctrl/Cmd to select many
+        element.classList.add('multi-select');
+    } else {
+        // Standard dropdown for 1, 2, 3, 4, 7
         const defaultOpt = document.createElement('option');
         defaultOpt.value = "";
         defaultOpt.text = "Select...";
         element.appendChild(defaultOpt);
+    }
 
-        const colKey = `col${col}`;
-        const options = dropdownData[colKey] || [];
-        
-        options.forEach(optText => {
-            const opt = document.createElement('option');
-            opt.value = optText;
-            opt.text = optText;
-            element.appendChild(opt);
-        });
+    const options = dropdownData[`col${col}`] || [];
+    options.forEach(optText => {
+        const opt = document.createElement('option');
+        opt.value = optText;
+        opt.text = optText;
+        element.appendChild(opt);
+    });
 
-        element.onchange = () => saveCell(cellId, element.value);
-    } else {
+    // Custom Save logic for Column 6 to handle multiple values
+    element.onchange = () => {
+        if (col === 6) {
+            const values = Array.from(element.selectedOptions).map(opt => opt.value);
+            saveCell(cellId, values.join(', ')); // Saves as "Option 1, Option 2"
+        } else {
+            saveCell(cellId, element.value);
+        }
+    };
+}
+    else {
         // --- CREATE TEXT INPUT (Columns 5 and 8) ---
         element = document.createElement('input');
         element.id = cellId;
@@ -758,6 +789,20 @@ async function loadData() {
             if (cell) cell.value = row.content;
         });
     }
+    // Inside the loop where you apply data to elements:
+const el = document.getElementById(id);
+if (el) {
+    if (el.tagName === 'SELECT' && el.multiple) {
+        // For Column 6 multi-select
+        const values = val.split(', ');
+        Array.from(el.options).forEach(opt => {
+            opt.selected = values.includes(opt.value);
+        });
+    } else {
+        // For standard inputs and single selects
+        el.value = val;
+    }
+}
 }
     </script>
 </body>
