@@ -624,30 +624,60 @@ fetchDropdownOptions();
 
 function addRowsToContainer(container, dateId, count) {
     for (let r = 0; r < count; r++) {
-        // Use a simple integer for the ID to satisfy int4 (e.g., Timestamp / 1000)
+        // Generate a unique integer for the int4 ID column
         const rowNum = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000);
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
+        rowDiv.id = `row-container-${rowNum}`;
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dateId}-r${rowNum}-c${col}`;
             let element;
 
+            // Columns 1, 2, 3, 4, 6, 7 are dropdowns
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
                 element = document.createElement('select');
-                // ... (populate dropdown options as before) ...
+                element.id = cellId;
+
+                // 1. Add the default "Select" option
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = "";
+                defaultOpt.text = col === 6 ? "Add Multi..." : "Select...";
+                element.appendChild(defaultOpt);
+
+                // 2. GET OPTIONS FROM GOOGLE SHEET DATA
+                const colKey = `col${col}`;
+                const options = dropdownData[colKey] || [];
+                options.forEach(optText => {
+                    if (optText) {
+                        const opt = document.createElement('option');
+                        opt.value = optText;
+                        opt.text = optText;
+                        element.appendChild(opt);
+                    }
+                });
+
+                // 3. Set the change event
                 element.onchange = () => {
                     applyCellColor(element, element.value);
-                    saveRow(rowNum, dateId); // Save whole row
+                    if (col === 6) {
+                        // If it's your multi-select column
+                        updateMultiValue(rowNum, dateId, element.value);
+                        element.value = ""; // Reset dropdown after pick
+                    } else {
+                        saveRow(rowNum, dateId);
+                    }
                 };
             } else {
+                // Columns 5 and 8 are text inputs
                 element = document.createElement('input');
+                element.id = cellId;
+                element.placeholder = "...";
                 element.onblur = () => {
                     applyCellColor(element, element.value);
-                    saveRow(rowNum, dateId); // Save whole row
+                    saveRow(rowNum, dateId);
                 };
             }
-            element.id = cellId;
             rowDiv.appendChild(element);
         }
         container.appendChild(rowDiv);
@@ -771,38 +801,35 @@ function toggleAllSections() {
     // Update the button text to show the next action
     btn.innerText = allWeeksCollapsed ? "Expand All Weeks" : "Collapse All Weeks";
 }
-async function updateMultiValue(cellId, newValue) {
-    const selectElement = document.getElementById(cellId);
+async function updateMultiValue(rowNum, dayLabel, newValue) {
+    const cellId = `${dayLabel}-r${rowNum}-c6`;
+    const element = document.getElementById(cellId);
     
-    // 1. Fetch the existing string for this cell from Supabase
+    // Fetch current row from Supabase
     const { data } = await _supabase
-        .from('cells')
-        .select('content')
-        .eq('id', cellId)
+        .from('BackEndData')
+        .select('col6')
+        .eq('id', rowNum)
         .single();
 
-    let currentContent = data ? data.content : "";
+    let currentContent = data ? data.col6 : "";
     let items = currentContent ? currentContent.split(', ') : [];
 
-    // 2. Toggle logic: Add the item if missing, remove if already there
+    // Toggle logic
     const index = items.indexOf(newValue);
-    if (index === -1) {
-        items.push(newValue);
-    } else {
-        items.splice(index, 1);
-    }
+    if (index === -1) { items.push(newValue); } 
+    else { items.splice(index, 1); }
 
     const updatedString = items.join(', ');
 
-    // 3. Apply color to the select element based on the new joined string
-    // (This will make it Light Blue because it now 'has information')
-    applyCellColor(selectElement, updatedString);
+    // Update the UI
+    if (element) {
+        applyCellColor(element, updatedString);
+        element.title = "Selected: " + updatedString;
+    }
 
-    // 4. Send the updated string to our standard save function
-    saveCell(cellId, updatedString);
-    
-    // Optional: Show selected items in a tooltip when hovering
-    selectElement.title = "Selected: " + (updatedString || "None");
+    // Save the whole row with the updated col6 string
+    saveRow(rowNum, dayLabel);
 }
 
 async function deleteFullRow(wrapperId, cellIds) {
