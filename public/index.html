@@ -449,15 +449,24 @@ setInterval(() => {
 
         let dropdownOptions = []; // Global storage for dropdown items
 
-async function fetchDropdownOptions() {
-    const { data, error } = await _supabase
-        .from('BackEndData')
-        .select('Times');
+const GOOGLE_SCRIPT_URL = 'https://docs.google.com/spreadsheets/d/1YcVuuNFEOHyfOBZGA1xaYbR6lRlROQHOXqkZlMkqrao/edit?gid=0#gid=0';
 
-    if (data) {
-        dropdownOptions = data.map(item => item.label);
-        // Re-build sections once options are loaded to ensure the dropdowns populate
-        createSections(); 
+async function fetchDropdownOptions() {
+    console.log("Fetching options from Google Sheets...");
+    
+    try {
+        const response = await fetch(GOOGLE_SCRIPT_URL);
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+            dropdownOptions = data;
+            console.log("Google Sheets options loaded:", dropdownOptions);
+            
+            // Re-run the view to populate dropdowns
+            createSections(); 
+        }
+    } catch (error) {
+        console.error("Error fetching from Google Sheets:", error);
     }
 }
 
