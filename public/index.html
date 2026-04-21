@@ -474,8 +474,7 @@ position: sticky;
     </div>
 </div>
 
-<div id="main-content-area">
-    </div>
+<div id="main-content">Loading app...</div>
 
 <div id="grid-container">
     <table id="grid"></table>
@@ -516,6 +515,132 @@ setInterval(() => {
         const totalRows = 40; 
         const totalCols = 15;
 
+// --- GLOBAL DATA ---
+window.dropdownData = { col1:[], col2:[], col3:[], col4:[], col5:[], col6:[], col7:[] };
+
+// --- 1. THE STARTING MOTOR ---
+async function startApp() {
+    console.log("🚀 Step 1: Initializing App...");
+    const main = document.getElementById('main-content');
+    if (!main) {
+        alert("CRITICAL ERROR: Could not find <div id='main-content'> in your HTML.");
+        return;
+    }
+
+    try {
+        console.log("🚀 Step 2: Fetching Google Sheet Options...");
+        await fetchDropdownOptions();
+    } catch (e) {
+        console.warn("⚠️ Google Fetch failed, using empty menus.");
+    }
+
+    console.log("🚀 Step 3: Building Days and Rows...");
+    createSections(); 
+
+    console.log("🚀 Step 4: Loading Database Data...");
+    try {
+        await loadData();
+    } catch (e) {
+        console.error("⚠️ Supabase Load failed:", e);
+    }
+    
+    console.log("✅ App initialization complete.");
+}
+
+// --- 2. BUILD THE UI ---
+function createSections() {
+    const main = document.getElementById('main-content');
+    main.innerHTML = ""; // Clear "Loading..." message
+
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    
+    days.forEach(day => {
+        const section = document.createElement('div');
+        section.className = 'day-section';
+        // Build the structure: Title then a container for rows
+        section.innerHTML = `<h2>${day}</h2><div id="container-${day}" class="day-container"></div>`;
+        main.appendChild(section);
+
+        const container = document.getElementById(`container-${day}`);
+        // Build 5 activity rows per day
+        addRowsToContainer(container, day, 5);
+    });
+}
+
+// --- 3. BUILD THE ROWS ---
+function addRowsToContainer(container, dayLabel, count) {
+    for (let r = 0; r < count; r++) {
+        const rowNumericId = generateNumericId(dayLabel, r);
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'cell-row';
+
+        for (let col = 1; col <= 8; col++) {
+            const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
+            let element;
+
+            if ([1, 2, 3, 4, 6, 7].includes(col)) {
+                element = createDropdown(cellId, col, rowNumericId, dayLabel);
+            } else {
+                element = createInput(cellId, "...", rowNumericId, dayLabel);
+            }
+            rowDiv.appendChild(element);
+        }
+        container.appendChild(rowDiv);
+    }
+}
+
+// --- 4. STABLE ID GENERATOR ---
+function generateNumericId(day, index) {
+    const dayMap = { "Monday": 1, "Tuesday": 2, "Wednesday": 3, "Thursday": 4, "Friday": 5, "Saturday": 6, "Sunday": 7 };
+    // This creates IDs like 101, 102 (Monday) or 201, 202 (Tuesday)
+    // Very safe for Supabase int4
+    return (dayMap[day] * 100) + index;
+}
+
+// --- 5. INPUT & DROPDOWN CREATORS ---
+function createInput(id, placeholder, rowNum, dayLabel) {
+    const input = document.createElement('input');
+    input.id = id;
+    input.placeholder = placeholder;
+    input.onblur = () => {
+        applyCellColor(input, input.value);
+        saveRow(rowNum, dayLabel);
+    };
+    return input;
+}
+
+function createDropdown(id, colNum, rowNum, dayLabel) {
+    const select = document.createElement('select');
+    select.id = id;
+    
+    const def = document.createElement('option');
+    def.value = "";
+    def.text = colNum === 6 ? "+ Add Multi" : "Select...";
+    select.appendChild(def);
+
+    const options = window.dropdownData[`col${colNum}`] || [];
+    options.forEach(text => {
+        const opt = document.createElement('option');
+        opt.value = text;
+        opt.text = text;
+        select.appendChild(opt);
+    });
+
+    select.onchange = () => {
+        applyCellColor(select, select.value);
+        if (colNum === 6) {
+            updateMultiValue(rowNum, dayLabel, select.value);
+            select.value = ""; // Reset visual
+        } else {
+            saveRow(rowNum, dayLabel);
+        }
+    };
+    return select;
+}
+
+// --- START THE WHOLE THING ---
+document.addEventListener('DOMContentLoaded', startApp);
+
         function applyCellColor(element, text) {
     if (!element) {
         console.warn("Color Logic: Element not found.");
@@ -553,28 +678,6 @@ setInterval(() => {
 }
 
         // Change your window.onload or initial call to this:
-async function startApp() {
-    console.log("App starting...");
-    
-    // 1. First, set up a fallback so the app doesn't crash if Google fails
-    window.dropdownData = { col1:[], col2:[], col3:[], col4:[], col5:[], col6:[], col7:[] };
-
-    try {
-        // 2. Wait for Google
-        await fetchDropdownOptions();
-        console.log("Google Data loaded.");
-    } catch (e) {
-        console.warn("Using default empty menus due to fetch error.");
-    }
-
-    // 3. NOW build the UI
-    createSections(); 
-    console.log("UI Built.");
-
-    // 4. Finally, pull the saved data from Supabase
-    await loadData();
-    console.log("Supabase data loaded.");
-}
 
 // Make sure this is at the very bottom of your script
 document.addEventListener('DOMContentLoaded', startApp);
@@ -639,105 +742,11 @@ async function fetchDropdownOptions() {
 
 fetchDropdownOptions();
 
-function generateNumericId(dateId, index) {
-    // We create a simple unique number: Day Index (0-6) + Row Index (0-99)
-    // Example: Monday (0) Row 5 becomes 1005. 
-    // This is well within the 2-billion limit of int4.
-    const dayMap = { "Monday": 10000, "Tuesday": 20000, "Wednesday": 30000, "Thursday": 40000, "Friday": 50000, "Saturday": 60000, "Sunday": 70000 };
-    const base = dayMap[dateId] || 0;
-    return base + index;
-}
 
-function addRowsToContainer(container, dateId, count) {
-    for (let r = 0; r < count; r++) {
-        // STABLE ID: Based on Day + Index
-        const rowNumericId = generateNumericId(dateId, r);
-        
-        const rowDiv = document.createElement('div');
-        rowDiv.className = 'cell-row'; // This class provides the horizontal line CSS
-
-        for (let col = 1; col <= 8; col++) {
-            const cellId = `${dateId}-r${rowNumericId}-c${col}`;
-            let element;
-
-            if ([1, 2, 3, 4, 6, 7].includes(col)) {
-                // DROP-DOWN COLUMNS
-                element = createDropdown(cellId, col, rowNumericId, dateId);
-            } else {
-                // TEXT INPUT COLUMNS (5 and 8)
-                element = createInput(cellId, "...", rowNumericId, dateId);
-            }
-            
-            rowDiv.appendChild(element);
-        }
-        container.appendChild(rowDiv);
-    }
-}
 
 const contentArea = document.getElementById('main-content-area');
 
-function createSections() {
-    const main = document.getElementById('main-content');
-    if (!main) {
-        console.error("Could not find <div id='main-content'> in your HTML!");
-        return;
-    }
-    main.innerHTML = ""; // Clear "Loading..." message
 
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    
-    days.forEach(day => {
-        const section = document.createElement('div');
-        section.className = 'day-section';
-        section.innerHTML = `<h2>${day}</h2><div id="container-${day}"></div>`;
-        main.appendChild(section);
-
-        // Build 5 rows for this day
-        const container = document.getElementById(`container-${day}`);
-        addRowsToContainer(container, day, 5);
-    });
-}
-
-function createInput(id, placeholder, rowNum, dayLabel) {
-    const input = document.createElement('input');
-    input.id = id;
-    input.placeholder = placeholder;
-    input.onblur = () => {
-        applyCellColor(input, input.value);
-        saveRow(rowNum, dayLabel);
-    };
-    return input;
-}
-
-function createDropdown(id, colNum, rowNum, dayLabel) {
-    const select = document.createElement('select');
-    select.id = id;
-    
-    // Add default option
-    const def = document.createElement('option');
-    def.value = "";
-    def.text = colNum === 6 ? "+ Add Multi" : "Select...";
-    select.appendChild(def);
-
-    // Add options from Google Sheet data
-    const options = dropdownData[`col${colNum}`] || [];
-    options.forEach(text => {
-        const opt = document.createElement('option');
-        opt.value = text;
-        opt.text = text;
-        select.appendChild(opt);
-    });
-
-    select.onchange = () => {
-        applyCellColor(select, select.value);
-        if (colNum === 6) {
-            updateMultiValue(rowNum, dayLabel, select.value);
-        } else {
-            saveRow(rowNum, dayLabel);
-        }
-    };
-    return select;
-}
 
 let allWeeksCollapsed = false; // Track the global state
 
