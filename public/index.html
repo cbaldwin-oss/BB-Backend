@@ -447,25 +447,16 @@ setInterval(() => {
         const totalRows = 40; 
         const totalCols = 15;
 
-let dropdownOptions = []; 
+        let dropdownOptions = []; // Global storage for dropdown items
 
 async function fetchDropdownOptions() {
-    console.log("Fetching options from Supabase...");
     const { data, error } = await _supabase
         .from('BackEndData')
         .select('Times');
 
-    if (error) {
-        console.error("Supabase Error:", error);
-        return;
-    }
-
     if (data) {
-        // Map the data and filter out any null/undefined results
-        dropdownOptions = data.map(item => item.label).filter(label => label !== undefined);
-        console.log("Options loaded:", dropdownOptions);
-
-        // RE-RUN sections now that we have the data
+        dropdownOptions = data.map(item => item.label);
+        // Re-build sections once options are loaded to ensure the dropdowns populate
         createSections(); 
     }
 }
@@ -572,34 +563,29 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
 for (let col = 1; col <= 8; col++) {
     const cellId = `${dateId}-r${rowId}-c${col}`;
     let element;
-if (col === 1) {
-    element = document.createElement('select');
-    element.id = cellId;
-    
-    // 1. Always add a default starting option
-    const defaultOpt = document.createElement('option');
-    defaultOpt.value = "";
-    defaultOpt.text = "Select...";
-    element.appendChild(defaultOpt);
 
-    // 2. Only loop if dropdownOptions actually has data
-    if (dropdownOptions && dropdownOptions.length > 0) {
+    if (col === 1) {
+        // Create a Dropdown for Column 1
+        element = document.createElement('select');
+        element.id = cellId;
+        
+        // Add a default blank option
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = "";
+        defaultOpt.text = "Select...";
+        element.appendChild(defaultOpt);
+
+        // Fill with database options
         dropdownOptions.forEach(optText => {
-            if (optText) { // Extra safety check
-                const opt = document.createElement('option');
-                opt.value = optText;
-                opt.text = optText;
-                element.appendChild(opt);
-            }
+            const opt = document.createElement('option');
+            opt.value = optText;
+            opt.text = optText;
+            element.appendChild(opt);
         });
-    } else {
-        // 3. Fallback if DB is empty or hasn't loaded yet
-        console.warn("Dropdown options not yet available for " + cellId);
-    }
 
-    element.onchange = () => saveCell(cellId, element.value);
-}
- else {
+        // Use 'onchange' for selects instead of 'onblur'
+        element.onchange = () => saveCell(cellId, element.value);
+    } else {
         // Create standard Input for Columns 2-8
         element = document.createElement('input');
         element.id = cellId;
