@@ -355,6 +355,13 @@ position: sticky;
         border-color: #2e7d32;
         outline: none;
     }
+    /* Make the multi-select column slightly more usable */
+    .cell-row select[multiple] {
+        height: auto;
+        min-height: 30px;
+        padding: 2px;
+        font-size: 11px; /* Smaller text to see more options */
+    }
     
 </style>
 </head>
@@ -490,26 +497,28 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
         
         let cellIdsInRow = [];
 
-        for (let col = 1; col <= 8; col++) {
+for (let col = 1; col <= 8; col++) {
     const cellId = `${dateId}-r${rowId}-c${col}`;
     let element;
 
-    // Define which columns are dropdowns: 1, 2, 3, 4, 6, 7
     const dropdownCols = [1, 2, 3, 4, 6, 7];
 
     if (dropdownCols.includes(col)) {
-        // --- CREATE DROPDOWN ---
         element = document.createElement('select');
         element.id = cellId;
-        
-        const defaultOpt = document.createElement('option');
-        defaultOpt.value = "";
-        defaultOpt.text = "Select...";
-        element.appendChild(defaultOpt);
 
-        const colKey = `col${col}`;
-        const options = dropdownData[colKey] || [];
-        
+        // --- NEW: Handle Multi-Select for Column 6 ---
+        if (col === 6) {
+            element.multiple = true;
+            // Note: We skip the "Select..." default for multi-selects
+        } else {
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = "";
+            defaultOpt.text = "Select...";
+            element.appendChild(defaultOpt);
+        }
+
+        const options = dropdownData[`col${col}`] || [];
         options.forEach(optText => {
             const opt = document.createElement('option');
             opt.value = optText;
@@ -517,15 +526,22 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
             element.appendChild(opt);
         });
 
-        element.onchange = () => saveCell(cellId, element.value);
+        // --- NEW: Specialized Save for Multi-Select ---
+        element.onchange = () => {
+            if (col === 6) {
+                // Collect all selected options into an array, then join with commas
+                const selectedValues = Array.from(element.selectedOptions).map(opt => opt.value);
+                saveCell(cellId, selectedValues.join(', ')); 
+            } else {
+                saveCell(cellId, element.value);
+            }
+        };
+
     } else {
-        // --- CREATE TEXT INPUT (Columns 5 and 8) ---
         element = document.createElement('input');
         element.id = cellId;
-        element.placeholder = col === 5 ? "Status (Col 5)" : "Notes (Col 8)";
         element.onblur = () => saveCell(cellId, element.value);
     }
-    
     rowDiv.appendChild(element);
 }
 
@@ -757,6 +773,20 @@ async function loadData() {
             const cell = document.getElementById(row.id);
             if (cell) cell.value = row.content;
         });
+        data.forEach(item => {
+    const el = document.getElementById(item.id);
+    if (el) {
+        if (el.tagName === 'SELECT' && el.multiple) {
+            // Split the "Option 1, Option 2" string back into an array
+            const values = item.content ? item.content.split(', ') : [];
+            Array.from(el.options).forEach(opt => {
+                opt.selected = values.includes(opt.value);
+            });
+        } else {
+            el.value = item.content || "";
+        }
+    }
+});
     }
 }
     </script>
