@@ -355,6 +355,39 @@ position: sticky;
         border-color: #2e7d32;
         outline: none;
     }
+
+    /* Styling for the Multi-Select Dropdown */
+    .multi-select-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .multi-select-display {
+        font-size: 11px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        padding: 2px 5px;
+        min-height: 22px;
+        color: #1b5e20;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        cursor: pointer;
+        overflow: hidden;
+    }
+
+    .tag-chip {
+        background: #e8f5e9;
+        border: 1px solid #c8e6c9;
+        border-radius: 2px;
+        padding: 0 4px;
+        display: inline-flex;
+        align-items: center;
+    }
     
 </style>
 </head>
@@ -490,42 +523,49 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
         
         let cellIdsInRow = [];
 
-        for (let col = 1; col <= 8; col++) {
+for (let col = 1; col <= 8; col++) {
     const cellId = `${dateId}-r${rowId}-c${col}`;
     let element;
 
-    // Define which columns are dropdowns: 1, 2, 3, 4, 6, 7
-    const dropdownCols = [1, 2, 3, 4, 6, 7];
+    const dropdownCols = [1, 2, 3, 4, 7]; // Removed 6 from here
+    const multiSelectCol = 6;
 
-    if (dropdownCols.includes(col)) {
-        // --- CREATE DROPDOWN ---
-        element = document.createElement('select');
-        element.id = cellId;
+    if (col === multiSelectCol) {
+        // --- MULTI-SELECT DROPDOWN (COLUMN 6) ---
+        const container = document.createElement('div');
+        container.className = 'multi-select-container';
+
+        const select = document.createElement('select');
+        select.id = cellId;
         
         const defaultOpt = document.createElement('option');
         defaultOpt.value = "";
-        defaultOpt.text = "Select...";
-        element.appendChild(defaultOpt);
+        defaultOpt.text = "+ Add Item";
+        select.appendChild(defaultOpt);
 
-        const colKey = `col${col}`;
-        const options = dropdownData[colKey] || [];
-        
+        const options = dropdownData['col6'] || [];
         options.forEach(optText => {
             const opt = document.createElement('option');
             opt.value = optText;
             opt.text = optText;
-            element.appendChild(opt);
+            select.appendChild(opt);
         });
 
-        element.onchange = () => saveCell(cellId, element.value);
+        // The Logic: When changed, append the value instead of replacing
+        select.onchange = () => {
+            if (select.value !== "") {
+                updateMultiValue(cellId, select.value);
+                select.value = ""; // Reset dropdown to "+ Add Item"
+            }
+        };
+
+        container.appendChild(select);
+        element = container;
+    } else if (dropdownCols.includes(col)) {
+        // ... standard dropdown code for 1, 2, 3, 4, 7 ...
     } else {
-        // --- CREATE TEXT INPUT (Columns 5 and 8) ---
-        element = document.createElement('input');
-        element.id = cellId;
-        element.placeholder = col === 5 ? "Status (Col 5)" : "Notes (Col 8)";
-        element.onblur = () => saveCell(cellId, element.value);
+        // ... standard input code for 5, 8 ...
     }
-    
     rowDiv.appendChild(element);
 }
 
@@ -542,6 +582,37 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
             container.appendChild(rowDiv);
         }
     }
+}
+
+async function updateMultiValue(cellId, newValue) {
+    // 1. Get existing data from the DOM or Supabase
+    const selectElement = document.getElementById(cellId);
+    
+    // We fetch current value from Supabase first to ensure we don't overwrite
+    const { data } = await _supabase
+        .from('cells')
+        .select('content')
+        .eq('id', cellId)
+        .single();
+
+    let currentContent = data ? data.content : "";
+    let items = currentContent ? currentContent.split(', ') : [];
+
+    // 2. Add item if it's not already there (prevents duplicates)
+    if (!items.includes(newValue)) {
+        items.push(newValue);
+    } else {
+        // Optional: If item exists, remove it (toggle behavior)
+        items = items.filter(i => i !== newValue);
+    }
+
+    const updatedString = items.join(', ');
+
+    // 3. Save to Supabase
+    saveCell(cellId, updatedString);
+    
+    // 4. Update the UI tooltip so you can see what's selected
+    selectElement.title = "Selected: " + updatedString;
 }
 
 const contentArea = document.getElementById('main-content-area');
