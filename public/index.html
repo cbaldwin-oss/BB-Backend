@@ -398,6 +398,23 @@ position: sticky;
         appearance: none;
         padding-right: 20px; /* Make room for a custom arrow if needed */
     }
+    .cell-row {
+        display: flex;
+        align-items: center;
+        padding: 4px 0;           /* Adds a little breathing room around the line */
+        border-bottom: 1px solid #e0e0e0; /* The horizontal line */
+        gap: 4px;                 /* Keeps spacing between cells consistent */
+    }
+
+    /* Optional: Make the line slightly darker for the header or specific sections */
+    .day-container .cell-row:last-child {
+        border-bottom: none;      /* Removes the line from the very last row of a day */
+    }
+
+    /* Optional: Hover effect to help the eye follow the row */
+    .cell-row:hover {
+        background-color: rgba(0,0,0,0.02); 
+    }
 </style>
 </head>
 <body>
