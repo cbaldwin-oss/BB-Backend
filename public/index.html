@@ -624,54 +624,24 @@ fetchDropdownOptions();
 
 function addRowsToContainer(container, dateId, count) {
     for (let r = 0; r < count; r++) {
-        // Stable Numeric ID for the Supabase int4 column
+        // STABLE ID: Based on Day + Index
         const rowNumericId = generateNumericId(dateId, r);
         
         const rowDiv = document.createElement('div');
-        rowDiv.className = 'cell-row';
-        rowDiv.id = `row-container-${rowNumericId}`;
+        rowDiv.className = 'cell-row'; // This class provides the horizontal line CSS
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dateId}-r${rowNumericId}-c${col}`;
             let element;
 
-            // Columns 1, 2, 3, 4, 6, 7 are dropdowns
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
-                element = document.createElement('select');
-                element.id = cellId;
-
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = "";
-                defaultOpt.text = col === 6 ? "+ Add Multi" : "Select...";
-                element.appendChild(defaultOpt);
-
-                const colKey = `col${col}`;
-                const options = dropdownData[colKey] || [];
-                options.forEach(optText => {
-                    const opt = document.createElement('option');
-                    opt.value = optText;
-                    opt.text = optText;
-                    element.appendChild(opt);
-                });
-
-                element.onchange = () => {
-                    applyCellColor(element, element.value);
-                    if (col === 6) {
-                        updateMultiValue(rowNumericId, dateId, element.value);
-                    } else {
-                        saveRow(rowNumericId, dateId); // Changed from saveCell
-                    }
-                };
+                // DROP-DOWN COLUMNS
+                element = createDropdown(cellId, col, rowNumericId, dateId);
             } else {
-                // Columns 5 and 8 are text inputs
-                element = document.createElement('input');
-                element.id = cellId;
-                element.placeholder = "...";
-                element.onblur = () => {
-                    applyCellColor(element, element.value);
-                    saveRow(rowNumericId, dateId); // Changed from saveCell
-                };
+                // TEXT INPUT COLUMNS (5 and 8)
+                element = createInput(cellId, "...", rowNumericId, dateId);
             }
+            
             rowDiv.appendChild(element);
         }
         container.appendChild(rowDiv);
@@ -681,107 +651,75 @@ function addRowsToContainer(container, dateId, count) {
 const contentArea = document.getElementById('main-content-area');
 
 function createSections() {
-    const contentArea = document.getElementById('main-content-area');
-    if (!contentArea) return;
+    const mainContainer = document.getElementById('main-content');
+    if (!mainContainer) return;
     
-    contentArea.innerHTML = ''; 
-    const baseDate = new Date(START_DATE + "T00:00:00");
+    mainContainer.innerHTML = ''; // Clear any old content
 
-    for (let w = 0; w < WEEKS_TO_SHOW; w++) {
-        // --- 1. BUILD WEEK CONTAINER ---
-        const weekDiv = document.createElement('div');
-        weekDiv.className = 'week-container';
+    // Example: Create 7 days of the week
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    
+    days.forEach(dayName => {
+        // 1. Create a wrapper for the day
+        const dayWrapper = document.createElement('div');
+        dayWrapper.className = 'day-container';
+        
+        // 2. Add a Title (e.g., Monday)
+        const title = document.createElement('h2');
+        title.innerText = dayName;
+        dayWrapper.appendChild(title);
 
-        const weekStart = new Date(baseDate);
-        weekStart.setDate(baseDate.getDate() + (w * 7));
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
+        // 3. Create the "Line Container" where rows live
+        const rowList = document.createElement('div');
+        rowList.id = `container-${dayName}`;
+        dayWrapper.appendChild(rowList);
 
-        const weekHeader = document.createElement('div');
-        weekHeader.className = 'week-header';
-        weekHeader.innerHTML = `
-            <span>Week of ${weekStart.toLocaleDateString([], {month:'short', day:'numeric'})} - ${weekEnd.toLocaleDateString([], {month:'short', day:'numeric'})}</span>
-            <span class="week-arrow">▼</span>
-        `;
+        mainContainer.appendChild(dayWrapper);
 
-        const weekContent = document.createElement('div');
-        weekContent.className = 'week-content';
-
-        // Week Toggle
-        weekHeader.onclick = () => {
-            const isHidden = weekContent.classList.toggle('hidden');
-            weekHeader.querySelector('.week-arrow').innerText = isHidden ? '▶' : '▼';
-        };
-
-        // --- 2. BUILD DAYS INSIDE WEEK ---
-        for (let d = 0; d < 7; d++) {
-            const sectionDate = new Date(weekStart);
-            sectionDate.setDate(weekStart.getDate() + d);
-            const dateId = sectionDate.toISOString().split('T')[0];
-            const dateString = sectionDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-
-            const section = document.createElement('div');
-            section.className = 'section-container';
-
-            const header = document.createElement('div');
-            header.className = 'date-header';
-            header.innerHTML = `<span>${dateString}</span> <span class="arrow">▼</span>`;
-            
-            const rowsDiv = document.createElement('div');
-            rowsDiv.className = 'rows-container';
-            rowsDiv.id = `rows-${dateId}`;
-
-            // Day Toggle (Crucial: stopPropagation prevents week-header from firing)
-            header.onclick = (e) => {
-                e.stopPropagation();
-                const isHidden = rowsDiv.classList.toggle('hidden');
-                header.querySelector('.arrow').innerText = isHidden ? '▶' : '▼';
-            };
-
-            // Reuse your existing addRows function
-            addRowsToContainer(rowsDiv, dateId, INITIAL_ROWS);
-
-            const addBtn = document.createElement('button');
-            addBtn.className = 'add-rows-btn';
-            addBtn.innerText = "+ Add 5 Rows";
-            addBtn.onclick = (e) => {
-                e.stopPropagation(); // Keep week from collapsing when adding rows
-                addRowsToContainer(rowsDiv, dateId, 5, addBtn);
-            };
-
-            rowsDiv.appendChild(addBtn);
-            section.appendChild(header);
-            section.appendChild(rowsDiv);
-            weekContent.appendChild(section);
-        }
-
-        weekDiv.appendChild(weekHeader);
-        weekDiv.appendChild(weekContent);
-        contentArea.appendChild(weekDiv);
-    }
-    loadData(); // Final sync with Supabase
+        // 4. Fill the day with rows (e.g., 5 rows per day)
+        addRowsToContainer(rowList, dayName, 5);
+    });
 }
 
-function createInput(id, placeholder) {
+function createInput(id, placeholder, rowNum, dayLabel) {
     const input = document.createElement('input');
     input.id = id;
     input.placeholder = placeholder;
-
     input.onblur = () => {
-        // 1. Apply the conditional color immediately
         applyCellColor(input, input.value);
-
-        // 2. Extract rowNum and dayLabel from the ID string
-        // Assumes ID format: "DayLabel-r12345-c5"
-        const parts = id.split('-r');
-        const dayLabel = parts[0];
-        const rowNum = parseInt(parts[1].split('-c')[0]);
-
-        // 3. Save the entire row instead of just this cell
         saveRow(rowNum, dayLabel);
     };
-
     return input;
+}
+
+function createDropdown(id, colNum, rowNum, dayLabel) {
+    const select = document.createElement('select');
+    select.id = id;
+    
+    // Add default option
+    const def = document.createElement('option');
+    def.value = "";
+    def.text = colNum === 6 ? "+ Add Multi" : "Select...";
+    select.appendChild(def);
+
+    // Add options from Google Sheet data
+    const options = dropdownData[`col${colNum}`] || [];
+    options.forEach(text => {
+        const opt = document.createElement('option');
+        opt.value = text;
+        opt.text = text;
+        select.appendChild(opt);
+    });
+
+    select.onchange = () => {
+        applyCellColor(select, select.value);
+        if (colNum === 6) {
+            updateMultiValue(rowNum, dayLabel, select.value);
+        } else {
+            saveRow(rowNum, dayLabel);
+        }
+    };
+    return select;
 }
 
 let allWeeksCollapsed = false; // Track the global state
