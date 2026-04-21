@@ -355,18 +355,7 @@ position: sticky;
         border-color: #2e7d32;
         outline: none;
     }
-
-/* Force colors on both Inputs and Dropdowns */
-    select.bg-green, input.bg-green  { background-color: #c8e6c9 !important; color: #1b5e20 !important; }
-    select.bg-yellow, input.bg-yellow { background-color: #fff9c4 !important; color: #f57f17 !important; }
-    select.bg-blue, input.bg-blue   { background-color: #e3f2fd !important; color: #0d47a1 !important; }
-    select.bg-red, input.bg-red    { background-color: #ffcdd2 !important; color: #b71c1c !important; }
-    select.bg-grey, input.bg-grey   { background-color: #f5f5f5 !important; color: #616161 !important; }
-
-    /* Remove the default 'gray' look of disabled or unselected dropdowns */
-    select {
-        appearance: none; /* Removes the default OS styling in some browsers */
-        -webkit-appearance: none;
+    
 </style>
 </head>
 <body>
@@ -487,32 +476,6 @@ async function fetchDropdownOptions() {
     } catch (error) {
         console.error("Fetch error:", error);
         return null;
-    }
-}
-
-function applyCellColor(element, text) {
-    const val = text.toLowerCase();
-    
-    // Remove all existing color classes first
-    element.classList.remove('bg-green', 'bg-yellow', 'bg-blue', 'bg-red', 'bg-grey');
-
-    if (!val) return; // Exit if empty
-
-    // Partial Recognition Logic
-    if (val.includes('Pass') || val.includes('Level 4') || val.includes('yes')) {
-        element.classList.add('bg-green');
-    } 
-    else if (val.includes('Level 2') || val.includes('hold') || val.includes('pending')) {
-        element.classList.add('bg-yellow');
-    } 
-    else if (val.includes('Level 2') || val.includes('active') || val.includes('run')) {
-        element.classList.add('bg-blue');
-    } 
-    else if (val.includes('Fail') || val.includes('stop') || val.includes('urgent')) {
-        element.classList.add('bg-red');
-    }
-    else if (val.includes('n/a') || val.includes('cancel')) {
-        element.classList.add('bg-grey');
     }
 }
 
@@ -714,28 +677,13 @@ async function deleteFullRow(wrapperId, cellIds) {
     }
 }
 
-async function saveCell(cellId, content) {
-    const element = document.getElementById(cellId);
-    
-    // 1. Apply visual color feedback immediately
-    if (element) {
-        applyCellColor(element, content);
-    }
-
-    // 2. Save to Supabase
-    const { error } = await _supabase
-        .from('cells')
-        .upsert({ 
-            id: cellId, 
-            content: content 
-        }, { onConflict: 'id' });
-
-    if (error) {
-        console.error("Error saving to Supabase:", error);
-    } else {
-        console.log("Saved successfully:", cellId);
-    }
+async function saveCell(id, content) {
+    const indicator = document.getElementById('saveIndicator');
+    indicator.innerText = "Saving...";
+    await _supabase.from('cells').upsert({ id, content }, { onConflict: 'id' });
+    indicator.innerText = "Saved";
 }
+
 // Initialize
 createSections();
         // 3. Load Data from Supabase
@@ -801,29 +749,14 @@ input.onblur = async () => {
         }, { onConflict: 'id' });
 };
 
+// UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    console.log("Loading data from Supabase...");
-    const { data, error } = await _supabase
-        .from('cells')
-        .select('*');
-
-    if (error) {
-        console.error("Error loading data:", error);
-        return;
-    }
-
+    const { data } = await _supabase.from('cells').select('*');
     if (data) {
-        data.forEach(item => {
-            const el = document.getElementById(item.id);
-            if (el) {
-                // 1. Set the text value or dropdown selection
-                el.value = item.content;
-                
-                // 2. Apply the conditional color based on that content
-                applyCellColor(el, item.content);
-            }
+        data.forEach(row => {
+            const cell = document.getElementById(row.id);
+            if (cell) cell.value = row.content;
         });
-        console.log("Data and formatting loaded.");
     }
 }
     </script>
