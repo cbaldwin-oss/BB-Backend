@@ -426,6 +426,7 @@ const INITIAL_ROWS = 20;
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
+        
 // This runs every 10 seconds without any flickering
 setInterval(() => {
     // We check if you are currently typing. 
@@ -447,22 +448,100 @@ setInterval(() => {
         const totalRows = 40; 
         const totalCols = 15;
 
+        // Change your window.onload or initial call to this:
+async function startApp() {
+    // 1. Wait for Google Sheets data FIRST
+    await fetchDropdownOptions();
+    
+    // 2. ONLY THEN build the sections and load Supabase data
+    createSections(); 
+    loadData(); 
+}
+
+window.onload = startApp;
+
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/a/macros/criticalarccx.com/s/AKfycbyuW0oVb01V8bZiuMTNGmJbZYU1Lnu0eVjEZ8kW1VDrGINS_ZaQaBB9Xp5MJcNo4nxq/exec';
 
 let dropdownData = { col1: [], col2: [], col3: [], col4: [], col5: [], col6: [] };
 
 async function fetchDropdownOptions() {
+    console.log("Fetching from Google...");
     try {
         const response = await fetch(GOOGLE_SCRIPT_URL);
-        dropdownData = await response.json();
-        createSections(); // Re-render with new lists
+        const data = await response.json();
+        dropdownData = data;
+        console.log("Data received:", dropdownData);
+        return data; // Return the data to resolve the promise
     } catch (error) {
-        console.error("Failed to fetch sheet data:", error);
+        console.error("Fetch error:", error);
+        return null;
     }
 }
-// Call this at the very start of your script
+
 fetchDropdownOptions();
+
+function addRowsToContainer(container, dateId, count, anchorBtn = null) {
+    for (let r = 0; r < count; r++) {
+        const rowId = Date.now() + Math.random(); 
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'cell-row';
+        rowDiv.id = `row-wrapper-${rowId}`;
+        
+        let cellIdsInRow = [];
+
+        for (let col = 1; col <= 8; col++) {
+            const cellId = `${dateId}-r${rowId}-c${col}`;
+            cellIdsInRow.push(cellId);
+            let element;
+
+            if (col <= 6) {
+                element = document.createElement('select');
+                element.id = cellId;
+                
+                // Add default option
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = "";
+                defaultOpt.text = "Select...";
+                element.appendChild(defaultOpt);
+
+                // Fetch specific list from dropdownData
+                const colKey = `col${col}`;
+                const options = dropdownData[colKey] || [];
+                
+                options.forEach(optText => {
+                    if (optText) {
+                        const opt = document.createElement('option');
+                        opt.value = optText;
+                        opt.text = optText;
+                        element.appendChild(opt);
+                    }
+                });
+
+                element.onchange = () => saveCell(cellId, element.value);
+            } else {
+                element = document.createElement('input');
+                element.id = cellId;
+                element.placeholder = `Note ${col}`;
+                element.onblur = () => saveCell(cellId, element.value);
+            }
+            rowDiv.appendChild(element);
+        }
+
+        // Add Delete Button
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn';
+        delBtn.innerHTML = '×';
+        delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
+        rowDiv.appendChild(delBtn);
+
+        if (anchorBtn) {
+            container.insertBefore(rowDiv, anchorBtn);
+        } else {
+            container.appendChild(rowDiv);
+        }
+    }
+}
 
 const contentArea = document.getElementById('main-content-area');
 
@@ -546,49 +625,6 @@ function createSections() {
         contentArea.appendChild(weekDiv);
     }
     loadData(); // Final sync with Supabase
-}
-
-function addRowsToContainer(container, dateId, count, anchorBtn = null) {
-    for (let r = 0; r < count; r++) {
-        const rowId = Date.now() + Math.random(); 
-        const rowDiv = document.createElement('div');
-        rowDiv.className = 'cell-row';
-        
-        for (let col = 1; col <= 8; col++) {
-            const cellId = `${dateId}-r${rowId}-c${col}`;
-            let element;
-
-            // --- Check if this column (1-6) should be a dropdown ---
-            if (col <= 6) {
-                element = document.createElement('select');
-                element.id = cellId;
-                
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = "";
-                defaultOpt.text = `- Col ${col} -`;
-                element.appendChild(defaultOpt);
-
-                // Access the specific list from our Google Sheet object
-                const currentOptions = dropdownData[`col${col}`] || [];
-                currentOptions.forEach(optText => {
-                    const opt = document.createElement('option');
-                    opt.value = optText;
-                    opt.text = optText;
-                    element.appendChild(opt);
-                });
-
-                element.onchange = () => saveCell(cellId, element.value);
-            } else {
-                // Columns 7 and 8 remain standard text inputs
-                element = document.createElement('input');
-                element.id = cellId;
-                element.placeholder = `Note ${col}`;
-                element.onblur = () => saveCell(cellId, element.value);
-            }
-            rowDiv.appendChild(element);
-        }
-        // ... append delete button and row to container ...
-    }
 }
 
 function createInput(id, placeholder) {
