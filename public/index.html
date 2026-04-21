@@ -540,34 +540,37 @@ window.onload = startApp;
 function applyCellColor(element, text) {
     if (!element) return;
 
-    // Convert to lowercase and trim spaces for accurate matching
     const val = (text || "").toLowerCase().trim();
     
-    // 1. Always clear ALL potential color classes first
+    // 1. Reset all classes
     element.classList.remove('bg-green', 'bg-yellow', 'bg-blue', 'bg-red', 'bg-grey', 'bg-filled');
 
-    // 2. If the cell is empty, stop here (it stays the default background)
-    if (val === "") {
-        return;
-    }
+    // 2. If empty, stop here
+    if (val === "") return;
 
-    // 3. Status Keyword Checks (Priority Order)
-    if (val.includes('done') || val.includes('complete') || val.includes('yes')) {
+    // 3. Status Keyword Checks (Now including 'fail')
+    
+    // RED: Urgent / Negative
+    if (val.includes('Fail') || val.includes('block') || val.includes('stop') || val.includes('urgent')) {
+        element.classList.add('bg-red');
+    } 
+    // GREEN: Success
+    else if (val.includes('done') || val.includes('complete') || val.includes('yes') || val.includes('pass')) {
         element.classList.add('bg-green');
     } 
+    // YELLOW: Warning
     else if (val.includes('wait') || val.includes('hold') || val.includes('pending')) {
         element.classList.add('bg-yellow');
     } 
+    // BLUE: Active
     else if (val.includes('progress') || val.includes('active') || val.includes('run')) {
         element.classList.add('bg-blue');
     } 
-    else if (val.includes('block') || val.includes('stop') || val.includes('urgent')) {
-        element.classList.add('bg-red');
-    }
+    // GREY: Neutral
     else if (val.includes('n/a') || val.includes('cancel')) {
         element.classList.add('bg-grey');
     }
-    // 4. Fallback: If it has data but didn't match a status keyword, make it Light Blue
+    // 4. LIGHT BLUE: Fallback for any other information
     else {
         element.classList.add('bg-filled');
     }
