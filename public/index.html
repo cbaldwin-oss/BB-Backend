@@ -702,7 +702,7 @@ async function fetchDropdownOptions() {
     
     // 1. Fetch from Supabase
     const { data, error } = await _supabase
-        .from('DropdownOptions')
+        .from('dropdownoptions')
         .select('column_key, option_text');
 
     if (error) {
