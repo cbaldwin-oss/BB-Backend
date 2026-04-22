@@ -592,10 +592,10 @@ async function fetchDropdownOptions() {
 
 fetchDropdownOptions();
 
-function generateNumericId(dayLabel, index) {
+function generateNumericId(day, index) {
     const dayMap = { "Monday": 1, "Tuesday": 2, "Wednesday": 3, "Thursday": 4, "Friday": 5, "Saturday": 6, "Sunday": 7 };
-    // This creates IDs like 101, 102 for Monday; 201, 202 for Tuesday
-    return (dayMap[dayLabel] * 100) + index;
+    // Use Number() to be safe
+    return Number((dayMap[day] * 100) + index);
 }
 
 function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
@@ -833,35 +833,40 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
     const status = document.getElementById('saveIndicator');
     if(status) status.innerText = "Syncing...";
 
-    console.log("Attempting save for Row ID:", rowNum);
+    // 1. SAFETY CHECK: Ensure rowNum is a valid integer
+    const cleanId = parseInt(rowNum);
+    if (isNaN(cleanId)) {
+        console.error("🔴 Fatal Error: rowNum is not a number!", rowNum);
+        if(status) status.innerText = "Error: Invalid ID";
+        return;
+    }
 
+    // 2. BUILD ROW DATA (Exactly as Supabase expects)
     const rowData = {
-        id: rowNum,
-        day_label: dayLabel,
-        col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
-        col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
-        col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
-        col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
-        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.value || ""),
-        col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
-        col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
+        id: cleanId,           // Must be an integer for int4
+        day_label: dayLabel,   // Must be a string
+        col1: document.getElementById(`${dayLabel}-r${cleanId}-c1`)?.value || "",
+        col2: document.getElementById(`${dayLabel}-r${cleanId}-c2`)?.value || "",
+        col3: document.getElementById(`${dayLabel}-r${cleanId}-c3`)?.value || "",
+        col4: document.getElementById(`${dayLabel}-r${cleanId}-c4`)?.value || "",
+        col5: document.getElementById(`${dayLabel}-r${cleanId}-c5`)?.value || "",
+        col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${cleanId}-c6`)?.value || ""),
+        col7: document.getElementById(`${dayLabel}-r${cleanId}-c7`)?.value || "",
+        col8: document.getElementById(`${dayLabel}-r${cleanId}-c8`)?.value || ""
     };
 
-    // Use .select() to force Supabase to talk back to us
-    const { data, error, status: responseStatus } = await _supabase
+    console.log("📤 Sending Payload:", rowData);
+
+    // 3. UPSERT
+    const { error } = await _supabase
         .from('BackEndData')
-        .upsert(rowData, { onConflict: 'id' })
-        .select();
+        .upsert(rowData, { onConflict: 'id' });
 
     if (error) {
-        console.error("🔴 Supabase Error:", error.code, error.message);
+        console.error("🔴 Supabase Error:", error.message);
         if(status) status.innerText = "Error: " + error.message;
     } else {
-        console.log("🟢 Success! Response Status:", responseStatus, data);
         if(status) status.innerText = "Saved";
-        
-        // Hide "Saved" after 2 seconds
         setTimeout(() => { if(status.innerText === "Saved") status.innerText = ""; }, 2000);
     }
 }
@@ -920,14 +925,18 @@ function collapseEverything() {
 }
 
 // UPDATE YOUR SAVE LOGIC (inside the loop)
-input.onblur = async () => {
-    const { error } = await _supabase
-        .from('cells')
-        .upsert({ 
-            id: `${currentView}-${cellId}`, // Unique ID for this view/cell combo
-            content: input.value,
-            view_id: currentView 
-        }, { onConflict: 'id' });
+input.onblur = () => {
+    // 1. Update the cell color immediately for visual feedback
+    applyCellColor(input, input.value);
+
+    // 2. Extract rowNum and dayLabel from the ID string
+    // Format is "DayLabel-r101-c5"
+    const parts = input.id.split('-r');
+    const dayLabel = parts[0];
+    const rowNumericId = parseInt(parts[1].split('-c')[0]);
+
+    // 3. Trigger the full row save
+    saveRow(rowNumericId, dayLabel);
 };
 
 // UPDATE YOUR LOAD LOGIC
