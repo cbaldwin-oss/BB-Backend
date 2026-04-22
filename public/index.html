@@ -592,32 +592,31 @@ setInterval(() => {
 async function startApp() {
     console.log("🚀 Initializing LaunchPad...");
     const loader = document.getElementById('loading-overlay');
-    const status = document.getElementById('saveIndicator');
-    
-    if(status) status.innerText = "Syncing...";
+
+    // 1. Build the days IMMEDIATELY so they don't disappear
+    createSections(); 
 
     try {
-        // 1. Wait for Google Sheets data FIRST
-        await fetchDropdownOptions();
+        // 2. Now fetch the data in the background
+        await Promise.allSettled([
+            fetchDropdownOptions(),
+            loadData()
+        ]);
         
-        // 2. Build the UI grid now that we have the options
-        createSections(); 
-        
-        // 3. Load the saved values from Supabase
-        await loadData(); 
-        
-        if(status) status.innerText = "Saved";
+        // 3. Fill the dropdowns now that data is here
+        refreshDropdowns();
+        console.log("✅ Data sync complete.");
     } catch (error) {
-        console.error("⚠️ Launch error:", error);
+        console.error("⚠️ Launch snag:", error);
     } finally {
-        // 4. THE LANDING GEAR: This hides the loading screen
+        // 4. Land the rocket
         if (loader) {
             loader.classList.add('hidden');
-            // Completely remove from view after fade-out
             setTimeout(() => { loader.style.display = 'none'; }, 500);
         }
     }
 }
+
 window.onload = startApp;
 
 function refreshDropdowns() {
@@ -795,87 +794,26 @@ for (let col = 1; col <= 8; col++) {
 const contentArea = document.getElementById('main-content-area');
 
 function createSections() {
-    const contentArea = document.getElementById('main-content-area');
-    if (!contentArea) return;
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const container = document.getElementById('sections-container');
     
-    contentArea.innerHTML = ''; 
-    const baseDate = new Date(START_DATE + "T00:00:00");
-
-    for (let w = 0; w < WEEKS_TO_SHOW; w++) {
-        // --- 1. BUILD WEEK CONTAINER ---
-        const weekDiv = document.createElement('div');
-        weekDiv.className = 'week-container';
-
-        const weekStart = new Date(baseDate);
-        weekStart.setDate(baseDate.getDate() + (w * 7));
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-
-        const weekHeader = document.createElement('div');
-        weekHeader.className = 'week-header';
-        weekHeader.innerHTML = `
-            <span>Week of ${weekStart.toLocaleDateString([], {month:'short', day:'numeric'})} - ${weekEnd.toLocaleDateString([], {month:'short', day:'numeric'})}</span>
-            <span class="week-arrow">▼</span>
-        `;
-
-        const weekContent = document.createElement('div');
-        weekContent.className = 'week-content';
-
-        // Week Toggle
-        weekHeader.onclick = () => {
-            const isHidden = weekContent.classList.toggle('hidden');
-            weekHeader.querySelector('.week-arrow').innerText = isHidden ? '▶' : '▼';
-        };
-
-        // --- 2. BUILD DAYS INSIDE WEEK ---
-        for (let d = 0; d < 7; d++) {
-            const sectionDate = new Date(weekStart);
-            sectionDate.setDate(weekStart.getDate() + d);
-            const dateId = sectionDate.toISOString().split('T')[0];
-            const dateString = sectionDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-
-            const section = document.createElement('div');
-            section.className = 'section-container';
-
-            const header = document.createElement('div');
-            header.className = 'date-header';
-            header.innerHTML = `<span>${dateString}</span> <span class="arrow">▼</span>`;
-            
-            const rowsDiv = document.createElement('div');
-            rowsDiv.className = 'rows-container';
-            rowsDiv.id = `rows-${dateId}`;
-
-            // Day Toggle (Crucial: stopPropagation prevents week-header from firing)
-            header.onclick = (e) => {
-                e.stopPropagation();
-                const isHidden = rowsDiv.classList.toggle('hidden');
-                header.querySelector('.arrow').innerText = isHidden ? '▶' : '▼';
-            };
-
-            // Reuse your existing addRows function
-            addRowsToContainer(rowsDiv, dateId, INITIAL_ROWS);
-
-            const addBtn = document.createElement('button');
-            addBtn.className = 'add-rows-btn';
-            addBtn.innerText = "+ Add 5 Rows";
-            addBtn.onclick = (e) => {
-                e.stopPropagation(); // Keep week from collapsing when adding rows
-                addRowsToContainer(rowsDiv, dateId, 5, addBtn);
-            };
-
-            rowsDiv.appendChild(addBtn);
-            section.appendChild(header);
-            section.appendChild(rowsDiv);
-            weekContent.appendChild(section);
-        }
-
-        weekDiv.appendChild(weekHeader);
-        weekDiv.appendChild(weekContent);
-        contentArea.appendChild(weekDiv);
+    if (!container) {
+        console.error("Container 'sections-container' not found!");
+        return;
     }
-    loadData(); // Final sync with Supabase
-}
 
+    container.innerHTML = ''; // Clear existing content
+
+    days.forEach(day => {
+        const section = document.createElement('section');
+        section.id = day.toLowerCase();
+        section.innerHTML = `<h2>${day}</h2><div id="${day}-rows"></div>`;
+        container.appendChild(section);
+        
+        // Add your initial rows (e.g., 5 rows per day)
+        addRowsToContainer(document.getElementById(`${day}-rows`), day, 5);
+    });
+}
 
 let allWeeksCollapsed = false; // Track the global state
 
