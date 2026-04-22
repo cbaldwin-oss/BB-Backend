@@ -622,35 +622,66 @@ async function fetchDropdownOptions() {
 
 fetchDropdownOptions();
 
-function addRowsToContainer(container, dateId, count) {
+function addRowsToContainer(container, dateId, count, anchorBtn = null) {
     for (let r = 0; r < count; r++) {
-        // Use a simple integer for the ID to satisfy int4 (e.g., Timestamp / 1000)
-        const rowNum = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000);
+        const rowId = Date.now() + Math.random(); 
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
+        rowDiv.id = `row-wrapper-${rowId}`;
+        
+        let cellIdsInRow = [];
 
         for (let col = 1; col <= 8; col++) {
-            const cellId = `${dateId}-r${rowNum}-c${col}`;
-            let element;
+    const cellId = `${dateId}-r${rowId}-c${col}`;
+    let element;
 
-            if ([1, 2, 3, 4, 6, 7].includes(col)) {
-                element = document.createElement('select');
-                // ... (populate dropdown options as before) ...
-                element.onchange = () => {
-                    applyCellColor(element, element.value);
-                    saveRow(rowNum, dateId); // Save whole row
-                };
-            } else {
-                element = document.createElement('input');
-                element.onblur = () => {
-                    applyCellColor(element, element.value);
-                    saveRow(rowNum, dateId); // Save whole row
-                };
-            }
-            element.id = cellId;
-            rowDiv.appendChild(element);
+    // Define which columns are dropdowns: 1, 2, 3, 4, 6, 7
+    const dropdownCols = [1, 2, 3, 4, 6, 7];
+
+    if (dropdownCols.includes(col)) {
+        // --- CREATE DROPDOWN ---
+        element = document.createElement('select');
+        element.id = cellId;
+        
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = "";
+        defaultOpt.text = "Select...";
+        element.appendChild(defaultOpt);
+
+        const colKey = `col${col}`;
+        const options = dropdownData[colKey] || [];
+        
+        options.forEach(optText => {
+            const opt = document.createElement('option');
+            opt.value = optText;
+            opt.text = optText;
+            element.appendChild(opt);
+        });
+
+        element.onchange = () => saveCell(cellId, element.value);
+    } else {
+        // --- CREATE TEXT INPUT (Columns 5 and 8) ---
+        element = document.createElement('input');
+        element.id = cellId;
+        element.placeholder = col === 5 ? "Status (Col 5)" : "Notes (Col 8)";
+        element.onblur = () => saveCell(cellId, element.value);
+    }
+    
+    rowDiv.appendChild(element);
+}
+
+        // Add Delete Button
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn';
+        delBtn.innerHTML = '×';
+        delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
+        rowDiv.appendChild(delBtn);
+
+        if (anchorBtn) {
+            container.insertBefore(rowDiv, anchorBtn);
+        } else {
+            container.appendChild(rowDiv);
         }
-        container.appendChild(rowDiv);
     }
 }
 
@@ -820,38 +851,29 @@ async function deleteFullRow(wrapperId, cellIds) {
     }
 }
 
-/**
- * Saves an entire row's data to Supabase
- * @param {number} rowNum - The unique integer ID for this row
- * @param {string} dayLabel - The date/day this row belongs to
- */
-async function saveRow(rowNum, dayLabel) {
-    // 1. Gather all 8 values from the current row
-    const rowData = {
-        id: rowNum,
-        day_label: dayLabel,
-        col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
-        col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
-        col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
-        col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
-        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        col6: document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.value || "",
-        col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
-        col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
-    };
+async function saveCell(cellId, content) {
+    const element = document.getElementById(cellId);
+    
+    // Apply the color formatting immediately to the UI
+    if (element) {
+        applyCellColor(element, content);
+    }
 
-    // 2. Upsert the entire row
+    // Save/Update the data in Supabase
     const { error } = await _supabase
         .from('cells')
-        .upsert(rowData, { onConflict: 'id' });
+        .upsert({ 
+            id: cellId, 
+            content: content 
+        }, { onConflict: 'id' });
 
     if (error) {
-        console.error("Error saving row:", error);
+        console.error("Error saving to Supabase:", error);
     } else {
-        console.log(`Row ${rowNum} saved successfully.`);
+        console.log("Saved successfully:", cellId);
     }
 }
-
+// Initialize
 createSections();
         // 3. Load Data from Supabase
 let currentView = 'view1'; // Default view
@@ -918,22 +940,30 @@ input.onblur = async () => {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    const { data, error } = await _supabase.from('cells').select('*');
-    if (error) return;
+    console.log("Loading data from Supabase...");
+    const { data, error } = await _supabase
+        .from('cells')
+        .select('*');
 
-    data.forEach(row => {
-        // Find the elements using the day_label and the stored id
-        for (let col = 1; col <= 8; col++) {
-            const el = document.getElementById(`${row.day_label}-r${row.id}-c${col}`);
+    if (error) {
+        console.error("Error loading data:", error);
+        return;
+    }
+
+    if (data) {
+        data.forEach(item => {
+            const el = document.getElementById(item.id);
             if (el) {
-                const content = row[`col${col}`];
-                el.value = content;
-                applyCellColor(el, content);
+                // Set the stored content
+                el.value = item.content;
+                
+                // Apply the correct color (Status color or the Light Blue 'filled' color)
+                applyCellColor(el, item.content);
             }
-        }
-    });
+        });
+        console.log("Data and colors fully restored.");
+    }
 }
-
     </script>
 </body>
 </html>
