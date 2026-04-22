@@ -567,32 +567,22 @@ async function startApp() {
     console.log("🚀 Initializing LaunchPad...");
     const loader = document.getElementById('loading-overlay');
     
-    // 1. Build the UI grid first (Instant)
-    // This ensures there is an app to look at even if data is slow
-    createSections(); 
-
     try {
-        // 2. Use 'allSettled' instead of 'all'. 
-        // This prevents one failure from stopping the whole app.
-        await Promise.allSettled([
-            fetchDropdownOptions(),
-            loadData()
-        ]);
+        // 1. Wait for Google Sheets data FIRST
+        await fetchDropdownOptions();
         
-        // 3. Populate dropdowns now that data (hopefully) arrived
-        refreshDropdowns();
-        console.log("✅ Data sync complete.");
+        // 2. Build the UI grid now that dropdownData is filled
+        createSections(); 
+        
+        // 3. Load data from Supabase
+        await loadData(); 
     } catch (error) {
-        console.error("⚠️ Launch snag:", error);
+        console.error("⚠️ Launch error:", error);
     } finally {
-        // 4. THE LANDING GEAR: This runs no matter what!
-        console.log("🛬 Landing rocket...");
+        // 4. LAND THE ROCKET: This hides the loading screen
         if (loader) {
             loader.classList.add('hidden');
-            // Completely remove from view after fade-out
-            setTimeout(() => {
-                loader.style.display = 'none';
-            }, 600);
+            setTimeout(() => { loader.style.display = 'none'; }, 500);
         }
     }
 }
@@ -678,31 +668,18 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/a/macros/criticalarccx.com/
 let dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
 
 async function fetchDropdownOptions() {
-    console.log("Fetching options from Supabase...");
-    
-    // Fetch from your specific Supabase table
-    const { data, error } = await _supabase
-        .from('DropdownOptions')
-        .select('column_key, option_text');
-
-    if (error) {
-        console.error("Error fetching dropdowns:", error);
-        return;
+    console.log("Fetching from Google...");
+    try {
+        const response = await fetch(GOOGLE_SCRIPT_URL);
+        const data = await response.json();
+        dropdownData = data; // Ensure this matches the variable on line 379
+        return data; 
+    } catch (error) {
+        console.error("Fetch error:", error);
+        // Fallback to prevent UI crash
+        dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
     }
-
-    // Initialize the global object with empty arrays
-    window.dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
-    
-    // MAP DATA: If the DB says 'col1', it goes into window.dropdownData.col1
-    data.forEach(item => {
-        if (window.dropdownData[item.column_key]) {
-            window.dropdownData[item.column_key].push(item.option_text);
-        }
-    });
-
-    console.log("Mapped Times for Col1:", window.dropdownData.col1);
 }
-
 
 // Helper to create stable, short integers for Supabase int4
 function generateNumericId(dayLabel, index) {
