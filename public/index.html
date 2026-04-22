@@ -515,19 +515,16 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    const status = document.getElementById('saveIndicator');
-    if(status) status.innerText = "Syncing...";
-
-    // 1. Fetch Google Sheets data first
-    await fetchDropdownOptions();
-    
-    // 2. Build the UI grid using that data
+    // 1. Build the UI first (This is instant)
     createSections(); 
     
-    // 3. Load values from Supabase
-    await loadData(); 
-    
-    if(status) status.innerText = "Saved";
+    // 2. Fetch dropdowns and data in the background (Parallel)
+    Promise.all([
+        fetchDropdownOptions(),
+        loadData()
+    ]).then(() => {
+        console.log("All systems synced.");
+    });
 }
 
 // Only use one event listener to start the app
@@ -924,7 +921,9 @@ input.onblur = () => {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    console.log("Loading rows from Supabase...");
+    const status = document.getElementById('saveIndicator');
+    if(status) status.innerText = "Loading...";
+
     const { data, error } = await _supabase
         .from('BackEndData')
         .select('*');
@@ -935,16 +934,23 @@ async function loadData() {
     }
 
     if (data) {
-        data.forEach(row => {
-            for (let col = 1; col <= 8; col++) {
-                const cellId = `${row.day_label}-r${row.id}-c${col}`;
-                const el = document.getElementById(cellId);
-                if (el) {
-                    const content = row[`col${col}`] || "";
-                    el.value = content;
-                    applyCellColor(el, content);
+        // We use requestAnimationFrame to ensure the UI stays responsive 
+        // while we fill the boxes
+        requestAnimationFrame(() => {
+            data.forEach(row => {
+                for (let col = 1; col <= 8; col++) {
+                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                    const el = document.getElementById(cellId);
+                    if (el) {
+                        const content = row[`col${col}`] || "";
+                        el.value = content;
+                        // Only apply color if there's actually content to save CPU
+                        if (content) applyCellColor(el, content);
+                    }
                 }
-            }
+            });
+            if(status) status.innerText = "Ready";
+            setTimeout(() => { if(status.innerText === "Ready") status.innerText = ""; }, 1000);
         });
     }
 }
