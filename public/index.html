@@ -560,25 +560,24 @@ setInterval(() => {
 async function startApp() {
     const loader = document.getElementById('loading-overlay');
     
-    // 1. Build the UI grid immediately (Instant)
+    // 1. Build the skeleton grid (Instant)
     createSections(); 
 
-    // 2. Start the data fetches
-    // We wrap them in Promise.all to know exactly when BOTH are finished
+    // 2. Fetch everything from Supabase at once
     try {
         await Promise.all([
-            fetchDropdownOptions(),
-            loadData()
+            fetchDropdownOptions(), // Gets menu lists
+            loadData()               // Gets cell contents
         ]);
+        
+        // 3. Since the rows were built before options arrived, refresh the selects
+        refreshDropdowns(); 
         
         console.log("✅ All systems go.");
     } catch (error) {
-        console.error("❌ Launch aborted:", error);
+        console.error("❌ Sync failed:", error);
     } finally {
-        // 3. Hide the rocketship with a slight delay for style
-        setTimeout(() => {
-            if (loader) loader.classList.add('hidden');
-        }, 800); 
+        if (loader) loader.classList.add('hidden');
     }
 }
 
@@ -664,10 +663,29 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/a/macros/criticalarccx.com/
 let dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
 
 async function fetchDropdownOptions() {
-    const response = await fetch(GOOGLE_SCRIPT_URL);
-    const data = await response.json();
-    window.dropdownData = data; // MUST save to global
-    return data;
+    console.log("Fetching options from Supabase...");
+    
+    // Fetch everything from the new DropdownOptions table
+    const { data, error } = await _supabase
+        .from('DropdownOptions')
+        .select('column_key, option_text');
+
+    if (error) {
+        console.error("Error fetching dropdowns:", error);
+        return;
+    }
+
+    // Transform the flat Supabase data back into your window.dropdownData format
+    const transformedData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
+    
+    data.forEach(item => {
+        if (transformedData[item.column_key]) {
+            transformedData[item.column_key].push(item.option_text);
+        }
+    });
+
+    window.dropdownData = transformedData;
+    console.log("Dropdowns synced from Supabase:", window.dropdownData);
 }
 
 fetchDropdownOptions();
