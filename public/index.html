@@ -734,46 +734,55 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
 
-        for (let col = 1; col <= 8; col++) {
-            const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-            let element;
+for (let col = 1; col <= 8; col++) {
+    const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
+    const colKey = `col${col}`; // Correctly generates col1, col2, etc.
+    let element;
 
-            if ([1, 2, 3, 4, 6, 7].includes(col)) {
-                element = document.createElement('select');
-                element.id = cellId;
-                
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = "";
-                defaultOpt.text = (col === 6) ? "+ Add Multi" : "Select...";
-                element.appendChild(defaultOpt);
+    // Logic: Columns 1, 2, 3, 4, 6, 7 are DROPDOWNS
+    if ([1, 2, 3, 4, 6, 7].includes(col)) {
+        element = document.createElement('select');
+        element.id = cellId;
+        
+        // Add default option
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = "";
+        
+        // Custom labels for the empty state
+        const labels = {
+            1: "Time...", 2: "Place...", 3: "Activity...", 
+            4: "Asset...", 6: "+ Add Partner", 7: "Result..."
+        };
+        defaultOpt.text = labels[col] || "Select...";
+        element.appendChild(defaultOpt);
 
-                const options = dropdownData[`col${col}`] || [];
-                options.forEach(text => {
-                    const opt = document.createElement('option');
-                    opt.value = text;
-                    opt.text = text;
-                    element.appendChild(opt);
-                });
+        // FILL OPTIONS: Pull from window.dropdownData[colKey]
+        const options = window.dropdownData[colKey] || [];
+        options.forEach(text => {
+            const opt = document.createElement('option');
+            opt.value = text;
+            opt.text = text;
+            element.appendChild(opt);
+        });
 
-                element.onchange = () => {
-                    applyCellColor(element, element.value);
-                    if (col === 6) {
-                        updateMultiValue(rowNumericId, dayLabel, element.value);
-                    } else {
-                        saveRow(rowNumericId, dayLabel);
-                    }
-                };
-            } else {
-                element = document.createElement('input');
-                element.id = cellId;
-                element.placeholder = "...";
-                element.onblur = () => {
-                    applyCellColor(element, element.value);
-                    saveRow(rowNumericId, dayLabel);
-                };
-            }
-            rowDiv.appendChild(element);
-        }
+        element.onchange = () => {
+            applyCellColor(element, element.value);
+            if (col === 6) updateMultiValue(rowNumericId, dayLabel, element.value);
+            else saveRow(rowNumericId, dayLabel);
+        };
+    } 
+    // Logic: Columns 5 and 8 are TEXT INPUTS
+    else {
+        element = document.createElement('input');
+        element.id = cellId;
+        element.placeholder = (col === 5) ? "Status..." : "Notes...";
+        element.onblur = () => {
+            applyCellColor(element, element.value);
+            saveRow(rowNumericId, dayLabel);
+        };
+    }
+    rowDiv.appendChild(element);
+}
         
         if (anchorBtn) {
             container.insertBefore(rowDiv, anchorBtn);
