@@ -568,7 +568,7 @@ const INITIAL_ROWS = 20;
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <script>
+<script>
         
 // This runs every 10 seconds without any flickering
 setInterval(() => {
@@ -620,28 +620,36 @@ async function startApp() {
 window.onload = startApp;
 
 function refreshDropdowns() {
-    console.log("🔄 Filling dropdown menus with fresh data...");
+    console.log("🔄 Syncing dropdown options...");
     const selects = document.querySelectorAll('select');
     
     selects.forEach(select => {
-        // Extract the column key (e.g., 'col1' from an ID like 'Monday-r101-c1')
         const parts = select.id.split('-c');
         if (parts.length < 2) return;
         
-        const colNum = parts[1];
+        const colNum = parseInt(parts[1]);
         const colKey = `col${colNum}`;
         const options = window.dropdownData[colKey] || [];
         
-        // Save what was already selected so we don't wipe user progress
-        const currentVal = select.value;
+        // Save state before clearing
+        const savedValue = select.value;
+        const savedMultiText = select.getAttribute('data-selected');
 
-        // Clear and rebuild the options
         select.innerHTML = '';
+
+        // Create Placeholder (Option 0)
         const def = document.createElement('option');
         def.value = "";
-        def.text = colNum == "6" ? "+ Add Multi" : "Select...";
+        
+        // Restore Multi-Select label if it exists
+        if (colNum === 6 && savedMultiText) {
+            def.text = `Selected: ${savedMultiText}`;
+        } else {
+            def.text = colNum === 6 ? "+ Add Multi" : "Select...";
+        }
         select.appendChild(def);
 
+        // Fill Options
         options.forEach(text => {
             const opt = document.createElement('option');
             opt.value = text;
@@ -649,8 +657,8 @@ function refreshDropdowns() {
             select.appendChild(opt);
         });
 
-        // Restore the selection
-        select.value = currentVal;
+        // Restore selection
+        select.value = savedValue;
     });
 }
 
@@ -910,40 +918,45 @@ function toggleAllSections() {
 }
 
 async function updateMultiValue(rowNum, dayLabel, newValue) {
-    if (!newValue) return; // Ignore if user clicks the default "Add Multi"
+    if (!newValue) return; // Ignore if user clicks the placeholder
 
     const cellId = `${dayLabel}-r${rowNum}-c6`;
     const element = document.getElementById(cellId);
+    const placeholderOption = element.options[0]; // The "+ Add Multi" option
     
-    // 1. Get current content from the "title" or a custom attribute 
-    // (Since <select> doesn't show multiple strings well, we store it in a hidden way or just look at the DB)
+    // 1. Get current items (using the attribute we set)
     let currentContent = element.getAttribute('data-selected') || "";
     let items = currentContent ? currentContent.split(', ') : [];
 
-    // 2. Toggle the value
+    // 2. Toggle logic
     const index = items.indexOf(newValue);
     if (index === -1) {
-        items.push(newValue); // Add it
+        items.push(newValue); 
     } else {
-        items.splice(index, 1); // Remove it if already there
+        items.splice(index, 1); 
     }
 
     const updatedString = items.join(', ');
 
-    // 3. Update the UI
+    // 3. UPDATE THE UI
     element.setAttribute('data-selected', updatedString);
-    element.title = "Selected: " + updatedString; // Show on hover
     
-    // We visually change the background to show "Multiple" are selected
     if (items.length > 0) {
-        element.style.border = "2px solid #007bff"; 
+        // Change the placeholder text to show selection
+        placeholderOption.text = `Selected (${items.length}): ${updatedString}`;
+        element.style.backgroundColor = "#e7f3ff"; // Light blue to show it's active
+        element.style.fontWeight = "bold";
+    } else {
+        // Revert to original state if empty
+        placeholderOption.text = "+ Add Multi";
+        element.style.backglroundColor = "";
+        element.style.fontWeight = "";
     }
 
-    // 4. Save the full string to Supabase
-    // We pass the string as an override to saveRow
+    // 4. Save to Supabase
     await saveRow(rowNum, dayLabel, updatedString);
 
-    // 5. Reset the dropdown visual so it says "+ Add Multi" again
+    // 5. Reset selection so the "Selected..." text is what is visible
     element.value = ""; 
 }
 
@@ -1053,37 +1066,47 @@ input.onblur = () => {
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
     const status = document.getElementById('saveIndicator');
-    if(status) status.innerText = "Loading...";
+    if(status) status.innerText = "Loading Data...";
 
     const { data, error } = await _supabase
         .from('BackEndData')
         .select('*');
 
     if (error) {
-        console.error("Load error:", error);
+        console.error("Load error:", error.message);
         return;
     }
 
     if (data) {
-        // We use requestAnimationFrame to ensure the UI stays responsive 
-        // while we fill the boxes
-        requestAnimationFrame(() => {
-            data.forEach(row => {
-                for (let col = 1; col <= 8; col++) {
-                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
-                    const el = document.getElementById(cellId);
-                    if (el) {
-                        const content = row[`col${col}`] || "";
-                        el.value = content;
-                        // Only apply color if there's actually content to save CPU
-                        if (content) applyCellColor(el, content);
+        data.forEach(row => {
+            for (let col = 1; col <= 8; col++) {
+                const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                const el = document.getElementById(cellId);
+                
+                if (el) {
+                    const content = row[`col${col}`] || "";
+                    
+                    // Standard value assignment
+                    el.value = content;
+
+                    // SPECIAL LOGIC FOR COLUMN 6 (MULTI-SELECT)
+                    if (col === 6 && content) {
+                        el.setAttribute('data-selected', content);
+                        // Update the "+ Add Multi" text to show what's saved
+                        if (el.options && el.options[0]) {
+                            el.options[0].text = `Selected: ${content}`;
+                            el.style.backgroundColor = "#e7f3ff";
+                            el.style.fontWeight = "bold";
+                        }
                     }
+
+                    if (content) applyCellColor(el, content);
                 }
-            });
-            if(status) status.innerText = "Ready";
-            setTimeout(() => { if(status.innerText === "Ready") status.innerText = ""; }, 1000);
+            }
         });
     }
+    if(status) status.innerText = "Ready";
+    setTimeout(() => { if(status.innerText === "Ready") status.innerText = ""; }, 2000);
 }
 
     </script>
