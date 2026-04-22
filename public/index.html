@@ -663,8 +663,21 @@ function refreshDropdowns() {
     });
 }
 
-function applyCellColor(element, text) {
+function applyCellColor(element, value) {
     if (!element) return;
+
+    // 1. LOCK-IN: If this is a Multi-Value cell with data, don't let it look "empty"
+    const isMulti = element.getAttribute('data-selected');
+    if (isMulti && isMulti !== "") {
+        element.style.backgroundColor = "#e7f3ff"; // Keep it blue
+        if (element.options && element.options[0]) {
+            element.options[0].text = `Selected: ${isMulti}`;
+        }
+        return; // Exit early so standard color logic doesn't overwrite this
+    }
+
+    // ... existing color logic for other cells ...
+}
 
     const val = (text || "").toLowerCase().trim();
     
@@ -919,28 +932,25 @@ function toggleAllSections() {
 }
 
 async function updateMultiValue(rowNum, dayLabel, newValue) {
-    if (!newValue || newValue === "") return;
+    // 1. IGNORE the reset call
+    if (newValue === "" || !newValue) return; 
 
-    const cellId = `${dayLabel}-r${rowNum}-c6`;
-    const element = document.getElementById(cellId);
+    const element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
     
     let currentContent = element.getAttribute('data-selected') || "";
     let items = currentContent ? currentContent.split(', ').filter(x => x) : [];
 
     // Toggle logic
     const index = items.indexOf(newValue);
-    if (index === -1) {
-        items.push(newValue); 
-    } else {
-        items.splice(index, 1); 
-    }
+    if (index === -1) items.push(newValue);
+    else items.splice(index, 1);
 
     const updatedString = items.join(', ');
 
-    // 1. Update UI Attribute immediately
+    // 2. SET ATTRIBUTE FIRST (This is the anchor)
     element.setAttribute('data-selected', updatedString);
     
-    // 2. Update the visual display
+    // 3. Update the visual placeholder
     if (items.length > 0) {
         element.options[0].text = `Selected (${items.length}): ${updatedString}`;
         element.style.backgroundColor = "#e7f3ff";
@@ -949,10 +959,10 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
         element.style.backgroundColor = "";
     }
 
-    // 3. Reset the dropdown visual so it doesn't trigger another change event
+    // 4. RESET THE VALUE (This triggers a second onchange, which Step 1 ignores)
     element.value = ""; 
 
-    // 4. Force a single save call
+    // 5. FINALLY, save to cloud
     await saveRow(rowNum, dayLabel, updatedString);
 }
 
@@ -974,16 +984,24 @@ async function deleteFullRow(wrapperId, cellIds) {
 async function saveRow(rowNum, dayLabel, col6Override = null) {
     const syncKey = `${dayLabel}-${rowNum}`;
     
-    // 1. EXIT if this row is already syncing (The Guard)
+    // 1. SYNC GUARD: Prevents the "Infinite Loop" and race conditions
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
 
     const status = document.getElementById('saveIndicator');
-    if(status) status.innerText = "Syncing...";
+    if (status) status.innerText = "Syncing...";
 
+    // 2. DATA CAPTURE
     const col6Element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
-    // CRITICAL: Always prioritize the override or the attribute
+    // Look at data-selected attribute first to ensure we don't save an empty string
     const storedMultiValue = col6Element ? col6Element.getAttribute('data-selected') : "";
+
+    // 3. VISUAL LOCK: Keep the cell blue and labeled during the sync
+    if (col6Element && (col6Override || storedMultiValue)) {
+        const valToDisplay = col6Override || storedMultiValue;
+        col6Element.options[0].text = `Selected: ${valToDisplay}`;
+        col6Element.style.backgroundColor = "#e7f3ff";
+    }
 
     const rowData = {
         id: rowNum,
@@ -993,28 +1011,32 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
         col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        col6: col6Override !== null ? col6Override : storedMultiValue,
+        // PRIORITY: Override provided > Attribute stored > Visual value
+        col6: col6Override !== null ? col6Override : (storedMultiValue || col6Element?.value || ""),
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
     };
 
     try {
+        // 4. SUPABASE UPSERT
         const { error } = await _supabase
             .from('BackEndData')
             .upsert(rowData, { onConflict: 'id', ignoreDuplicates: false });
 
         if (error) throw error;
         
-        if(status) status.innerText = "Saved";
+        if (status) status.innerText = "Saved";
     } catch (err) {
         console.error("🔴 Sync Error:", err.message);
-        if(status) status.innerText = "Error!";
+        if (status) status.innerText = "Error!";
     } finally {
-        // 2. RELEASE the guard after a small delay
+        // 5. RELEASE THE GUARD: Small delay to let the network breathe
         setTimeout(() => {
             activeSyncs.delete(syncKey);
-            if(status && status.innerText === "Saved") status.innerText = "";
-        }, 1000);
+            if (status && status.innerText === "Saved") {
+                status.innerText = "";
+            }
+        }, 1200);
     }
 }
 
