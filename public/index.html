@@ -666,52 +666,52 @@ function refreshDropdowns() {
 function applyCellColor(element, value) {
     if (!element) return;
 
-    // 1. LOCK-IN: If this is a Multi-Value cell with data, don't let it look "empty"
-    const isMulti = element.getAttribute('data-selected');
-    if (isMulti && isMulti !== "") {
-        element.style.backgroundColor = "#e7f3ff"; // Keep it blue
+    // 1. MULTI-SELECT LOCK-IN
+    // Check if this is Column 6 or has multi-data stored
+    const storedMulti = element.getAttribute('data-selected');
+    
+    if (storedMulti && storedMulti !== "") {
+        // Force the "Active" look regardless of the dropdown's temporary value
+        element.style.backgroundColor = "#e7f3ff"; // Soft blue highlight
+        element.style.color = "#0056b3";           // Darker blue text
+        element.style.fontWeight = "bold";
+        
+        // Ensure the placeholder reflects the cloud data
         if (element.options && element.options[0]) {
-            element.options[0].text = `Selected: ${isMulti}`;
+            element.options[0].text = `Selected: ${storedMulti}`;
         }
-        return; // Exit early so standard color logic doesn't overwrite this
+        return; // EXIT: Do not let standard color logic overwrite a Multi-Select
     }
 
-    // ... existing color logic for other cells ...
-}
+    // 2. STANDARD COLOR LOGIC (For Columns 1, 2, 3, 4, 7 and Inputs)
+    // Reset defaults first
+    element.style.backgroundColor = "";
+    element.style.color = "";
+    element.style.fontWeight = "";
 
-    const val = (text || "").toLowerCase().trim();
-    
-    // 1. Reset all classes
-    element.classList.remove('bg-green', 'bg-yellow', 'bg-blue', 'bg-red', 'bg-grey', 'bg-filled');
-
-    // 2. If empty, stop here
-    if (val === "") return;
-
-    // 3. Status Keyword Checks (Now including 'fail')
-    
-    // RED: Urgent / Negative
-    if (val.includes('fail') || val.includes('block') || val.includes('stop') || val.includes('urgent')) {
-        element.classList.add('bg-red');
-    } 
-    // GREEN: Success
-    else if (val.includes('level 4') || val.includes('complete') || val.includes('yes') || val.includes('pass')) {
-        element.classList.add('bg-green');
-    } 
-    // YELLOW: Warning
-    else if (val.includes('level 2') || val.includes('hold') || val.includes('pending')) {
-        element.classList.add('bg-yellow');
-    } 
-    // BLUE: Active
-    else if (val.includes('progress') || val.includes('level 3') || val.includes('run')) {
-        element.classList.add('bg-blue');
-    } 
-    // GREY: Neutral
-    else if (val.includes('n/a') || val.includes('cancel')) {
-        element.classList.add('bg-grey');
+    if (!value || value === "") {
+        return; // Leave as default if empty
     }
-    // 4. LIGHT BLUE: Fallback for any other information
+
+    // Example conditional coloring (Adjust these keywords to match your data)
+    const val = value.toLowerCase();
+
+    if (val.includes("high") || val.includes("pass") || val.includes("active")) {
+        element.style.backgroundColor = "#d4edda"; // Green
+        element.style.color = "#155724";
+    } 
+    else if (val.includes("med") || val.includes("pending") || val.includes("hold")) {
+        element.style.backgroundColor = "#fff3cd"; // Yellow
+        element.style.color = "#856404";
+    } 
+    else if (val.includes("low") || val.includes("fail") || val.includes("urgent")) {
+        element.style.backgroundColor = "#f8d7da"; // Red
+        element.style.color = "#721c24";
+    } 
     else {
-        element.classList.add('bg-filled');
+        // Default "Filled" state for any other text
+        element.style.backgroundColor = "#ffffff";
+        element.style.color = "#333333";
     }
 }
 
