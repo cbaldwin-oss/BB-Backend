@@ -1106,14 +1106,12 @@ async function loadData() {
 
                     // SPECIAL LOGIC FOR COLUMN 6 (MULTI-SELECT)
                     if (col === 6 && content) {
-                        el.setAttribute('data-selected', content);
-                        // Update the "+ Add Multi" text to show what's saved
-                        if (el.options && el.options[0]) {
-                            el.options[0].text = `Selected: ${content}`;
-                            el.style.backgroundColor = "#e7f3ff";
-                            el.style.fontWeight = "bold";
-                        }
-                    }
+    el.setAttribute('data-selected', content); // This is the most important line
+    if (el.options && el.options[0]) {
+        el.options[0].text = `Selected: ${content}`;
+        el.style.backgroundColor = "#e7f3ff";
+    }
+}
 
                     if (content) applyCellColor(el, content);
                 }
