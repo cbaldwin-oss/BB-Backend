@@ -833,6 +833,8 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
     const status = document.getElementById('saveIndicator');
     if(status) status.innerText = "Syncing...";
 
+    console.log("Attempting save for Row ID:", rowNum);
+
     const rowData = {
         id: rowNum,
         day_label: dayLabel,
@@ -841,20 +843,26 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
         col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        // If we have an override (from multi-select), use it. Otherwise, get the value from the box.
         col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.value || ""),
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
     };
 
-    const { error } = await _supabase
+    // Use .select() to force Supabase to talk back to us
+    const { data, error, status: responseStatus } = await _supabase
         .from('BackEndData')
-        .upsert(rowData, { onConflict: 'id' });
+        .upsert(rowData, { onConflict: 'id' })
+        .select();
 
     if (error) {
-        console.error("Save Error:", error.message);
+        console.error("🔴 Supabase Error:", error.code, error.message);
+        if(status) status.innerText = "Error: " + error.message;
     } else {
+        console.log("🟢 Success! Response Status:", responseStatus, data);
         if(status) status.innerText = "Saved";
+        
+        // Hide "Saved" after 2 seconds
+        setTimeout(() => { if(status.innerText === "Saved") status.innerText = ""; }, 2000);
     }
 }
 
