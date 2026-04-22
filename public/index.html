@@ -768,14 +768,16 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
                     element.appendChild(opt);
                 });
 
-                element.onchange = () => {
-                    applyCellColor(element, element.value);
-                    if (col === 6) {
-                        updateMultiValue(rowNumericId, dayLabel, element.value);
-                    } else {
-                        saveRow(rowNumericId, dayLabel);
-                    }
-                };
+element.onchange = () => {
+    applyCellColor(element, element.value);
+    
+    // Check if this is the "Trade Partners" (Multi) column
+    if (col === 6) {
+        updateMultiValue(rowNumericId, dayLabel, element.value);
+    } else {
+        saveRow(rowNumericId, dayLabel);
+    }
+};
             } else {
                 element = document.createElement('input');
                 element.id = cellId;
@@ -908,33 +910,40 @@ function toggleAllSections() {
 }
 
 async function updateMultiValue(rowNum, dayLabel, newValue) {
+    if (!newValue) return; // Ignore if user clicks the default "Add Multi"
+
     const cellId = `${dayLabel}-r${rowNum}-c6`;
     const element = document.getElementById(cellId);
-    if (!element) return;
-
-    // Fetch existing data for this row
-    const { data } = await _supabase
-        .from('BackEndData')
-        .select('col6')
-        .eq('id', rowNum)
-        .single();
-
-    let currentContent = (data && data.col6) ? data.col6 : "";
+    
+    // 1. Get current content from the "title" or a custom attribute 
+    // (Since <select> doesn't show multiple strings well, we store it in a hidden way or just look at the DB)
+    let currentContent = element.getAttribute('data-selected') || "";
     let items = currentContent ? currentContent.split(', ') : [];
 
+    // 2. Toggle the value
     const index = items.indexOf(newValue);
     if (index === -1) {
-        if (newValue !== "") items.push(newValue);
+        items.push(newValue); // Add it
     } else {
-        items.splice(index, 1);
+        items.splice(index, 1); // Remove it if already there
     }
 
     const updatedString = items.join(', ');
-    applyCellColor(element, updatedString);
-    element.title = "Selected: " + updatedString;
+
+    // 3. Update the UI
+    element.setAttribute('data-selected', updatedString);
+    element.title = "Selected: " + updatedString; // Show on hover
     
-    // Pass the number and the label to saveRow
+    // We visually change the background to show "Multiple" are selected
+    if (items.length > 0) {
+        element.style.border = "2px solid #007bff"; 
+    }
+
+    // 4. Save the full string to Supabase
+    // We pass the string as an override to saveRow
     await saveRow(rowNum, dayLabel, updatedString);
+
+    // 5. Reset the dropdown visual so it says "+ Add Multi" again
     element.value = ""; 
 }
 
@@ -954,42 +963,26 @@ async function deleteFullRow(wrapperId, cellIds) {
 }
 
 async function saveRow(rowNum, dayLabel, col6Override = null) {
-    const status = document.getElementById('saveIndicator');
-    if(status) status.innerText = "Syncing...";
-
-    // Convert to a clean integer
-    const cleanId = parseInt(rowNum);
-    if (isNaN(cleanId)) {
-        console.error("🔴 Fatal Error: rowNum is not a number!", rowNum);
-        if(status) status.innerText = "Error: Invalid ID";
-        return;
-    }
-
     const rowData = {
-        id: cleanId,
+        id: rowNum,
         day_label: dayLabel,
-        col1: document.getElementById(`${dayLabel}-r${cleanId}-c1`)?.value || "",
-        col2: document.getElementById(`${dayLabel}-r${cleanId}-c2`)?.value || "",
-        col3: document.getElementById(`${dayLabel}-r${cleanId}-c3`)?.value || "",
-        col4: document.getElementById(`${dayLabel}-r${cleanId}-c4`)?.value || "",
-        col5: document.getElementById(`${dayLabel}-r${cleanId}-c5`)?.value || "",
-        col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${cleanId}-c6`)?.value || ""),
-        col7: document.getElementById(`${dayLabel}-r${cleanId}-c7`)?.value || "",
-        col8: document.getElementById(`${dayLabel}-r${cleanId}-c8`)?.value || ""
+        col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
+        col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
+        col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
+        col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
+        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
+        // Use the override if it exists, otherwise get the value
+        col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.value || ""),
+        col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
+        col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
     };
 
     const { error } = await _supabase
         .from('BackEndData')
         .upsert(rowData, { onConflict: 'id' });
-
-    if (error) {
-        if(status) status.innerText = "Error: " + error.message;
-    } else {
-        if(status) status.innerText = "Saved";
-        setTimeout(() => { if(status.innerText === "Saved") status.innerText = ""; }, 2000);
-    }
+    
+    if (error) console.error("Sync Error:", error.message);
 }
-
 
 let currentView = 'view1'; // Default view
 
