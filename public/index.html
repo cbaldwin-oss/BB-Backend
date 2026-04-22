@@ -564,29 +564,35 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
+    console.log("🚀 Initializing LaunchPad...");
     const loader = document.getElementById('loading-overlay');
     
     // 1. Build the UI grid first (Instant)
+    // This ensures there is an app to look at even if data is slow
     createSections(); 
 
     try {
-        // 2. Fetch both sets of data
-        // We use allSettled so the rocket lands even if one fails
+        // 2. Use 'allSettled' instead of 'all'. 
+        // This prevents one failure from stopping the whole app.
         await Promise.allSettled([
             fetchDropdownOptions(),
             loadData()
         ]);
         
-        // 3. REFILL THE DROPDOWNS NOW THAT DATA IS HERE
+        // 3. Populate dropdowns now that data (hopefully) arrived
         refreshDropdowns();
-        
-        console.log("✅ Launch Successful.");
+        console.log("✅ Data sync complete.");
     } catch (error) {
-        console.error("⚠️ Snag during launch:", error);
+        console.error("⚠️ Launch snag:", error);
     } finally {
+        // 4. THE LANDING GEAR: This runs no matter what!
+        console.log("🛬 Landing rocket...");
         if (loader) {
             loader.classList.add('hidden');
-            setTimeout(() => loader.style.display = 'none', 500);
+            // Completely remove from view after fade-out
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 600);
         }
     }
 }
