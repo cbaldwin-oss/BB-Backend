@@ -949,7 +949,7 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
     } else {
         // Revert to original state if empty
         placeholderOption.text = "+ Add Multi";
-        element.style.backglroundColor = "";
+        element.style.backgroundColor = "";
         element.style.fontWeight = "";
     }
 
@@ -976,6 +976,13 @@ async function deleteFullRow(wrapperId, cellIds) {
 }
 
 async function saveRow(rowNum, dayLabel, col6Override = null) {
+    const status = document.getElementById('saveIndicator');
+    if(status) status.innerText = "Syncing...";
+
+    // Grab the stored multi-select string from the attribute
+    const col6Element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
+    const storedMultiValue = col6Element ? col6Element.getAttribute('data-selected') : "";
+
     const rowData = {
         id: rowNum,
         day_label: dayLabel,
@@ -984,17 +991,25 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
         col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        // Use the override if it exists, otherwise get the value
-        col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.value || ""),
+        // PRIORITY: Override > Attribute > Visual Value
+        col6: col6Override !== null ? col6Override : (storedMultiValue || col6Element?.value || ""),
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
     };
 
+    // Use defaultToNull: false to prevent Supabase from wiping existing data 
+    // if a field happens to be missing in the payload
     const { error } = await _supabase
         .from('BackEndData')
-        .upsert(rowData, { onConflict: 'id' });
-    
-    if (error) console.error("Sync Error:", error.message);
+        .upsert(rowData, { onConflict: 'id', defaultToNull: false });
+
+    if (error) {
+        console.error("🔴 Sync Error:", error.message);
+        if(status) status.innerText = "Error!";
+    } else {
+        if(status) status.innerText = "Saved";
+        setTimeout(() => { if(status.innerText === "Saved") status.innerText = ""; }, 2000);
+    }
 }
 
 let currentView = 'view1'; // Default view
