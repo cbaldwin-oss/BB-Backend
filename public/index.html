@@ -559,6 +559,7 @@ position: sticky;
 </div>
 
 <script>
+const activeSyncs = new Set(); // Track which rows are currently uploading
 const START_DATE = "2026-04-20"; // A Monday
 const WEEKS_TO_SHOW = 2; 
 const INITIAL_ROWS = 20;
@@ -918,17 +919,15 @@ function toggleAllSections() {
 }
 
 async function updateMultiValue(rowNum, dayLabel, newValue) {
-    if (!newValue) return; // Ignore if user clicks the placeholder
+    if (!newValue || newValue === "") return;
 
     const cellId = `${dayLabel}-r${rowNum}-c6`;
     const element = document.getElementById(cellId);
-    const placeholderOption = element.options[0]; // The "+ Add Multi" option
     
-    // 1. Get current items (using the attribute we set)
     let currentContent = element.getAttribute('data-selected') || "";
-    let items = currentContent ? currentContent.split(', ') : [];
+    let items = currentContent ? currentContent.split(', ').filter(x => x) : [];
 
-    // 2. Toggle logic
+    // Toggle logic
     const index = items.indexOf(newValue);
     if (index === -1) {
         items.push(newValue); 
@@ -938,26 +937,23 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
 
     const updatedString = items.join(', ');
 
-    // 3. UPDATE THE UI
+    // 1. Update UI Attribute immediately
     element.setAttribute('data-selected', updatedString);
     
+    // 2. Update the visual display
     if (items.length > 0) {
-        // Change the placeholder text to show selection
-        placeholderOption.text = `Selected (${items.length}): ${updatedString}`;
-        element.style.backgroundColor = "#e7f3ff"; // Light blue to show it's active
-        element.style.fontWeight = "bold";
+        element.options[0].text = `Selected (${items.length}): ${updatedString}`;
+        element.style.backgroundColor = "#e7f3ff";
     } else {
-        // Revert to original state if empty
-        placeholderOption.text = "+ Add Multi";
+        element.options[0].text = "+ Add Multi";
         element.style.backgroundColor = "";
-        element.style.fontWeight = "";
     }
 
-    // 4. Save to Supabase
-    await saveRow(rowNum, dayLabel, updatedString);
-
-    // 5. Reset selection so the "Selected..." text is what is visible
+    // 3. Reset the dropdown visual so it doesn't trigger another change event
     element.value = ""; 
+
+    // 4. Force a single save call
+    await saveRow(rowNum, dayLabel, updatedString);
 }
 
 async function deleteFullRow(wrapperId, cellIds) {
@@ -976,11 +972,17 @@ async function deleteFullRow(wrapperId, cellIds) {
 }
 
 async function saveRow(rowNum, dayLabel, col6Override = null) {
+    const syncKey = `${dayLabel}-${rowNum}`;
+    
+    // 1. EXIT if this row is already syncing (The Guard)
+    if (activeSyncs.has(syncKey)) return;
+    activeSyncs.add(syncKey);
+
     const status = document.getElementById('saveIndicator');
     if(status) status.innerText = "Syncing...";
 
-    // Grab the stored multi-select string from the attribute
     const col6Element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
+    // CRITICAL: Always prioritize the override or the attribute
     const storedMultiValue = col6Element ? col6Element.getAttribute('data-selected') : "";
 
     const rowData = {
@@ -991,24 +993,28 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
         col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        // PRIORITY: Override > Attribute > Visual Value
-        col6: col6Override !== null ? col6Override : (storedMultiValue || col6Element?.value || ""),
+        col6: col6Override !== null ? col6Override : storedMultiValue,
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
     };
 
-    // Use defaultToNull: false to prevent Supabase from wiping existing data 
-    // if a field happens to be missing in the payload
-    const { error } = await _supabase
-        .from('BackEndData')
-        .upsert(rowData, { onConflict: 'id', defaultToNull: false });
+    try {
+        const { error } = await _supabase
+            .from('BackEndData')
+            .upsert(rowData, { onConflict: 'id', ignoreDuplicates: false });
 
-    if (error) {
-        console.error("🔴 Sync Error:", error.message);
-        if(status) status.innerText = "Error!";
-    } else {
+        if (error) throw error;
+        
         if(status) status.innerText = "Saved";
-        setTimeout(() => { if(status.innerText === "Saved") status.innerText = ""; }, 2000);
+    } catch (err) {
+        console.error("🔴 Sync Error:", err.message);
+        if(status) status.innerText = "Error!";
+    } finally {
+        // 2. RELEASE the guard after a small delay
+        setTimeout(() => {
+            activeSyncs.delete(syncKey);
+            if(status && status.innerText === "Saved") status.innerText = "";
+        }, 1000);
     }
 }
 
