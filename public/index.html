@@ -592,24 +592,24 @@ setInterval(() => {
 async function startApp() {
     const loader = document.getElementById('loading-overlay');
     
-    // 1. Build the days and empty rows immediately
+    // Build the grid structure first (Boxes will be empty)
     createSections(); 
 
     try {
-        // 2. Fetch everything (Dropdowns from Supabase/Google + Saved User Data)
+        // Fetch the data
         await Promise.allSettled([
             fetchDropdownOptions(),
             loadData()
         ]);
         
-        // 3. CRITICAL: Now that fetchDropdownOptions is done, refill the boxes!
+        // NOW REFILL THE BOXES
         refreshDropdowns();
         
-        console.log("✅ Launch Successful.");
-    } catch (error) {
-        console.error("⚠️ Error during launch:", error);
+        console.log("🚀 Launch Successful.");
+    } catch (e) {
+        console.error("Launch error:", e);
     } finally {
-        // 4. Hide the loading rocket
+        // Land the rocket
         if (loader) {
             loader.classList.add('hidden');
             setTimeout(() => loader.style.display = 'none', 500);
@@ -698,20 +698,34 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/a/macros/criticalarccx.com/
 let dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
 
 async function fetchDropdownOptions() {
+    console.log("🛠️ Step 1: Fetching options from Supabase...");
+    
+    // 1. Fetch from Supabase
     const { data, error } = await _supabase
         .from('DropdownOptions')
         .select('column_key, option_text');
 
-    if (error) return;
+    if (error) {
+        console.error("❌ Supabase Fetch Error:", error.message);
+        return;
+    }
 
-    // Reset global object to ensure it's clean
+    if (!data || data.length === 0) {
+        console.warn("⚠️ Database connected, but table 'DropdownOptions' is empty or RLS is blocking rows.");
+    }
+
+    // 2. Clear and fill the global object
     window.dropdownData = { col1:[], col2:[], col3:[], col4:[], col6:[], col7:[] };
     
     data.forEach(item => {
         if (window.dropdownData[item.column_key]) {
             window.dropdownData[item.column_key].push(item.option_text);
+        } else {
+            console.warn(`❓ Unknown column_key found in DB: ${item.column_key}`);
         }
     });
+
+    console.log("✅ Dropdown data fully loaded:", window.dropdownData);
 }
 
 // Helper to create stable, short integers for Supabase int4
