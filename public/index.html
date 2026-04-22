@@ -515,15 +515,58 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    // 1. Build the UI first (This is instant)
-    createSections(); 
+    console.log("🚀 Starting App...");
     
-    // 2. Fetch dropdowns and data in the background (Parallel)
-    Promise.all([
-        fetchDropdownOptions(),
-        loadData()
-    ]).then(() => {
-        console.log("All systems synced.");
+    // 1. Build the UI grid immediately (Instant)
+    createSections(); 
+
+    // 2. Load Google Options and Supabase Data in parallel
+    // We don't use Promise.all here so that if one is slow, 
+    // the other can still finish and update the UI.
+    
+    fetchDropdownOptions().then(() => {
+        console.log("✅ Google Options Loaded.");
+        // After options load, we refresh the dropdowns in the UI
+        refreshDropdowns(); 
+    });
+
+    loadData().then(() => {
+        console.log("✅ Supabase Data Loaded.");
+    });
+}
+
+function refreshDropdowns() {
+    // Look for all select elements in the app
+    const selects = document.querySelectorAll('select');
+    
+    selects.forEach(select => {
+        // Determine which column this is from its ID (e.g., "Monday-r101-c3")
+        const parts = select.id.split('-c');
+        if (parts.length < 2) return;
+        
+        const colNum = parts[1];
+        const colKey = `col${colNum}`;
+        const options = window.dropdownData[colKey] || [];
+        
+        // Save the current value so it doesn't get wiped
+        const currentVal = select.value;
+        
+        // Clear and refill
+        select.innerHTML = '';
+        const def = document.createElement('option');
+        def.value = "";
+        def.text = colNum == "6" ? "+ Add Multi" : "Select...";
+        select.appendChild(def);
+
+        options.forEach(text => {
+            const opt = document.createElement('option');
+            opt.value = text;
+            opt.text = text;
+            select.appendChild(opt);
+        });
+
+        // Put the value back
+        select.value = currentVal;
     });
 }
 
@@ -574,17 +617,10 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/a/macros/criticalarccx.com/
 let dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
 
 async function fetchDropdownOptions() {
-    console.log("Fetching from Google...");
-    try {
-        const response = await fetch(GOOGLE_SCRIPT_URL);
-        const data = await response.json();
-        dropdownData = data;
-        console.log("Data received:", dropdownData);
-        return data; // Return the data to resolve the promise
-    } catch (error) {
-        console.error("Fetch error:", error);
-        return null;
-    }
+    const response = await fetch(GOOGLE_SCRIPT_URL);
+    const data = await response.json();
+    window.dropdownData = data; // MUST save to global
+    return data;
 }
 
 fetchDropdownOptions();
