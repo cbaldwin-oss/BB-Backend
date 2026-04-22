@@ -424,6 +424,42 @@ position: sticky;
     border-right: 1px solid #f0f0f0; /* Optional: vertical divider */
     border-radius: 0;
 }
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #ffffff; /* Or match your theme */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000; /* Ensures it sits on top of everything */
+    transition: opacity 0.5s ease; /* Smooth fade-out */
+}
+
+.loader-content {
+    text-align: center;
+    font-family: sans-serif;
+}
+
+.rocket {
+    font-size: 80px;
+    display: inline-block;
+    animation: launch 1.5s infinite ease-in-out;
+}
+
+@keyframes launch {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+    100% { transform: translateY(0); }
+}
+
+/* Class to hide the loader */
+.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
 </style>
 </head>
 <body>
@@ -483,6 +519,13 @@ position: sticky;
 <div id="main-content-area">
     </div>
 
+    <div id="loading-overlay">
+    <div class="loader-content">
+        <span class="rocket">🚀</span>
+        <p>Igniting LaunchPad...</p>
+    </div>
+</div>
+
 <script>
 const START_DATE = "2026-04-20"; // A Monday
 const WEEKS_TO_SHOW = 2; 
@@ -515,24 +558,28 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    console.log("🚀 Starting App...");
+    const loader = document.getElementById('loading-overlay');
     
     // 1. Build the UI grid immediately (Instant)
     createSections(); 
 
-    // 2. Load Google Options and Supabase Data in parallel
-    // We don't use Promise.all here so that if one is slow, 
-    // the other can still finish and update the UI.
-    
-    fetchDropdownOptions().then(() => {
-        console.log("✅ Google Options Loaded.");
-        // After options load, we refresh the dropdowns in the UI
-        refreshDropdowns(); 
-    });
-
-    loadData().then(() => {
-        console.log("✅ Supabase Data Loaded.");
-    });
+    // 2. Start the data fetches
+    // We wrap them in Promise.all to know exactly when BOTH are finished
+    try {
+        await Promise.all([
+            fetchDropdownOptions(),
+            loadData()
+        ]);
+        
+        console.log("✅ All systems go.");
+    } catch (error) {
+        console.error("❌ Launch aborted:", error);
+    } finally {
+        // 3. Hide the rocketship with a slight delay for style
+        setTimeout(() => {
+            if (loader) loader.classList.add('hidden');
+        }, 800); 
+    }
 }
 
 function refreshDropdowns() {
