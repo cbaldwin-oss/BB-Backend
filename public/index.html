@@ -590,40 +590,34 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
+    console.log("🚀 Initializing LaunchPad...");
     const loader = document.getElementById('loading-overlay');
+    const status = document.getElementById('saveIndicator');
     
-    // 1. Build the UI grid first (Instant)
-    createSections(); 
+    if(status) status.innerText = "Syncing...";
 
     try {
-        // 2. Fetch both sets of data
-        // We use allSettled so the rocket lands even if one fails
-        await Promise.allSettled([
-            fetchDropdownOptions(),
-            loadData()
-        ]);
+        // 1. Wait for Google Sheets data FIRST
+        await fetchDropdownOptions();
         
-        // 3. REFILL THE DROPDOWNS NOW THAT DATA IS HERE
-        refreshDropdowns();
+        // 2. Build the UI grid now that we have the options
+        createSections(); 
         
-        console.log("✅ Launch Successful.");
+        // 3. Load the saved values from Supabase
+        await loadData(); 
+        
+        if(status) status.innerText = "Saved";
     } catch (error) {
-        console.error("⚠️ Snag during launch:", error);
+        console.error("⚠️ Launch error:", error);
     } finally {
+        // 4. THE LANDING GEAR: This hides the loading screen
         if (loader) {
             loader.classList.add('hidden');
-            setTimeout(() => loader.style.display = 'none', 500);
+            // Completely remove from view after fade-out
+            setTimeout(() => { loader.style.display = 'none'; }, 500);
         }
     }
-    const loader = document.getElementById('loading-overlay');
-    if (loader) {
-        loader.classList.add('hidden'); // This triggers the CSS fade
-        setTimeout(() => {
-            loader.style.display = 'none'; // This removes it from the screen entirely
-        }, 500);
-    }
 }
-
 window.onload = startApp;
 
 function refreshDropdowns() {
