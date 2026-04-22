@@ -592,15 +592,21 @@ async function fetchDropdownOptions() {
 
 fetchDropdownOptions();
 
-function generateNumericId(day, index) {
-    const dayMap = { "Monday": 1, "Tuesday": 2, "Wednesday": 3, "Thursday": 4, "Friday": 5, "Saturday": 6, "Sunday": 7 };
-    // Use Number() to be safe
-    return Number((dayMap[day] * 100) + index);
+// Helper to create stable, short integers for Supabase int4
+function generateNumericId(dayLabel, index) {
+    const dayMap = { 
+        "Monday": 1, "Tuesday": 2, "Wednesday": 3, "Thursday": 4, 
+        "Friday": 5, "Saturday": 6, "Sunday": 7 
+    };
+    // Format: DayDigit + RowIndex (e.g., Monday Row 5 = 105)
+    return (dayMap[dayLabel] || 0) * 100 + index;
 }
 
 function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
     for (let r = 0; r < count; r++) {
+        // --- CHANGE: Use stable numeric ID instead of Date.now() ---
         const rowNumericId = generateNumericId(dayLabel, r);
+        
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
@@ -646,13 +652,6 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
             rowDiv.appendChild(element);
         }
         
-        // Add Delete Button (Optional: you might want to clear row in Supabase here)
-        const delBtn = document.createElement('button');
-        delBtn.className = 'delete-btn';
-        delBtn.innerHTML = '×';
-        delBtn.onclick = () => rowDiv.remove(); // Simple UI removal for now
-        rowDiv.appendChild(delBtn);
-
         if (anchorBtn) {
             container.insertBefore(rowDiv, anchorBtn);
         } else {
@@ -771,15 +770,14 @@ function toggleAllSections() {
     // Update the button text to show the next action
     btn.innerText = allWeeksCollapsed ? "Expand All Weeks" : "Collapse All Weeks";
 }
+
 async function updateMultiValue(rowNum, dayLabel, newValue) {
     const cellId = `${dayLabel}-r${rowNum}-c6`;
     const element = document.getElementById(cellId);
-    
     if (!element) return;
 
-    // 1. Fetch current row from Supabase to see what's already in Col6
-    // Note: We only need col6, so we select just that column
-    const { data, error } = await _supabase
+    // Fetch existing data for this row
+    const { data } = await _supabase
         .from('BackEndData')
         .select('col6')
         .eq('id', rowNum)
@@ -788,7 +786,6 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
     let currentContent = (data && data.col6) ? data.col6 : "";
     let items = currentContent ? currentContent.split(', ') : [];
 
-    // 2. Toggle Logic (Add if missing, remove if present)
     const index = items.indexOf(newValue);
     if (index === -1) {
         if (newValue !== "") items.push(newValue);
@@ -797,21 +794,12 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
     }
 
     const updatedString = items.join(', ');
-
-    // 3. UI Updates
-    // We update the color based on the "Tags" in the cell
     applyCellColor(element, updatedString);
-    
-    // We clear the dropdown visual so it shows "+ Add Multi" again
-    element.value = ""; 
-    
-    // Update the hover title so the user can see what's selected
     element.title = "Selected: " + updatedString;
-
-    // 4. Save the FULL ROW
-    // We pass the updatedString as a manual override because the 
-    // dropdown itself is now empty/reset
+    
+    // Pass the number and the label to saveRow
     await saveRow(rowNum, dayLabel, updatedString);
+    element.value = ""; 
 }
 
 async function deleteFullRow(wrapperId, cellIds) {
@@ -833,7 +821,7 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
     const status = document.getElementById('saveIndicator');
     if(status) status.innerText = "Syncing...";
 
-    // 1. SAFETY CHECK: Ensure rowNum is a valid integer
+    // Convert to a clean integer
     const cleanId = parseInt(rowNum);
     if (isNaN(cleanId)) {
         console.error("🔴 Fatal Error: rowNum is not a number!", rowNum);
@@ -841,10 +829,9 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         return;
     }
 
-    // 2. BUILD ROW DATA (Exactly as Supabase expects)
     const rowData = {
-        id: cleanId,           // Must be an integer for int4
-        day_label: dayLabel,   // Must be a string
+        id: cleanId,
+        day_label: dayLabel,
         col1: document.getElementById(`${dayLabel}-r${cleanId}-c1`)?.value || "",
         col2: document.getElementById(`${dayLabel}-r${cleanId}-c2`)?.value || "",
         col3: document.getElementById(`${dayLabel}-r${cleanId}-c3`)?.value || "",
@@ -855,15 +842,11 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col8: document.getElementById(`${dayLabel}-r${cleanId}-c8`)?.value || ""
     };
 
-    console.log("📤 Sending Payload:", rowData);
-
-    // 3. UPSERT
     const { error } = await _supabase
         .from('BackEndData')
         .upsert(rowData, { onConflict: 'id' });
 
     if (error) {
-        console.error("🔴 Supabase Error:", error.message);
         if(status) status.innerText = "Error: " + error.message;
     } else {
         if(status) status.innerText = "Saved";
