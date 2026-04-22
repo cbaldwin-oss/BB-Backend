@@ -592,23 +592,23 @@ async function fetchDropdownOptions() {
 
 fetchDropdownOptions();
 
-function addRowsToContainer(container, dateId, count, anchorBtn = null) {
+function generateNumericId(dayLabel, index) {
+    const dayMap = { "Monday": 1, "Tuesday": 2, "Wednesday": 3, "Thursday": 4, "Friday": 5, "Saturday": 6, "Sunday": 7 };
+    // This creates IDs like 101, 102 for Monday; 201, 202 for Tuesday
+    return (dayMap[dayLabel] * 100) + index;
+}
+
+function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
     for (let r = 0; r < count; r++) {
-        // Use a more stable ID generator than Date.now() if possible, 
-        // but keeping your current logic for now to ensure saveCell works.
-        const rowId = Date.now() + Math.random(); 
+        const rowNumericId = generateNumericId(dayLabel, r);
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
-        rowDiv.id = `row-wrapper-${rowId}`;
-        
-        let cellIdsInRow = [];
+        rowDiv.id = `row-wrapper-${rowNumericId}`;
 
         for (let col = 1; col <= 8; col++) {
-            const cellId = `${dateId}-r${rowId}-c${col}`;
-            cellIdsInRow.push(cellId);
+            const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
             let element;
 
-            // Columns 1, 2, 3, 4, 6, 7 are dropdowns
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
                 element = document.createElement('select');
                 element.id = cellId;
@@ -619,36 +619,38 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
                 element.appendChild(defaultOpt);
 
                 const options = dropdownData[`col${col}`] || [];
-                options.forEach(optText => {
+                options.forEach(text => {
                     const opt = document.createElement('option');
-                    opt.value = optText;
-                    opt.text = optText;
+                    opt.value = text;
+                    opt.text = text;
                     element.appendChild(opt);
                 });
 
                 element.onchange = () => {
+                    applyCellColor(element, element.value);
                     if (col === 6) {
-                        updateMultiValue(cellId, element.value);
-                        element.value = ""; // Clear visual pick
+                        updateMultiValue(rowNumericId, dayLabel, element.value);
                     } else {
-                        saveCell(cellId, element.value);
+                        saveRow(rowNumericId, dayLabel);
                     }
                 };
             } else {
-                // Columns 5 and 8 are text inputs
                 element = document.createElement('input');
                 element.id = cellId;
                 element.placeholder = "...";
-                element.onblur = () => saveCell(cellId, element.value);
+                element.onblur = () => {
+                    applyCellColor(element, element.value);
+                    saveRow(rowNumericId, dayLabel);
+                };
             }
             rowDiv.appendChild(element);
         }
-
-        // Add Delete Button
+        
+        // Add Delete Button (Optional: you might want to clear row in Supabase here)
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×';
-        delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
+        delBtn.onclick = () => rowDiv.remove(); // Simple UI removal for now
         rowDiv.appendChild(delBtn);
 
         if (anchorBtn) {
@@ -769,38 +771,47 @@ function toggleAllSections() {
     // Update the button text to show the next action
     btn.innerText = allWeeksCollapsed ? "Expand All Weeks" : "Collapse All Weeks";
 }
-async function updateMultiValue(cellId, newValue) {
-    const selectElement = document.getElementById(cellId);
+async function updateMultiValue(rowNum, dayLabel, newValue) {
+    const cellId = `${dayLabel}-r${rowNum}-c6`;
+    const element = document.getElementById(cellId);
     
-    // 1. Fetch the existing string for this cell from Supabase
-    const { data } = await _supabase
-        .from('cells')
-        .select('content')
-        .eq('id', cellId)
+    if (!element) return;
+
+    // 1. Fetch current row from Supabase to see what's already in Col6
+    // Note: We only need col6, so we select just that column
+    const { data, error } = await _supabase
+        .from('BackEndData')
+        .select('col6')
+        .eq('id', rowNum)
         .single();
 
-    let currentContent = data ? data.content : "";
+    let currentContent = (data && data.col6) ? data.col6 : "";
     let items = currentContent ? currentContent.split(', ') : [];
 
-    // 2. Toggle logic: Add the item if missing, remove if already there
+    // 2. Toggle Logic (Add if missing, remove if present)
     const index = items.indexOf(newValue);
     if (index === -1) {
-        items.push(newValue);
+        if (newValue !== "") items.push(newValue);
     } else {
         items.splice(index, 1);
     }
 
     const updatedString = items.join(', ');
 
-    // 3. Apply color to the select element based on the new joined string
-    // (This will make it Light Blue because it now 'has information')
-    applyCellColor(selectElement, updatedString);
-
-    // 4. Send the updated string to our standard save function
-    saveCell(cellId, updatedString);
+    // 3. UI Updates
+    // We update the color based on the "Tags" in the cell
+    applyCellColor(element, updatedString);
     
-    // Optional: Show selected items in a tooltip when hovering
-    selectElement.title = "Selected: " + (updatedString || "None");
+    // We clear the dropdown visual so it shows "+ Add Multi" again
+    element.value = ""; 
+    
+    // Update the hover title so the user can see what's selected
+    element.title = "Selected: " + updatedString;
+
+    // 4. Save the FULL ROW
+    // We pass the updatedString as a manual override because the 
+    // dropdown itself is now empty/reset
+    await saveRow(rowNum, dayLabel, updatedString);
 }
 
 async function deleteFullRow(wrapperId, cellIds) {
@@ -818,29 +829,35 @@ async function deleteFullRow(wrapperId, cellIds) {
     }
 }
 
-async function saveCell(cellId, content) {
-    const element = document.getElementById(cellId);
-    
-    // Apply the color formatting immediately to the UI
-    if (element) {
-        applyCellColor(element, content);
-    }
+async function saveRow(rowNum, dayLabel, col6Override = null) {
+    const status = document.getElementById('saveIndicator');
+    if(status) status.innerText = "Syncing...";
 
-    // Save/Update the data in Supabase
+    const rowData = {
+        id: rowNum,
+        day_label: dayLabel,
+        col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
+        col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
+        col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
+        col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
+        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
+        // If we have an override (from multi-select), use it. Otherwise, get the value from the box.
+        col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.value || ""),
+        col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
+        col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
+    };
+
     const { error } = await _supabase
-        .from('cells')
-        .upsert({ 
-            id: cellId, 
-            content: content 
-        }, { onConflict: 'id' });
+        .from('BackEndData')
+        .upsert(rowData, { onConflict: 'id' });
 
     if (error) {
-        console.error("Error saving to Supabase:", error);
+        console.error("Save Error:", error.message);
     } else {
-        console.log("Saved successfully:", cellId);
+        if(status) status.innerText = "Saved";
     }
 }
-// Initialize
+
 createSections();
         // 3. Load Data from Supabase
 let currentView = 'view1'; // Default view
@@ -907,30 +924,31 @@ input.onblur = async () => {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    console.log("Loading data from Supabase...");
+    console.log("Loading rows from Supabase...");
     const { data, error } = await _supabase
-        .from('cells')
+        .from('BackEndData')
         .select('*');
 
     if (error) {
-        console.error("Error loading data:", error);
+        console.error("Load error:", error);
         return;
     }
 
     if (data) {
-        data.forEach(item => {
-            const el = document.getElementById(item.id);
-            if (el) {
-                // Set the stored content
-                el.value = item.content;
-                
-                // Apply the correct color (Status color or the Light Blue 'filled' color)
-                applyCellColor(el, item.content);
+        data.forEach(row => {
+            for (let col = 1; col <= 8; col++) {
+                const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                const el = document.getElementById(cellId);
+                if (el) {
+                    const content = row[`col${col}`] || "";
+                    el.value = content;
+                    applyCellColor(el, content);
+                }
             }
         });
-        console.log("Data and colors fully restored.");
     }
 }
+
     </script>
 </body>
 </html>
