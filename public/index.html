@@ -558,28 +558,23 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    const loader = document.getElementById('loading-overlay');
-    
-    // 1. Build the skeleton grid (Instant)
-    createSections(); 
+    console.log("🚀 Launching App...");
+    const status = document.getElementById('saveIndicator');
+    if(status) status.innerText = "Syncing...";
 
-    // 2. Fetch everything from Supabase at once
-    try {
-        await Promise.all([
-            fetchDropdownOptions(), // Gets menu lists
-            loadData()               // Gets cell contents
-        ]);
-        
-        // 3. Since the rows were built before options arrived, refresh the selects
-        refreshDropdowns(); 
-        
-        console.log("✅ All systems go.");
-    } catch (error) {
-        console.error("❌ Sync failed:", error);
-    } finally {
-        if (loader) loader.classList.add('hidden');
-    }
+    // 1. Wait for Google Sheets data FIRST
+    await fetchDropdownOptions();
+    
+    // 2. Build the UI grid now that dropdownData is filled
+    createSections(); 
+    
+    // 3. Finally, fill the boxes with Supabase data
+    await loadData(); 
+    
+    if(status) status.innerText = "Saved";
 }
+
+window.onload = startApp;
 
 function refreshDropdowns() {
     // Look for all select elements in the app
@@ -952,8 +947,7 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
     }
 }
 
-createSections();
-        // 3. Load Data from Supabase
+
 let currentView = 'view1'; // Default view
 
 async function switchView(viewId, buttonElement) {
