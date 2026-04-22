@@ -592,31 +592,32 @@ setInterval(() => {
 async function startApp() {
     console.log("🚀 Initializing LaunchPad...");
     const loader = document.getElementById('loading-overlay');
-
-    // 1. Build the days IMMEDIATELY so they don't disappear
-    createSections(); 
+    const status = document.getElementById('saveIndicator');
+    
+    if(status) status.innerText = "Syncing...";
 
     try {
-        // 2. Now fetch the data in the background
-        await Promise.allSettled([
-            fetchDropdownOptions(),
-            loadData()
-        ]);
+        // 1. Wait for Google Sheets data FIRST
+        await fetchDropdownOptions();
         
-        // 3. Fill the dropdowns now that data is here
-        refreshDropdowns();
-        console.log("✅ Data sync complete.");
+        // 2. Build the UI grid now that we have the options
+        createSections(); 
+        
+        // 3. Load the saved values from Supabase
+        await loadData(); 
+        
+        if(status) status.innerText = "Saved";
     } catch (error) {
-        console.error("⚠️ Launch snag:", error);
+        console.error("⚠️ Launch error:", error);
     } finally {
-        // 4. Land the rocket
+        // 4. THE LANDING GEAR: This hides the loading screen
         if (loader) {
             loader.classList.add('hidden');
+            // Completely remove from view after fade-out
             setTimeout(() => { loader.style.display = 'none'; }, 500);
         }
     }
 }
-
 window.onload = startApp;
 
 function refreshDropdowns() {
@@ -698,21 +699,23 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/a/macros/criticalarccx.com/
 let dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
 
 async function fetchDropdownOptions() {
-    console.log("Fetching from Google...");
-    try {
-        const response = await fetch(GOOGLE_SCRIPT_URL);
-        const data = await response.json();
-        // Update the global variable
-        dropdownData = data; 
-        console.log("Data received:", dropdownData);
-        return data; 
-    } catch (error) {
-        console.error("Fetch error:", error);
-        // Fallback to empty lists so createSections doesn't crash
-        dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
-        return dropdownData;
-    }
+    const { data, error } = await _supabase
+        .from('dropdownoptions')
+        .select('column_key, option_text');
+
+    if (error) return;
+
+    // Reset global data
+    window.dropdownData = { col1:[], col2:[], col3:[], col4:[], col6:[], col7:[] };
+    
+    data.forEach(item => {
+        if (window.dropdownData[item.column_key]) {
+            window.dropdownData[item.column_key].push(item.option_text);
+        }
+    });
 }
+
+fetchDropdownOptions();
 
 // Helper to create stable, short integers for Supabase int4
 function generateNumericId(dayLabel, index) {
@@ -733,55 +736,46 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
 
-for (let col = 1; col <= 8; col++) {
-    const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-    const colKey = `col${col}`; // Correctly generates col1, col2, etc.
-    let element;
+        for (let col = 1; col <= 8; col++) {
+            const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
+            let element;
 
-    // Logic: Columns 1, 2, 3, 4, 6, 7 are DROPDOWNS
-    if ([1, 2, 3, 4, 6, 7].includes(col)) {
-        element = document.createElement('select');
-        element.id = cellId;
-        
-        // Add default option
-        const defaultOpt = document.createElement('option');
-        defaultOpt.value = "";
-        
-        // Custom labels for the empty state
-        const labels = {
-            1: "Time...", 2: "Place...", 3: "Activity...", 
-            4: "Asset...", 6: "+ Add Partner", 7: "Result..."
-        };
-        defaultOpt.text = labels[col] || "Select...";
-        element.appendChild(defaultOpt);
+            if ([1, 2, 3, 4, 6, 7].includes(col)) {
+                element = document.createElement('select');
+                element.id = cellId;
+                
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = "";
+                defaultOpt.text = (col === 6) ? "+ Add Multi" : "Select...";
+                element.appendChild(defaultOpt);
 
-        // FILL OPTIONS: Pull from window.dropdownData[colKey]
-        const options = window.dropdownData[colKey] || [];
-        options.forEach(text => {
-            const opt = document.createElement('option');
-            opt.value = text;
-            opt.text = text;
-            element.appendChild(opt);
-        });
+                const options = dropdownData[`col${col}`] || [];
+                options.forEach(text => {
+                    const opt = document.createElement('option');
+                    opt.value = text;
+                    opt.text = text;
+                    element.appendChild(opt);
+                });
 
-        element.onchange = () => {
-            applyCellColor(element, element.value);
-            if (col === 6) updateMultiValue(rowNumericId, dayLabel, element.value);
-            else saveRow(rowNumericId, dayLabel);
-        };
-    } 
-    // Logic: Columns 5 and 8 are TEXT INPUTS
-    else {
-        element = document.createElement('input');
-        element.id = cellId;
-        element.placeholder = (col === 5) ? "Status..." : "Notes...";
-        element.onblur = () => {
-            applyCellColor(element, element.value);
-            saveRow(rowNumericId, dayLabel);
-        };
-    }
-    rowDiv.appendChild(element);
-}
+                element.onchange = () => {
+                    applyCellColor(element, element.value);
+                    if (col === 6) {
+                        updateMultiValue(rowNumericId, dayLabel, element.value);
+                    } else {
+                        saveRow(rowNumericId, dayLabel);
+                    }
+                };
+            } else {
+                element = document.createElement('input');
+                element.id = cellId;
+                element.placeholder = "...";
+                element.onblur = () => {
+                    applyCellColor(element, element.value);
+                    saveRow(rowNumericId, dayLabel);
+                };
+            }
+            rowDiv.appendChild(element);
+        }
         
         if (anchorBtn) {
             container.insertBefore(rowDiv, anchorBtn);
@@ -794,26 +788,87 @@ for (let col = 1; col <= 8; col++) {
 const contentArea = document.getElementById('main-content-area');
 
 function createSections() {
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const container = document.getElementById('sections-container');
+    const contentArea = document.getElementById('main-content-area');
+    if (!contentArea) return;
     
-    if (!container) {
-        console.error("Container 'sections-container' not found!");
-        return;
+    contentArea.innerHTML = ''; 
+    const baseDate = new Date(START_DATE + "T00:00:00");
+
+    for (let w = 0; w < WEEKS_TO_SHOW; w++) {
+        // --- 1. BUILD WEEK CONTAINER ---
+        const weekDiv = document.createElement('div');
+        weekDiv.className = 'week-container';
+
+        const weekStart = new Date(baseDate);
+        weekStart.setDate(baseDate.getDate() + (w * 7));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+
+        const weekHeader = document.createElement('div');
+        weekHeader.className = 'week-header';
+        weekHeader.innerHTML = `
+            <span>Week of ${weekStart.toLocaleDateString([], {month:'short', day:'numeric'})} - ${weekEnd.toLocaleDateString([], {month:'short', day:'numeric'})}</span>
+            <span class="week-arrow">▼</span>
+        `;
+
+        const weekContent = document.createElement('div');
+        weekContent.className = 'week-content';
+
+        // Week Toggle
+        weekHeader.onclick = () => {
+            const isHidden = weekContent.classList.toggle('hidden');
+            weekHeader.querySelector('.week-arrow').innerText = isHidden ? '▶' : '▼';
+        };
+
+        // --- 2. BUILD DAYS INSIDE WEEK ---
+        for (let d = 0; d < 7; d++) {
+            const sectionDate = new Date(weekStart);
+            sectionDate.setDate(weekStart.getDate() + d);
+            const dateId = sectionDate.toISOString().split('T')[0];
+            const dateString = sectionDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+            const section = document.createElement('div');
+            section.className = 'section-container';
+
+            const header = document.createElement('div');
+            header.className = 'date-header';
+            header.innerHTML = `<span>${dateString}</span> <span class="arrow">▼</span>`;
+            
+            const rowsDiv = document.createElement('div');
+            rowsDiv.className = 'rows-container';
+            rowsDiv.id = `rows-${dateId}`;
+
+            // Day Toggle (Crucial: stopPropagation prevents week-header from firing)
+            header.onclick = (e) => {
+                e.stopPropagation();
+                const isHidden = rowsDiv.classList.toggle('hidden');
+                header.querySelector('.arrow').innerText = isHidden ? '▶' : '▼';
+            };
+
+            // Reuse your existing addRows function
+            addRowsToContainer(rowsDiv, dateId, INITIAL_ROWS);
+
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-rows-btn';
+            addBtn.innerText = "+ Add 5 Rows";
+            addBtn.onclick = (e) => {
+                e.stopPropagation(); // Keep week from collapsing when adding rows
+                addRowsToContainer(rowsDiv, dateId, 5, addBtn);
+            };
+
+            rowsDiv.appendChild(addBtn);
+            section.appendChild(header);
+            section.appendChild(rowsDiv);
+            weekContent.appendChild(section);
+        }
+
+        weekDiv.appendChild(weekHeader);
+        weekDiv.appendChild(weekContent);
+        contentArea.appendChild(weekDiv);
     }
-
-    container.innerHTML = ''; // Clear existing content
-
-    days.forEach(day => {
-        const section = document.createElement('section');
-        section.id = day.toLowerCase();
-        section.innerHTML = `<h2>${day}</h2><div id="${day}-rows"></div>`;
-        container.appendChild(section);
-        
-        // Add your initial rows (e.g., 5 rows per day)
-        addRowsToContainer(document.getElementById(`${day}-rows`), day, 5);
-    });
+    loadData(); // Final sync with Supabase
 }
+
 
 let allWeeksCollapsed = false; // Track the global state
 
