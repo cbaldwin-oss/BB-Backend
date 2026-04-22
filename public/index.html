@@ -512,57 +512,27 @@ setInterval(() => {
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        const grid = document.getElementById('grid');
-        const totalRows = 40; 
-        const totalCols = 15;
-
-        function applyCellColor(element, text) {
-    if (!element) {
-        console.warn("Color Logic: Element not found.");
-        return;
-    }
-
-    const val = (text || "").toLowerCase().trim();
-    console.log(`Applying color to ${element.id} with text: "${val}"`);
-
-    // 1. Reset
-    element.classList.remove('bg-green', 'bg-yellow', 'bg-blue', 'bg-red', 'bg-grey', 'bg-filled');
-
-    // 2. Logic
-    if (val === "") return;
-
-    if (val.includes('done') || val.includes('complete') || val.includes('yes')) {
-        element.classList.add('bg-green');
-    } 
-    else if (val.includes('wait') || val.includes('hold') || val.includes('pending')) {
-        element.classList.add('bg-yellow');
-    } 
-    else if (val.includes('progress') || val.includes('active') || val.includes('run')) {
-        element.classList.add('bg-blue');
-    } 
-    else if (val.includes('Fail') || val.includes('stop') || val.includes('urgent')) {
-        element.classList.add('bg-red');
-    }
-    else if (val.includes('n/a') || val.includes('cancel')) {
-        element.classList.add('bg-grey');
-    }
-    else {
-        // Fallback for any other text
-        element.classList.add('bg-filled');
-    }
-}
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    // 1. Wait for Google Sheets data FIRST
+    const status = document.getElementById('saveIndicator');
+    if(status) status.innerText = "Syncing...";
+
+    // 1. Fetch Google Sheets data first
     await fetchDropdownOptions();
     
-    // 2. ONLY THEN build the sections and load Supabase data
+    // 2. Build the UI grid using that data
     createSections(); 
-    loadData(); 
+    
+    // 3. Load values from Supabase
+    await loadData(); 
+    
+    if(status) status.innerText = "Saved";
 }
 
+// Only use one event listener to start the app
 window.onload = startApp;
+
 function applyCellColor(element, text) {
     if (!element) return;
 
@@ -624,6 +594,8 @@ fetchDropdownOptions();
 
 function addRowsToContainer(container, dateId, count, anchorBtn = null) {
     for (let r = 0; r < count; r++) {
+        // Use a more stable ID generator than Date.now() if possible, 
+        // but keeping your current logic for now to ensure saveCell works.
         const rowId = Date.now() + Math.random(); 
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
@@ -632,43 +604,45 @@ function addRowsToContainer(container, dateId, count, anchorBtn = null) {
         let cellIdsInRow = [];
 
         for (let col = 1; col <= 8; col++) {
-    const cellId = `${dateId}-r${rowId}-c${col}`;
-    let element;
+            const cellId = `${dateId}-r${rowId}-c${col}`;
+            cellIdsInRow.push(cellId);
+            let element;
 
-    // Define which columns are dropdowns: 1, 2, 3, 4, 6, 7
-    const dropdownCols = [1, 2, 3, 4, 6, 7];
+            // Columns 1, 2, 3, 4, 6, 7 are dropdowns
+            if ([1, 2, 3, 4, 6, 7].includes(col)) {
+                element = document.createElement('select');
+                element.id = cellId;
+                
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = "";
+                defaultOpt.text = (col === 6) ? "+ Add Multi" : "Select...";
+                element.appendChild(defaultOpt);
 
-    if (dropdownCols.includes(col)) {
-        // --- CREATE DROPDOWN ---
-        element = document.createElement('select');
-        element.id = cellId;
-        
-        const defaultOpt = document.createElement('option');
-        defaultOpt.value = "";
-        defaultOpt.text = "Select...";
-        element.appendChild(defaultOpt);
+                const options = dropdownData[`col${col}`] || [];
+                options.forEach(optText => {
+                    const opt = document.createElement('option');
+                    opt.value = optText;
+                    opt.text = optText;
+                    element.appendChild(opt);
+                });
 
-        const colKey = `col${col}`;
-        const options = dropdownData[colKey] || [];
-        
-        options.forEach(optText => {
-            const opt = document.createElement('option');
-            opt.value = optText;
-            opt.text = optText;
-            element.appendChild(opt);
-        });
-
-        element.onchange = () => saveCell(cellId, element.value);
-    } else {
-        // --- CREATE TEXT INPUT (Columns 5 and 8) ---
-        element = document.createElement('input');
-        element.id = cellId;
-        element.placeholder = col === 5 ? "Status (Col 5)" : "Notes (Col 8)";
-        element.onblur = () => saveCell(cellId, element.value);
-    }
-    
-    rowDiv.appendChild(element);
-}
+                element.onchange = () => {
+                    if (col === 6) {
+                        updateMultiValue(cellId, element.value);
+                        element.value = ""; // Clear visual pick
+                    } else {
+                        saveCell(cellId, element.value);
+                    }
+                };
+            } else {
+                // Columns 5 and 8 are text inputs
+                element = document.createElement('input');
+                element.id = cellId;
+                element.placeholder = "...";
+                element.onblur = () => saveCell(cellId, element.value);
+            }
+            rowDiv.appendChild(element);
+        }
 
         // Add Delete Button
         const delBtn = document.createElement('button');
@@ -769,13 +743,6 @@ function createSections() {
     loadData(); // Final sync with Supabase
 }
 
-function createInput(id, placeholder) {
-    const input = document.createElement('input');
-    input.id = id;
-    input.placeholder = placeholder;
-    input.onblur = () => saveCell(id, input.value);
-    return input;
-}
 
 let allWeeksCollapsed = false; // Track the global state
 
