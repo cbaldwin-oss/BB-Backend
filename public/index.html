@@ -460,6 +460,12 @@ position: sticky;
     opacity: 0;
     pointer-events: none;
 }
+#loading-overlay.hidden {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: opacity 0.5s ease;
+}
 </style>
 </head>
 <body>
@@ -558,20 +564,32 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    console.log("🚀 Launching App...");
-    const status = document.getElementById('saveIndicator');
-    if(status) status.innerText = "Syncing...";
-
-    // 1. Wait for Google Sheets data FIRST
-    await fetchDropdownOptions();
+    console.log("🚀 Initializing LaunchPad...");
+    const loader = document.getElementById('loading-overlay');
     
-    // 2. Build the UI grid now that dropdownData is filled
+    // 1. Build the UI grid first (Instant)
     createSections(); 
-    
-    // 3. Finally, fill the boxes with Supabase data
-    await loadData(); 
-    
-    if(status) status.innerText = "Saved";
+
+    try {
+        // 2. Use 'allSettled' instead of 'all'. 
+        // This ensures the code keeps moving even if one fetch fails.
+        await Promise.allSettled([
+            fetchDropdownOptions(),
+            loadData()
+        ]);
+        
+        console.log("✅ All systems checked.");
+    } catch (error) {
+        console.error("⚠️ Launch snag:", error);
+    } finally {
+        // 3. FORCE the rocket to land
+        console.log("🛬 Landing rocket...");
+        if (loader) {
+            loader.classList.add('hidden');
+            // Completely remove from DOM after fade out
+            setTimeout(() => loader.style.display = 'none', 500);
+        }
+    }
 }
 
 window.onload = startApp;
