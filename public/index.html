@@ -603,35 +603,29 @@ setInterval(() => {
 async function startApp() {
     const loader = document.getElementById('loading-overlay');
     
-    // 1. Build the grid structure first (Empty boxes)
+    // 1. Build the grid first
     createSections(); 
 
     try {
-        // 2. Fetch the Dropdown Labels (Trade Partners, Assets, etc.)
+        // 2. Fetch dropdowns (Trade Partners, etc.)
         await fetchDropdownOptions();
         
-        // 3. Sync the Saved Row Data from Supabase
-        // The await here is key: it won't move to the next line until 
-        // the console says "Cloud Sync Complete"
+        // 3. THE WAIT: This pauses the script until the cloud sync is 100% DONE
+        console.log("⏳ Starting Cloud Sync...");
         await loadData();
         
-        // 4. Refresh Dropdown UI
+        // 4. REFRESH & BUFFER: Give the browser time to paint the colors
         refreshDropdowns();
-        
-        // 5. ADJUSTABLE BUFFER: Wait 500ms for the browser to "paint" the colors
-        // This ensures the user sees a colorful grid, not a white one that pops.
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        console.log("🚀 Launch Successful. All data is on the page.");
+        console.log("✅ Sync complete and painted. Opening doors.");
     } catch (e) {
-        console.error("Launch error:", e);
+        console.error("❌ Startup failed:", e);
     } finally {
-        // 6. Land the rocket smoothly
+        // 5. REVEAL: Only hide the loader after everything above is finished
         if (loader) {
-            loader.classList.add('hidden'); // Triggers CSS fade
-            setTimeout(() => {
-                loader.style.display = 'none';
-            }, 800); // Wait for the transition to finish
+            loader.classList.add('hidden');
+            setTimeout(() => { loader.style.display = 'none'; }, 800);
         }
     }
 }
@@ -1144,11 +1138,8 @@ async function loadData() {
     const status = document.getElementById('saveIndicator');
     if (status) status.innerText = "Syncing with Cloud...";
 
-    try {
-        const { data, error } = await _supabase
-            .from('BackEndData')
-            .select('*');
-
+   try {
+        const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
 
         if (data) {
@@ -1184,6 +1175,7 @@ if (col === 6) {
         if (status) status.innerText = "Saved";
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
+            return false;
         if (status) status.innerText = "Sync Error!";
     } finally {
         // Clear the status message after a brief moment
