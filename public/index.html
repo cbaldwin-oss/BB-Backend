@@ -593,33 +593,28 @@ async function startApp() {
     console.log("🚀 Launching App...");
     const loader = document.getElementById('loading-overlay');
     
-    // 1. Build the UI skeleton (empty grid)
+    // 1. Create the UI structure first
     createSections(); 
 
     try {
-        // 2. THE HARD STOP: Stay on loading screen while fetching
-        // This ensures the data is in the cells before the overlay fades
-        await loadData();
+        // 2. We set a 5-second "Max Wait" for the data
+        // This prevents the screen from being stuck forever if Supabase is down
+        await Promise.race([
+            loadData(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000))
+        ]);
         
-        // 3. OPTIONAL EXTRA BUFFER (0.5s)
-        // This gives the browser a split second to finish "painting" the colors
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        console.log("✅ Data ready. Fading loading screen.");
+        console.log("✅ Data Sync Complete.");
     } catch (error) {
-        console.error("⚠️ Launch Error:", error);
+        console.warn("⚠️ Data load took too long or failed, opening app anyway.");
     } finally {
-        // 4. THE REVEAL
+        // 3. Reveal the app
         if (loader) {
-            loader.classList.add('hidden'); // Triggers CSS fade
-            setTimeout(() => {
-                loader.style.display = 'none';
-            }, 800); // Wait for fade to finish
+            loader.classList.add('hidden');
+            setTimeout(() => { loader.style.display = 'none'; }, 800);
         }
     }
 }
-
-window.onload = startApp;
 
 function refreshDropdowns() {
     console.log("🔄 Syncing dropdown options...");
@@ -1119,29 +1114,35 @@ input.onblur = () => {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    const status = document.getElementById('saveIndicator');
-    if (status) status.innerText = "Syncing with Cloud...";
-
+    console.log("📥 Fetching from Supabase...");
+    
     try {
-        // MUST use await here
+        // CRITICAL: You must 'await' this call
         const { data, error } = await _supabase
             .from('BackEndData')
             .select('*');
 
         if (error) throw error;
 
-        if (data) {
-            // Use for...of loop for reliable sequential processing
+        if (data && data.length > 0) {
+            console.log(`📊 Found ${data.length} rows. Mapping to grid...`);
+            
             for (const row of data) {
+                // We use 1-8 because your grid has 8 columns
                 for (let col = 1; col <= 8; col++) {
-                    const el = document.getElementById(`${row.day_label}-r${row.id}-c${col}`);
+                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                    const el = document.getElementById(cellId);
+                    
                     if (el) {
                         const content = row[`col${col}`] || "";
+                        
                         if (col === 6) {
+                            // Column 6: Multi-Select Pattern
                             el.setAttribute('data-selected', content);
-                            el.value = "";
+                            el.value = ""; 
                             applyCellColor(el, content);
                         } else {
+                            // Standard Pattern
                             el.value = content;
                             applyCellColor(el, content);
                         }
@@ -1149,11 +1150,18 @@ async function loadData() {
                 }
             }
         }
+        return true; // Mission accomplished
     } catch (err) {
-        console.error("🔴 Sync Error:", err.message);
+        console.error("🔴 LoadData Error:", err.message);
+        return false; // Mission failed, but let the app open
     }
-    return true; // Signals to startApp that the mission is complete
 }
+
+window.onload = () => {
+    // Only call this once everything is ready
+    startApp();
+};
+
     </script>
 </body>
 </html>
