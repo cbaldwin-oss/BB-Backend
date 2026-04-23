@@ -798,64 +798,67 @@ function generateNumericId(dayLabel, index) {
     return (dayMap[dayLabel] || 0) * 100 + index;
 }
 
-function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
-    for (let r = 0; r < count; r++) {
-        // --- CHANGE: Use stable numeric ID instead of Date.now() ---
-        const rowNumericId = generateNumericId(dayLabel, r);
-        
+function addRowsToContainer(container, dayLabel, startId, rowCount) {
+    for (let i = 0; i < rowCount; i++) {
+        const rowNumericId = startId + i;
         const rowDiv = document.createElement('div');
-        rowDiv.className = 'cell-row';
-        rowDiv.id = `row-wrapper-${rowNumericId}`;
+        rowDiv.className = 'row-container';
+        rowDiv.id = `row-${rowNumericId}`;
 
+        // Create columns 1 through 8
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-            let element;
-
-            if ([1, 2, 3, 4, 6, 7].includes(col)) {
-                element = document.createElement('select');
-                element.id = cellId;
+            
+            // 1. Determine element type (Dropdowns for 1-4 and 6, Inputs for 5, 7, 8)
+            const isDropdown = (col <= 4 || col === 6);
+            const element = document.createElement(isDropdown ? 'select' : 'input');
+            
+            element.id = cellId;
+            element.className = 'grid-cell';
+            
+            if (isDropdown) {
+                // Initialize dropdowns with a placeholder
+                const placeholder = document.createElement('option');
+                placeholder.value = "";
+                placeholder.text = (col === 6) ? "+ Add Multi" : "Select...";
+                element.appendChild(placeholder);
                 
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = "";
-                defaultOpt.text = (col === 6) ? "+ Add Multi" : "Select...";
-                element.appendChild(defaultOpt);
-
-                const options = dropdownData[`col${col}`] || [];
-                options.forEach(text => {
-                    const opt = document.createElement('option');
-                    opt.value = text;
-                    opt.text = text;
-                    element.appendChild(opt);
-                });
-
-element.onchange = () => {
-    // Check if this is the "Trade Partners" column
-    if (col === 6) {
-        // CALL THE SPECIAL FUNCTION
-        updateMultiValue(rowNumericId, dayLabel, element.value);
-    } else {
-        // Standard save for all other columns
-        applyCellColor(element, element.value);
-        saveRow(rowNumericId, dayLabel);
-    }
-};
+                // --- DROPDOWN SAVE LOGIC ---
+                element.onchange = () => {
+                    if (col === 6) {
+                        updateMultiValue(rowNumericId, dayLabel, element.value);
+                    } else {
+                        applyCellColor(element, element.value);
+                        saveRow(rowNumericId, dayLabel);
+                    }
+                };
             } else {
-                element = document.createElement('input');
-                element.id = cellId;
-                element.placeholder = "...";
+                // --- YOUR SPECIFIC ONBLUR LOGIC ---
+                element.placeholder = (col === 5) ? "Activity..." : "Notes...";
+                
                 element.onblur = () => {
+                    // 1. Update the cell color immediately for visual feedback
                     applyCellColor(element, element.value);
-                    saveRow(rowNumericId, dayLabel);
+
+                    // 2. Extract rowNum and dayLabel from the ID string
+                    // Format is "Monday-r101-c5"
+                    const parts = element.id.split('-r');
+                    const currentDayLabel = parts[0];
+                    const currentRowNumericId = parseInt(parts[1].split('-c')[0]);
+
+                    // 3. Trigger the full row save
+                    saveRow(currentRowNumericId, currentDayLabel);
+                };
+
+                // Add Enter key support to trigger the blur
+                element.onkeydown = (e) => {
+                    if (e.key === "Enter") element.blur();
                 };
             }
+
             rowDiv.appendChild(element);
         }
-        
-        if (anchorBtn) {
-            container.insertBefore(rowDiv, anchorBtn);
-        } else {
-            container.appendChild(rowDiv);
-        }
+        container.appendChild(rowDiv);
     }
 }
 
@@ -1147,21 +1150,6 @@ function collapseEverything() {
         if (arrow) arrow.innerText = '▶';
     });
 }
-
-// UPDATE YOUR SAVE LOGIC (inside the loop)
-input.onblur = () => {
-    // 1. Update the cell color immediately for visual feedback
-    applyCellColor(input, input.value);
-
-    // 2. Extract rowNum and dayLabel from the ID string
-    // Format is "DayLabel-r101-c5"
-    const parts = input.id.split('-r');
-    const dayLabel = parts[0];
-    const rowNumericId = parseInt(parts[1].split('-c')[0]);
-
-    // 3. Trigger the full row save
-    saveRow(rowNumericId, dayLabel);
-};
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
