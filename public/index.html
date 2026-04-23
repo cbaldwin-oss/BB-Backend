@@ -601,32 +601,42 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
+    console.log("🚀 Launching App...");
     const loader = document.getElementById('loading-overlay');
     
-    // 1. Build the grid first
+    // ⚙️ ADJUSTABLE BUFFER (in milliseconds)
+    // 1000 = 1 second. Increase this to keep the loading screen up longer.
+    const EXTRA_BUFFER = 1500; 
+
+    // 1. Build the grid immediately
     createSections(); 
 
     try {
-        // 2. Fetch dropdowns (Trade Partners, etc.)
+        // 2. Fetch dropdowns (Partners, Assets, etc.)
         await fetchDropdownOptions();
         
-        // 3. THE WAIT: This pauses the script until the cloud sync is 100% DONE
-        console.log("⏳ Starting Cloud Sync...");
+        // 3. Fetch saved data from Supabase
         await loadData();
         
-        // 4. REFRESH & BUFFER: Give the browser time to paint the colors
+        // 4. Refresh the UI labels
         refreshDropdowns();
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        console.log("✅ Sync complete and painted. Opening doors.");
+
+        // 5. THE BUFFER: This forces the screen to stay white/loading
+        // even though all the data is already in the cells behind it.
+        console.log(`⏳ Sync complete. Holding screen for ${EXTRA_BUFFER}ms...`);
+        await wait(EXTRA_BUFFER);
+
     } catch (e) {
-        console.error("❌ Startup failed:", e);
+        console.error("❌ Startup Error:", e);
     } finally {
-        // 5. REVEAL: Only hide the loader after everything above is finished
+        // 6. Smoothly reveal the app
         if (loader) {
-            loader.classList.add('hidden');
-            setTimeout(() => { loader.style.display = 'none'; }, 800);
+            loader.classList.add('hidden'); // Triggers CSS fade
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 800); 
         }
+        console.log("✅ Ready.");
     }
 }
 
