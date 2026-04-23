@@ -670,36 +670,30 @@ function refreshDropdowns() {
 function applyCellColor(element, value) {
     if (!element) return;
 
-    // 1. DATA CAPTURE & CLEANING
-    let finalValue = (value !== undefined && value !== null) ? value : element.value;
-    
-    // If it's a dropdown, grab the current selection if value is missing
-    if (element.tagName === 'SELECT' && (!finalValue || finalValue === "")) {
-        finalValue = element.options[element.selectedIndex]?.text || "";
-    }
-
-    // 2. COLUMN 6 (MULTI-SELECT) LOGIC
     const isColumn6 = element.id && element.id.endsWith("-c6");
+    
     if (isColumn6) {
-        // Source the raw data (strip "Selected: " if it accidentally got in there)
-        let rawData = element.getAttribute('data-selected') || finalValue;
-        rawData = rawData.replace(/^Selected:\s*/i, ""); // Remove existing label if present
+        // Grab the raw list (without the "Selected:" label)
+        let rawList = element.getAttribute('data-selected') || value || "";
+        rawList = rawList.replace(/^Selected:\s*/i, "").trim();
 
-        if (rawData && rawData !== "" && rawData !== "+ Add Multi") {
-            element.style.backgroundColor = "#e7f3ff";
+        if (rawList && rawList !== "" && rawList !== "+ Add Multi") {
+            element.style.backgroundColor = "#e7f3ff"; // Sync Blue
             element.style.color = "#0056b3";
-            
+            element.style.fontWeight = "bold";
+
             if (element.options && element.options[0]) {
-                // APPLY LABEL FRESH
-                element.options[0].text = `Selected: ${rawData}`;
+                // Update the visible text to show ALL items
+                element.options[0].text = `Selected: ${rawList}`;
                 
-                // Google Sheets Height Adjustment
-                if (rawData.length > 25) {
+                // Expansion logic for Google Sheets style
+                if (rawList.length > 20) {
                     element.style.height = "auto";
-                    element.style.minHeight = "60px";
+                    element.style.minHeight = "50px";
                 }
             }
         } else {
+            // Reset state
             element.style.backgroundColor = "transparent";
             element.style.height = "40px";
             if (element.options && element.options[0]) {
@@ -805,8 +799,15 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
                 });
 
 element.onchange = () => {
-    applyCellColor(element, element.value); // This sends the signal to color it
-    saveRow(rowNumericId, dayLabel);
+    // Check if this is the "Trade Partners" column
+    if (col === 6) {
+        // CALL THE SPECIAL FUNCTION
+        updateMultiValue(rowNumericId, dayLabel, element.value);
+    } else {
+        // Standard save for all other columns
+        applyCellColor(element, element.value);
+        saveRow(rowNumericId, dayLabel);
+    }
 };
             } else {
                 element = document.createElement('input');
@@ -940,33 +941,49 @@ function toggleAllSections() {
 }
 
 async function updateMultiValue(rowNum, dayLabel, newValue) {
-    if (!newValue || newValue === "") return;
+    // 1. Ignore the placeholder or empty resets
+    if (!newValue || newValue === "" || newValue === "+ Add Multi") return;
 
-    const element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
+    const cellId = `${dayLabel}-r${rowNum}-c6`;
+    const element = document.getElementById(cellId);
     
-    // 1. Get current data and strip any visual labels
-    let currentContent = element.getAttribute('data-selected') || "";
-    currentContent = currentContent.replace(/^Selected:\s*/i, ""); 
+    // 2. GET CURRENT MEMORY
+    // We look at the attribute first, then the placeholder text as a backup
+    let rawMemory = element.getAttribute('data-selected') || "";
     
-    let items = currentContent ? currentContent.split(', ').filter(x => x) : [];
+    // If attribute is empty, try to scrape it from the placeholder text
+    if (!rawMemory && element.options[0].text.includes("Selected:")) {
+        rawMemory = element.options[0].text.replace("Selected: ", "");
+    }
 
-    // 2. Toggle item
+    // Clean up: remove any accidental "Selected:" prefixes
+    rawMemory = rawMemory.replace(/^Selected:\s*/i, "").trim();
+    
+    // 3. CONVERT TO ARRAY
+    let items = rawMemory ? rawMemory.split(',').map(s => s.trim()).filter(x => x) : [];
+
+    // 4. TOGGLE LOGIC
     const index = items.indexOf(newValue);
-    if (index === -1) items.push(newValue);
-    else items.splice(index, 1);
+    if (index === -1) {
+        items.push(newValue); // Add if not there
+        console.log(`➕ Adding ${newValue}. Current list:`, items);
+    } else {
+        items.splice(index, 1); // Remove if already there
+        console.log(`➖ Removing ${newValue}. Current list:`, items);
+    }
 
     const updatedString = items.join(', ');
 
-    // 3. Update the hidden attribute (No labels here!)
+    // 5. LOCK INTO ATTRIBUTE & UI
     element.setAttribute('data-selected', updatedString);
     
-    // 4. Update visual state
+    // 6. REFRESH VISUALS
     applyCellColor(element, updatedString);
 
-    // 5. Reset dropdown visual value
+    // 7. RESET DROPDOWN (So user can pick another)
     element.value = ""; 
 
-    // 6. Save raw string to cloud
+    // 8. SAVE TO CLOUD
     await saveRow(rowNum, dayLabel, updatedString);
 }
 
@@ -1143,11 +1160,10 @@ async function loadData() {
                         const content = row[`col${col}`] || "";
                         
                         // 2. COLUMN 6 PATTERN: Use Attribute + Blue Pop
-                        if (col === 6) {
-                            el.setAttribute('data-selected', content);
-                            el.value = ""; // Keep dropdown visual clean
-                            applyCellColor(el, content);
-                        } 
+if (col === 6) {
+    el.setAttribute('data-selected', content);
+    applyCellColor(el, content); // This builds the "Selected: Partner A, Partner B" text
+}
                         // 3. STANDARD COLUMN PATTERN: Use Value + Dynamic Color
                         else {
                             el.value = content;
