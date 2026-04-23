@@ -1255,28 +1255,27 @@ async function loadData() {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Using a for...of loop to handle async deletes properly
+            // Use a for...of loop to handle the asynchronous nature of deletes
             for (const row of data) {
-                // 2. Parse the day_label (YYYY-MM-DD) as a local date
+                // 2. Convert day_label (YYYY-MM-DD) to a local Date object
                 const rowDate = new Date(row.day_label + "T00:00:00");
 
-                // 3. UPDATED CLEANUP LOGIC
-                // Check if Column 3 or Column 4 are effectively empty/default
+                // 3. CLEANUP LOGIC: 
+                // Check if the date is in the past AND Column 3 & 4 are effectively unused
                 const isCol3Empty = !row.col3 || row.col3 === "" || row.col3 === "Select...";
                 const isCol4Empty = !row.col4 || row.col4 === "" || row.col4 === "Select...";
 
-                // If date is in the past AND both columns are unused, delete the row
                 if (rowDate < today && isCol3Empty && isCol4Empty) {
-                    console.log(`🗑️ Auto-deleting unused historical row: ${row.id} from ${row.day_label}`);
+                    console.log(`🗑️ Auto-deleting empty historical row: ${row.id} from ${row.day_label}`);
                     
-                    // Delete from Supabase 'BackEndData'
+                    // Remove from Supabase
                     await _supabase.from('BackEndData').delete().eq('id', row.id);
                     
-                    // Remove from UI if it exists
+                    // Remove from UI if it exists on screen
                     const wrapper = document.getElementById(`row-wrapper-${row.id}`);
                     if (wrapper) wrapper.remove();
                     
-                    continue; // Skip the rest of this loop for the deleted row
+                    continue; // Skip population for this deleted row
                 }
 
                 // 4. STANDARD DATA POPULATION
@@ -1286,7 +1285,6 @@ async function loadData() {
                     
                     if (el) {
                         const content = row[`col${col}`] || "";
-                        
                         if (col === 6) {
                             el.setAttribute('data-selected', content);
                             applyCellColor(el, content);
