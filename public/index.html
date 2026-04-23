@@ -629,16 +629,15 @@ async function startApp() {
         await new Promise(resolve => setTimeout(resolve, PAINT_BUFFER));
 
     } catch (e) {
-        console.error("❌ Launch error:", e);
+        console.error(e);
     } finally {
-        // 6. REVEAL: Only hide the loader after everything above is done
         if (loader) {
             loader.classList.add('hidden');
-            setTimeout(() => {
-                loader.style.display = 'none';
-            }, 800); 
+            setTimeout(() => { 
+                loader.style.display = 'none'; 
+                groomUI(); // Final check once the screen is visible
+            }, 800);
         }
-        console.log("✅ Launch Successful: Grid is fully painted.");
     }
 }
 
@@ -1237,30 +1236,42 @@ function collapseEverything() {
     });
 }
 
-function groomUI(todayStr) {
-    console.log("🧹 UI Cleanup: Grooming empty historical rows...");
-    
-    const allRows = document.querySelectorAll('.cell-row');
+function groomUI() {
+    // 1. Get Today in YYYY-MM-DD format (Local Time)
+    const now = new Date();
+    const todayStr = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0')
+    ].join('-');
 
-    allRows.forEach(rowDiv => {
-        // Your row IDs look like: "row-wrapper-2026-04-20-r101"
-        // We match exactly the YYYY-MM-DD pattern
-        const dateMatch = rowDiv.id.match(/(\d{4}-\d{2}-\d{2})/);
-        if (!dateMatch) return;
+    console.log("🧹 Grooming UI starting. Today is:", todayStr);
 
-        const rowDateStr = dateMatch[0];
+    // 2. Select every row wrapper
+    // Your IDs look like: row-wrapper-2026-04-20-r101
+    const allRowWrappers = document.querySelectorAll('[id^="row-wrapper-"]');
 
+    allRowWrappers.forEach(wrapper => {
+        // Extract the date string from the ID (the first 10 characters after 'row-wrapper-')
+        const rowDateStr = wrapper.id.substring(12, 22); 
+
+        // 3. Only proceed if the date is strictly BEFORE today
         if (rowDateStr < todayStr) {
-            // Check Col 3 and 4 inputs/selects inside this row
-            const col3 = rowDiv.querySelector(`[id$="-c3"]`);
-            const col4 = rowDiv.querySelector(`[id$="-c4"]`);
+            // Find Col 3 and Col 4 within this specific wrapper
+            const col3 = wrapper.querySelector(`[id$="-c3"]`);
+            const col4 = wrapper.querySelector(`[id$="-c4"]`);
 
             if (col3 && col4) {
-                const is3Empty = !col3.value || col3.value.toLowerCase().includes("select");
-                const is4Empty = !col4.value || col4.value.toLowerCase().includes("select");
+                // Check for empty, null, or the default "Select..."
+                const val3 = col3.value ? col3.value.toLowerCase().trim() : "";
+                const val4 = col4.value ? col4.value.toLowerCase().trim() : "";
+
+                const is3Empty = val3 === "" || val3.includes("select");
+                const is4Empty = val4 === "" || val4.includes("select");
 
                 if (is3Empty && is4Empty) {
-                    rowDiv.remove();
+                    console.log(`🗑️ UI Cleanup: Removing empty row ${wrapper.id}`);
+                    wrapper.remove();
                 }
             }
         }
