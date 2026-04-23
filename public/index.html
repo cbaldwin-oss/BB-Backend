@@ -603,32 +603,37 @@ async function startApp() {
     console.log("🚀 Launching App...");
     const loader = document.getElementById('loading-overlay');
     
-    // 1. Build the UI grid first (it will be empty but hidden by the loader)
+    // 1. Build the grid first
     createSections(); 
 
+    // 2. FAIL-SAFE: If the cloud is slow, force the screen open after 4 seconds
+    const forceOpen = setTimeout(() => {
+        console.warn("⚠️ Data taking too long... forcing app open.");
+        hideLoader(loader);
+    }, 4000);
+
     try {
-        // 2. FORCE THE WAIT: We wait for loadData to finish completely
-        // This includes fetching from Supabase AND running applyCellColor on every cell
+        // 3. Try to load the data
         await loadData();
-        
-        console.log("✅ Data successfully painted. Opening doors...");
+        console.log("✅ Data loaded successfully.");
     } catch (error) {
-        console.error("⚠️ Launch interrupted:", error);
+        console.error("❌ Startup Error:", error);
     } finally {
-        // 3. FADE OUT: Only trigger the fade after data is in the cells
-        if (loader) {
-            loader.classList.add('hidden'); // Trigger CSS fade
-            
-            // Wait for the CSS transition (e.g., 0.8s) before removing from display
-            setTimeout(() => {
-                loader.style.display = 'none';
-            }, 800); 
-        }
+        // 4. Clear the fail-safe timer and hide the loader
+        clearTimeout(forceOpen);
+        hideLoader(loader);
     }
 }
 
-window.onload = startApp;
-
+// Helper to handle the fade transition
+function hideLoader(loader) {
+    if (loader && !loader.classList.contains('hidden')) {
+        loader.classList.add('hidden');
+        setTimeout(() => {
+            loader.style.display = 'none';
+        }, 800);
+    }
+}
 function refreshDropdowns() {
     console.log("🔄 Syncing dropdown options...");
     const selects = document.querySelectorAll('select');
@@ -1160,10 +1165,10 @@ input.onblur = () => {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    const status = document.getElementById('saveIndicator');
-    if (status) status.innerText = "Syncing with Cloud...";
-
+    console.log("📥 Fetching from Supabase...");
+    
     try {
+        // CRITICAL: You must 'await' this call
         const { data, error } = await _supabase
             .from('BackEndData')
             .select('*');
@@ -1171,8 +1176,10 @@ async function loadData() {
         if (error) throw error;
 
         if (data && data.length > 0) {
-            // We use a simple loop to ensure each cell is processed before finishing
+            console.log(`📊 Found ${data.length} rows. Mapping to grid...`);
+            
             for (const row of data) {
+                // We use 1-8 because your grid has 8 columns
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
@@ -1181,25 +1188,30 @@ async function loadData() {
                         const content = row[`col${col}`] || "";
                         
                         if (col === 6) {
+                            // Column 6: Multi-Select Pattern
                             el.setAttribute('data-selected', content);
                             el.value = ""; 
-                            // This applies the blue color and "Selected:" text
                             applyCellColor(el, content);
                         } else {
+                            // Standard Pattern
                             el.value = content;
-                            // This applies the High/Med/Low colors
                             applyCellColor(el, content);
                         }
                     }
                 }
             }
         }
+        return true; // Mission accomplished
     } catch (err) {
-        console.error("🔴 Load Error:", err.message);
-    } 
-    // No 'finally' here that hides the loader; startApp handles that!
-    return true; 
+        console.error("🔴 LoadData Error:", err.message);
+        return false; // Mission failed, but let the app open
+    }
 }
+
+window.onload = () => {
+    // Only call this once everything is ready
+    startApp();
+};
 
     </script>
 </body>
