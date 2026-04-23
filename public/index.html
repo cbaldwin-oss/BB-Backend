@@ -1243,13 +1243,37 @@ async function loadData() {
     const status = document.getElementById('saveIndicator');
     if (status) status.innerText = "Syncing with Cloud...";
 
-   try {
-        const { data, error } = await _supabase.from('BackEndData').select('*');
+    try {
+        const { data, error } = await _supabase
+            .from('BackEndData')
+            .select('*');
+
         if (error) throw error;
 
         if (data) {
-            data.forEach(row => {
-                // Loop through columns 1 to 8 for every row found
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            data.forEach(async (row) => {
+                // --- 1. HISTORICAL CLEANUP LOGIC ---
+                // Convert the day_label (YYYY-MM-DD) to a Date object
+                const rowDate = new Date(row.day_label + "T00:00:00");
+                
+                // If the date is BEFORE today AND both Col 2 and Col 3 are empty
+                if (rowDate < today && !row.col2 && !row.col3) {
+                    console.log(`🗑️ Auto-deleting empty historical row: ${row.id} from ${row.day_label}`);
+                    
+                    // Delete from Supabase
+                    await _supabase.from('BackEndData').delete().eq('id', row.id);
+                    
+                    // Remove from UI if it exists
+                    const wrapper = document.getElementById(`row-wrapper-${row.id}`);
+                    if (wrapper) wrapper.remove();
+                    
+                    return; // Skip the rest of the loop for this specific row
+                }
+
+                // --- 2. STANDARD DATA POPULATION ---
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
@@ -1257,37 +1281,26 @@ async function loadData() {
                     if (el) {
                         const content = row[`col${col}`] || "";
                         
-                        // --- THE PATTERN MATCH ---
-                        
-if (col === 6) {
-    el.setAttribute('data-selected', content);
-    applyCellColor(el, content); // This builds the "Selected: Partner A, Partner B" text
-}
-                        else {
-                            // 1. For all other columns, we set the standard .value
+                        if (col === 6) {
+                            el.setAttribute('data-selected', content);
+                            applyCellColor(el, content);
+                        } else {
                             el.value = content;
-                            // 2. Trigger the standard visual "pop-in" (colors based on text)
                             applyCellColor(el, content);
                         }
                     }
                 }
             });
             console.log("✅ Cloud Sync Complete: Data popped into cells.");
-    
-    return true; // This "resolves" the promise for startApp
         }
 
         if (status) status.innerText = "Saved";
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
-            return false;
         if (status) status.innerText = "Sync Error!";
     } finally {
-        // Clear the status message after a brief moment
         setTimeout(() => {
-            if (status && (status.innerText === "Saved" || status.innerText === "Ready")) {
-                status.innerText = "";
-            }
+            if (status && (status.innerText === "Saved")) status.innerText = "";
         }, 2000);
     }
 }
