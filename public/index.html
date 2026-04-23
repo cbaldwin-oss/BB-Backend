@@ -426,16 +426,17 @@ position: sticky;
 }
 #loading-overlay {
     position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: #ffffff; /* Or your brand color */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #f8f9fa; /* Clean light background */
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 9999;
-    opacity: 1;
-    transition: opacity 0.8s ease-in-out; /* The secret sauce */
+    z-index: 10000;
+    transition: opacity 0.5s ease;
 }
-
 
 /* The Large Circle */
 .ship-circle {
@@ -488,16 +489,6 @@ position: sticky;
     visibility: hidden !important;
     pointer-events: none !important;
     transition: opacity 0.5s ease;
-}
-/* Update your Column 6 style in the <style> block */
-[id$="-c6"] {
-    height: auto !important;
-    min-height: 38px;       /* Standard height when empty */
-    white-space: normal !important; /* Forces text to wrap to next line */
-    word-wrap: break-word;
-    line-height: 1.4;
-    padding: 8px 4px;
-    display: block;         /* Allows height to be controlled more easily */
 }
 </style>
 </head>
@@ -600,40 +591,35 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    console.log("🚀 Launching App...");
     const loader = document.getElementById('loading-overlay');
     
-    // 1. Build the grid first
+    // Build the grid structure first (Boxes will be empty)
     createSections(); 
 
-    // 2. FAIL-SAFE: If the cloud is slow, force the screen open after 4 seconds
-    const forceOpen = setTimeout(() => {
-        console.warn("⚠️ Data taking too long... forcing app open.");
-        hideLoader(loader);
-    }, 4000);
-
     try {
-        // 3. Try to load the data
-        await loadData();
-        console.log("✅ Data loaded successfully.");
-    } catch (error) {
-        console.error("❌ Startup Error:", error);
+        // Fetch the data
+        await Promise.allSettled([
+            fetchDropdownOptions(),
+            loadData()
+        ]);
+        
+        // NOW REFILL THE BOXES
+        refreshDropdowns();
+        
+        console.log("🚀 Launch Successful.");
+    } catch (e) {
+        console.error("Launch error:", e);
     } finally {
-        // 4. Clear the fail-safe timer and hide the loader
-        clearTimeout(forceOpen);
-        hideLoader(loader);
+        // Land the rocket
+        if (loader) {
+            loader.classList.add('hidden');
+            setTimeout(() => loader.style.display = 'none', 500);
+        }
     }
 }
 
-// Helper to handle the fade transition
-function hideLoader(loader) {
-    if (loader && !loader.classList.contains('hidden')) {
-        loader.classList.add('hidden');
-        setTimeout(() => {
-            loader.style.display = 'none';
-        }, 800);
-    }
-}
+window.onload = startApp;
+
 function refreshDropdowns() {
     console.log("🔄 Syncing dropdown options...");
     const selects = document.querySelectorAll('select');
@@ -680,76 +666,64 @@ function refreshDropdowns() {
 function applyCellColor(element, value) {
     if (!element) return;
 
-    // 1. DATA CAPTURE
-    let capturedValue = value;
-    if (capturedValue === undefined || capturedValue === null) {
-        capturedValue = element.getAttribute('data-selected') || element.value || "";
+    // 1. DATA CAPTURE: Ensure we are looking at the right text
+    let finalValue = (value !== undefined && value !== null) ? value : element.value;
+    
+    // If it's a dropdown and we still don't have a value, grab the text of the selected option
+    if (element.tagName === 'SELECT' && !finalValue) {
+        finalValue = element.options[element.selectedIndex]?.text || "";
     }
 
-    // 2. COLUMN 6 (MULTI-SELECT) DYNAMIC SIZING
+    // 2. COLUMN 6 (MULTI-SELECT) LOCK
     const isColumn6 = element.id && element.id.endsWith("-c6");
     if (isColumn6) {
-        let rawList = capturedValue.toString().replace(/^Selected:\s*/i, "").trim();
-
-        if (rawList && rawList !== "" && rawList !== "+ Add Multi") {
-            element.style.backgroundColor = "#e7f3ff";
+        const storedData = element.getAttribute('data-selected') || finalValue;
+        if (storedData && storedData !== "" && storedData !== "+ Add Multi") {
+            element.style.backgroundColor = "#e7f3ff"; 
             element.style.color = "#0056b3";
             element.style.fontWeight = "bold";
-
             if (element.options && element.options[0]) {
-                element.options[0].text = `Selected: ${rawList}`;
-                
-                // --- GOOGLE SHEETS DYNAMIC SIZING ---
-                // We estimate height based on character count. 
-                // A standard cell fits ~25-30 chars per line.
-                const charCount = rawList.length + 10; // +10 for "Selected: "
-                if (charCount > 30) {
-                    // Calculate how many rows of text we need
-                    const estimatedLines = Math.ceil(charCount / 28); 
-                    const newHeight = (estimatedLines * 20) + 10; // 20px per line + padding
-                    element.style.height = newHeight + "px";
-                } else {
-                    element.style.height = "40px"; // Default height
-                }
+                element.options[0].text = `Selected: ${storedData}`;
             }
         } else {
-            element.style.backgroundColor = "transparent";
-            element.style.height = "40px"; // Reset
-            if (element.options && element.options[0]) {
-                element.options[0].text = "+ Add Multi";
-            }
+            element.style.backgroundColor = "";
+            if (element.options && element.options[0]) element.options[0].text = "+ Add Multi";
         }
         return; 
     }
 
-    // 3. STANDARD COLUMN LOGIC (1-5, 7, 8)
-    element.style.backgroundColor = "#e7f3ff"; // Default filled
-    element.style.color = "#333";
-    element.style.fontWeight = "normal";
+    // 3. STANDARD COLOR LOGIC (Cols 1, 2, 3, 4, 5, 7, 8)
+    element.style.backgroundColor = "";
+    element.style.color = "";
+    element.style.fontWeight = "";
 
-    const cleanVal = capturedValue.toString().trim();
-    const lowerVal = cleanVal.toLowerCase();
+    // Convert to string and clean up for comparison
+    const val = finalValue ? finalValue.toString().toLowerCase().trim() : "";
 
-    if (cleanVal === "" || lowerVal === "select...") {
-        element.style.backgroundColor = "transparent";
-        return;
-    }
+    if (val === "" || val === "select...") return;
 
-    // Priority Colors
-    if (lowerVal.includes("high") || lowerVal.includes("pass") || lowerVal.includes("active")) {
-        element.style.backgroundColor = "#d4edda";
+    // GREEN: High / Pass / Active / Complete
+    if (val.includes("high") || val.includes("pass") || val.includes("active") || val.includes("complete")) {
+        element.style.backgroundColor = "#d4edda"; 
         element.style.color = "#155724";
         element.style.fontWeight = "bold";
     } 
-    else if (lowerVal.includes("med") || lowerVal.includes("pending") || lowerVal.includes("hold")) {
-        element.style.backgroundColor = "#fff3cd";
+    // YELLOW: Med / Pending / Hold / Progress
+    else if (val.includes("med") || val.includes("pending") || val.includes("hold") || val.includes("progress")) {
+        element.style.backgroundColor = "#fff3cd"; 
         element.style.color = "#856404";
         element.style.fontWeight = "bold";
     } 
-    else if (lowerVal.includes("low") || lowerVal.includes("fail") || lowerVal.includes("urgent")) {
-        element.style.backgroundColor = "#f8d7da";
+    // RED: Low / Fail / Urgent / Alert
+    else if (val.includes("low") || val.includes("fail") || val.includes("urgent") || val.includes("alert")) {
+        element.style.backgroundColor = "#f8d7da"; 
         element.style.color = "#721c24";
         element.style.fontWeight = "bold";
+    } 
+    // DEFAULT: Any other text gets a clean white "Filled" look
+    else {
+        element.style.backgroundColor = "#e7f3ff";
+        element.style.color = "#333333";
     }
 }
 
@@ -798,67 +772,57 @@ function generateNumericId(dayLabel, index) {
     return (dayMap[dayLabel] || 0) * 100 + index;
 }
 
-function addRowsToContainer(container, dayLabel, startId, rowCount) {
-    for (let i = 0; i < rowCount; i++) {
-        const rowNumericId = startId + i;
+function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
+    for (let r = 0; r < count; r++) {
+        // --- CHANGE: Use stable numeric ID instead of Date.now() ---
+        const rowNumericId = generateNumericId(dayLabel, r);
+        
         const rowDiv = document.createElement('div');
-        rowDiv.className = 'row-container';
-        rowDiv.id = `row-${rowNumericId}`;
+        rowDiv.className = 'cell-row';
+        rowDiv.id = `row-wrapper-${rowNumericId}`;
 
-        // Create columns 1 through 8
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-            
-            // 1. Determine element type (Dropdowns for 1-4 and 6, Inputs for 5, 7, 8)
-            const isDropdown = (col <= 4 || col === 6);
-            const element = document.createElement(isDropdown ? 'select' : 'input');
-            
-            element.id = cellId;
-            element.className = 'grid-cell';
-            
-            if (isDropdown) {
-                // Initialize dropdowns with a placeholder
-                const placeholder = document.createElement('option');
-                placeholder.value = "";
-                placeholder.text = (col === 6) ? "+ Add Multi" : "Select...";
-                element.appendChild(placeholder);
+            let element;
+
+            if ([1, 2, 3, 4, 6, 7].includes(col)) {
+                element = document.createElement('select');
+                element.id = cellId;
                 
-                // --- DROPDOWN SAVE LOGIC ---
-                element.onchange = () => {
-                    if (col === 6) {
-                        updateMultiValue(rowNumericId, dayLabel, element.value);
-                    } else {
-                        applyCellColor(element, element.value);
-                        saveRow(rowNumericId, dayLabel);
-                    }
-                };
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = "";
+                defaultOpt.text = (col === 6) ? "+ Add Multi" : "Select...";
+                element.appendChild(defaultOpt);
+
+                const options = dropdownData[`col${col}`] || [];
+                options.forEach(text => {
+                    const opt = document.createElement('option');
+                    opt.value = text;
+                    opt.text = text;
+                    element.appendChild(opt);
+                });
+
+element.onchange = () => {
+    applyCellColor(element, element.value); // This sends the signal to color it
+    saveRow(rowNumericId, dayLabel);
+};
             } else {
-                // --- YOUR SPECIFIC ONBLUR LOGIC ---
-                element.placeholder = (col === 5) ? "Activity..." : "Notes...";
-                
+                element = document.createElement('input');
+                element.id = cellId;
+                element.placeholder = "...";
                 element.onblur = () => {
-                    // 1. Update the cell color immediately for visual feedback
                     applyCellColor(element, element.value);
-
-                    // 2. Extract rowNum and dayLabel from the ID string
-                    // Format is "Monday-r101-c5"
-                    const parts = element.id.split('-r');
-                    const currentDayLabel = parts[0];
-                    const currentRowNumericId = parseInt(parts[1].split('-c')[0]);
-
-                    // 3. Trigger the full row save
-                    saveRow(currentRowNumericId, currentDayLabel);
-                };
-
-                // Add Enter key support to trigger the blur
-                element.onkeydown = (e) => {
-                    if (e.key === "Enter") element.blur();
+                    saveRow(rowNumericId, dayLabel);
                 };
             }
-
             rowDiv.appendChild(element);
         }
-        container.appendChild(rowDiv);
+        
+        if (anchorBtn) {
+            container.insertBefore(rowDiv, anchorBtn);
+        } else {
+            container.appendChild(rowDiv);
+        }
     }
 }
 
@@ -974,50 +938,37 @@ function toggleAllSections() {
 }
 
 async function updateMultiValue(rowNum, dayLabel, newValue) {
-    // 1. Ignore the placeholder or empty resets
-    if (!newValue || newValue === "" || newValue === "+ Add Multi") return;
+    // 1. Ignore if user clicks the placeholder or if it's an empty reset
+    if (!newValue || newValue === "") return; 
 
-    const cellId = `${dayLabel}-r${rowNum}-c6`;
-    const element = document.getElementById(cellId);
-    
-    // 2. GET CURRENT MEMORY
-    // We look at the attribute first, then the placeholder text as a backup
-    let rawMemory = element.getAttribute('data-selected') || "";
-    
-    // If attribute is empty, try to scrape it from the placeholder text
-    if (!rawMemory && element.options[0].text.includes("Selected:")) {
-        rawMemory = element.options[0].text.replace("Selected: ", "");
-    }
+    const element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
+    let currentContent = element.getAttribute('data-selected') || "";
+    let items = currentContent ? currentContent.split(', ').filter(x => x) : [];
 
-    // Clean up: remove any accidental "Selected:" prefixes
-    rawMemory = rawMemory.replace(/^Selected:\s*/i, "").trim();
-    
-    // 3. CONVERT TO ARRAY
-    let items = rawMemory ? rawMemory.split(',').map(s => s.trim()).filter(x => x) : [];
-
-    // 4. TOGGLE LOGIC
+    // Toggle logic
     const index = items.indexOf(newValue);
-    if (index === -1) {
-        items.push(newValue); // Add if not there
-        console.log(`➕ Adding ${newValue}. Current list:`, items);
-    } else {
-        items.splice(index, 1); // Remove if already there
-        console.log(`➖ Removing ${newValue}. Current list:`, items);
-    }
+    if (index === -1) items.push(newValue);
+    else items.splice(index, 1);
 
     const updatedString = items.join(', ');
 
-    // 5. LOCK INTO ATTRIBUTE & UI
+    // 2. Lock the data into the attribute
     element.setAttribute('data-selected', updatedString);
     
-    // 6. REFRESH VISUALS
-    applyCellColor(element, updatedString);
+    // 3. Update the UI Text
+    if (items.length > 0) {
+        element.options[0].text = `Selected (${items.length}): ${updatedString}`;
+        element.style.backgroundColor = "#e7f3ff";
+    } else {
+        element.options[0].text = "+ Add Multi";
+        element.style.backgroundColor = "";
+    }
 
-    // 7. RESET DROPDOWN (So user can pick another)
-    element.value = ""; 
-
-    // 8. SAVE TO CLOUD
+    // 4. Force the cloud save with the string directly (bypass the element's current value)
     await saveRow(rowNum, dayLabel, updatedString);
+
+    // 5. Reset visual selection ONLY AFTER the save process has the data
+    element.value = ""; 
 }
 
 async function deleteFullRow(wrapperId, cellIds) {
@@ -1075,13 +1026,12 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
 
         // 4. THE VISUAL REFRESH (The "Pop-In" Pattern)
         // We select all 8 cells in this specific row
-for (let col = 1; col <= 8; col++) {
+        for (let col = 1; col <= 8; col++) {
             const cell = document.getElementById(`${dayLabel}-r${rowNum}-c${col}`);
             if (cell) {
-                // For Column 6, we pass the attribute string directly
-                // For others, we just let applyCellColor figure it out from the element
-                const valToPass = (col === 6) ? cell.getAttribute('data-selected') : cell.value;
-                applyCellColor(cell, valToPass);
+                // If it's col 6, we pass the final value to ensure the label stays
+                const cellValue = (col === 6) ? finalCol6 : cell.value;
+                applyCellColor(cell, cellValue);
             }
         }
 
@@ -1151,10 +1101,28 @@ function collapseEverything() {
     });
 }
 
+// UPDATE YOUR SAVE LOGIC (inside the loop)
+input.onblur = () => {
+    // 1. Update the cell color immediately for visual feedback
+    applyCellColor(input, input.value);
+
+    // 2. Extract rowNum and dayLabel from the ID string
+    // Format is "DayLabel-r101-c5"
+    const parts = input.id.split('-r');
+    const dayLabel = parts[0];
+    const rowNumericId = parseInt(parts[1].split('-c')[0]);
+
+    // 3. Trigger the full row save
+    saveRow(rowNumericId, dayLabel);
+};
+
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
+    console.log("📥 Syncing with Cloud: Fetching row data...");
+    const status = document.getElementById('saveIndicator');
+    if (status) status.innerText = "Syncing with Cloud...";
+
     try {
-        // Ensure you have 'await' here
         const { data, error } = await _supabase
             .from('BackEndData')
             .select('*');
@@ -1163,31 +1131,49 @@ async function loadData() {
 
         if (data) {
             data.forEach(row => {
+                // Loop through columns 1 to 8 for every row found
                 for (let col = 1; col <= 8; col++) {
-                    const el = document.getElementById(`${row.day_label}-r${row.id}-c${col}`);
+                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                    const el = document.getElementById(cellId);
+                    
                     if (el) {
                         const content = row[`col${col}`] || "";
+                        
+                        // --- THE PATTERN MATCH ---
+                        
                         if (col === 6) {
+                            // 1. For Multi-Select, we store data in the 'data-selected' attribute
                             el.setAttribute('data-selected', content);
+                            // 2. We keep the visual value empty so "+ Add Multi" is the default
+                            el.value = ""; 
+                            // 3. Trigger the visual "pop-in" (blue highlight + label)
                             applyCellColor(el, content);
-                        } else {
+                        } 
+                        else {
+                            // 1. For all other columns, we set the standard .value
                             el.value = content;
+                            // 2. Trigger the standard visual "pop-in" (colors based on text)
                             applyCellColor(el, content);
                         }
                     }
                 }
             });
+            console.log("✅ Cloud Sync Complete: Data popped into cells.");
         }
-    } catch (err) {
-        console.error("🔴 LoadData failed but continuing:", err.message);
-    }
-    return true; // Always return true so startApp can proceed
-}
 
-window.onload = () => {
-    // Only call this once everything is ready
-    startApp();
-};
+        if (status) status.innerText = "Saved";
+    } catch (err) {
+        console.error("🔴 Load Error:", err.message);
+        if (status) status.innerText = "Sync Error!";
+    } finally {
+        // Clear the status message after a brief moment
+        setTimeout(() => {
+            if (status && (status.innerText === "Saved" || status.innerText === "Ready")) {
+                status.innerText = "";
+            }
+        }, 2000);
+    }
+}
 
     </script>
 </body>
