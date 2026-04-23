@@ -573,8 +573,6 @@ const activeSyncs = new Set(); // Track which rows are currently uploading
 const START_DATE = "2026-04-20"; // A Monday
 const WEEKS_TO_SHOW = 2; 
 const INITIAL_ROWS = 20;
-// Utility to pause execution for a set amount of time
-const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 </script>
 
     <table id="grid"></table>
@@ -603,40 +601,34 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    console.log("🚀 Launching App...");
     const loader = document.getElementById('loading-overlay');
     
-    // ⚙️ ADJUSTABLE BUFFER (in milliseconds)
-    // 1000 = 1 second. Increase this if the data still feels "late".
-    const BUFFER_TIME = 30000; 
-
-    // 1. Build the HTML UI grid immediately
+    // Build the grid structure first (Boxes will be empty)
     createSections(); 
 
     try {
-        // 2. FETCH DATA: This waits for Supabase to finish sending rows
-        await loadData();
+        // Fetch the data
+        await Promise.allSettled([
+            fetchDropdownOptions(),
+            loadData()
+        ]);
         
-        // 3. APPLY BUFFER: This forces the loading screen to stay up 
-        // to give the browser time to finish rendering all colors/styles.
-        console.log(`⏱️ Data fetched. Waiting ${BUFFER_TIME}ms for UI to settle...`);
-        await wait(BUFFER_TIME);
-
-    } catch (error) {
-        console.error("❌ Startup Error:", error);
+        // NOW REFILL THE BOXES
+        refreshDropdowns();
+        
+        console.log("🚀 Launch Successful.");
+    } catch (e) {
+        console.error("Launch error:", e);
     } finally {
-        // 4. THE REVEAL: Only hide the loader after everything is done
+        // Land the rocket
         if (loader) {
-            loader.classList.add('hidden'); // Triggers CSS fade
-            
-            // Physical removal from DOM after fade finishes
-            setTimeout(() => {
-                loader.style.display = 'none';
-            }, 800); 
+            loader.classList.add('hidden');
+            setTimeout(() => loader.style.display = 'none', 500);
         }
-        console.log("✅ App is live.");
     }
 }
+
+window.onload = startApp;
 
 function refreshDropdowns() {
     console.log("🔄 Syncing dropdown options...");
@@ -1141,37 +1133,58 @@ function collapseEverything() {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
+    console.log("📥 Syncing with Cloud: Fetching row data...");
+    const status = document.getElementById('saveIndicator');
+    if (status) status.innerText = "Syncing with Cloud...";
+
     try {
-        const { data, error } = await _supabase.from('BackEndData').select('*');
+        const { data, error } = await _supabase
+            .from('BackEndData')
+            .select('*');
+
         if (error) throw error;
 
         if (data) {
-            // Sequential processing ensures everything is "painted"
-            for (const row of data) {
+            data.forEach(row => {
+                // Loop through columns 1 to 8 for every row found
                 for (let col = 1; col <= 8; col++) {
-                    const el = document.getElementById(`${row.day_label}-r${row.id}-c${col}`);
+                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                    const el = document.getElementById(cellId);
+                    
                     if (el) {
                         const content = row[`col${col}`] || "";
-                        // Apply value and colors immediately
-                        if (col === 6) {
-                            el.setAttribute('data-selected', content);
-                            applyCellColor(el, content);
-                        } else {
+                        
+                        // --- THE PATTERN MATCH ---
+                        
+if (col === 6) {
+    el.setAttribute('data-selected', content);
+    applyCellColor(el, content); // This builds the "Selected: Partner A, Partner B" text
+}
+                        else {
+                            // 1. For all other columns, we set the standard .value
                             el.value = content;
+                            // 2. Trigger the standard visual "pop-in" (colors based on text)
                             applyCellColor(el, content);
                         }
                     }
                 }
-            }
+            });
+            console.log("✅ Cloud Sync Complete: Data popped into cells.");
         }
-        return true; // Tells startApp "I am finished"
+
+        if (status) status.innerText = "Saved";
     } catch (err) {
-        console.error("Load error:", err.message);
-        return false;
+        console.error("🔴 Load Error:", err.message);
+        if (status) status.innerText = "Sync Error!";
+    } finally {
+        // Clear the status message after a brief moment
+        setTimeout(() => {
+            if (status && (status.innerText === "Saved" || status.innerText === "Ready")) {
+                status.innerText = "";
+            }
+        }, 2000);
     }
 }
-
-window.onload = startApp;
 
     </script>
 </body>
