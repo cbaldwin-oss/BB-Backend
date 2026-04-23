@@ -603,42 +603,41 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    console.log("🚀 Launching App...");
     const loader = document.getElementById('loading-overlay');
     
-    // ⚙️ ADJUSTABLE BUFFER (in milliseconds)
-    // 1000 = 1 second. Increase this to keep the loading screen up longer.
-    const EXTRA_BUFFER = 1500; 
+    // 1. Define the utility at the top of startApp if not defined globally
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const EXTRA_BUFFER = 1500; // Adjustable buffer in milliseconds
 
-    // 1. Build the grid immediately
+    // 2. Build the grid structure first
     createSections(); 
 
     try {
-        // 2. Fetch dropdowns (Partners, Assets, etc.)
+        // 3. Fetch dropdown options (Trade Partners, Assets, etc.)
         await fetchDropdownOptions();
         
-        // 3. Fetch saved data from Supabase
+        // 4. MANUAL SYNC: Run the sync immediately once before the screen fades
+        console.log("⏳ Initial Cloud Sync starting...");
         await loadData();
         
-        // 4. Refresh the UI labels
+        // 5. REFRESH UI: Populate dropdown labels and colors
         refreshDropdowns();
-
-        // 5. THE BUFFER: This forces the screen to stay white/loading
-        // even though all the data is already in the cells behind it.
-        console.log(`⏳ Sync complete. Holding screen for ${EXTRA_BUFFER}ms...`);
+        
+        // 6. THE BUFFER: Hold the screen so the user sees a finished product
+        console.log(`⏱️ Holding for ${EXTRA_BUFFER}ms buffer...`);
         await wait(EXTRA_BUFFER);
-
+        
+        console.log("✅ Initial sync complete and painted.");
     } catch (e) {
-        console.error("❌ Startup Error:", e);
+        console.error("❌ Launch error:", e);
     } finally {
-        // 6. Smoothly reveal the app
+        // 7. Hide the loader only after everything above is finished
         if (loader) {
-            loader.classList.add('hidden'); // Triggers CSS fade
+            loader.classList.add('hidden');
             setTimeout(() => {
                 loader.style.display = 'none';
-            }, 800); 
+            }, 800);
         }
-        console.log("✅ Ready.");
     }
 }
 
