@@ -606,40 +606,39 @@ async function startApp() {
     console.log("🚀 Launching App...");
     const loader = document.getElementById('loading-overlay');
     
-    // ADJUSTABLE BUFFER (Time in milliseconds)
-    const EXTRA_BUFFER = 1500; 
+    // ADJUSTABLE BUFFER (ms): Gives the browser time to paint colors
+    // Increase this if you still see a split-second "pop" of data
+    const PAINT_BUFFER = 1000; 
 
-    // Step A: Build the HTML grid (Empty boxes)
+    // 1. Build the HTML grid structure immediately
     createSections(); 
 
     try {
-        // Step B: Fetch dropdown labels (Partners, Assets, etc.)
+        // 2. FETCH DROPDOWNS FIRST (Trade Partners, Assets, etc.)
         await fetchDropdownOptions();
         
-        // Step C: INITIAL SYNC - This ensures data is in the cells 
-        // before the loading screen even begins to fade.
-        console.log("⏳ Initial Cloud Sync starting...");
+        // 3. FETCH SAVED DATA: This is the "Hard Stop"
+        // The script pauses here until every cell is populated
+        console.log("⏳ Syncing cloud data before reveal...");
         await loadData();
         
-        // Step D: Refresh visual labels (Multi-select text, etc.)
+        // 4. REFRESH UI: Final labels and multi-select text
         refreshDropdowns();
 
-        // Step E: THE BUFFER - Pause here to let the browser "paint" 
-        // the green/red/blue colors into the cells.
-        console.log(`⏱️ Sync complete. Holding for ${EXTRA_BUFFER}ms...`);
-        await wait(EXTRA_BUFFER);
+        // 5. THE BUFFER: Hold the loader so the user sees a finished product
+        await new Promise(resolve => setTimeout(resolve, PAINT_BUFFER));
 
-    } catch (error) {
-        console.error("❌ Startup Error:", error);
+    } catch (e) {
+        console.error("❌ Launch error:", e);
     } finally {
-        // Step F: THE REVEAL - Only hide the loader after everything above is finished
+        // 6. REVEAL: Only hide the loader after everything above is done
         if (loader) {
             loader.classList.add('hidden');
             setTimeout(() => {
                 loader.style.display = 'none';
             }, 800); 
         }
-        console.log("✅ Syncing with cloud... Data popped into cells.");
+        console.log("✅ Launch Successful: Grid is fully painted.");
     }
 }
 
