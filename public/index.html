@@ -666,17 +666,20 @@ function refreshDropdowns() {
 function applyCellColor(element, value) {
     if (!element) return;
 
-    // 1. DATA CAPTURE: If value is missing, grab it from the element
-    // This is crucial for when the function is called during a cloud sync
-    const finalValue = (value !== undefined && value !== null) ? value : element.value;
+    // 1. DATA CAPTURE: Ensure we are looking at the right text
+    let finalValue = (value !== undefined && value !== null) ? value : element.value;
     
-    // 2. SPECIFIC CHECK FOR COLUMN 6 (MULTI-SELECT)
+    // If it's a dropdown and we still don't have a value, grab the text of the selected option
+    if (element.tagName === 'SELECT' && !finalValue) {
+        finalValue = element.options[element.selectedIndex]?.text || "";
+    }
+
+    // 2. COLUMN 6 (MULTI-SELECT) LOCK
     const isColumn6 = element.id && element.id.endsWith("-c6");
-    
     if (isColumn6) {
         const storedData = element.getAttribute('data-selected') || finalValue;
-        if (storedData && storedData !== "") {
-            element.style.backgroundColor = "#e7f3ff"; // Blue highlight
+        if (storedData && storedData !== "" && storedData !== "+ Add Multi") {
+            element.style.backgroundColor = "#e7f3ff"; 
             element.style.color = "#0056b3";
             element.style.fontWeight = "bold";
             if (element.options && element.options[0]) {
@@ -684,43 +687,40 @@ function applyCellColor(element, value) {
             }
         } else {
             element.style.backgroundColor = "";
-            if (element.options && element.options[0]) {
-                element.options[0].text = "+ Add Multi";
-            }
+            if (element.options && element.options[0]) element.options[0].text = "+ Add Multi";
         }
-        return; // Stop here for Column 6
+        return; 
     }
 
-    // 3. STANDARD COLOR LOGIC (For All Other Columns)
-    // Clear styles first
+    // 3. STANDARD COLOR LOGIC (Cols 1, 2, 3, 4, 5, 7, 8)
     element.style.backgroundColor = "";
     element.style.color = "";
     element.style.fontWeight = "";
 
-    // If there's truly no data, stop here
-    if (!finalValue || finalValue.toString().trim() === "") return;
+    // Convert to string and clean up for comparison
+    const val = finalValue ? finalValue.toString().toLowerCase().trim() : "";
 
-    const val = finalValue.toString().toLowerCase();
+    if (val === "" || val === "select...") return;
 
-    // GREEN PATTERN
+    // GREEN: High / Pass / Active / Complete
     if (val.includes("high") || val.includes("pass") || val.includes("active") || val.includes("complete")) {
         element.style.backgroundColor = "#d4edda"; 
         element.style.color = "#155724";
         element.style.fontWeight = "bold";
     } 
-    // YELLOW PATTERN
+    // YELLOW: Med / Pending / Hold / Progress
     else if (val.includes("med") || val.includes("pending") || val.includes("hold") || val.includes("progress")) {
         element.style.backgroundColor = "#fff3cd"; 
         element.style.color = "#856404";
         element.style.fontWeight = "bold";
     } 
-    // RED PATTERN
+    // RED: Low / Fail / Urgent / Alert
     else if (val.includes("low") || val.includes("fail") || val.includes("urgent") || val.includes("alert")) {
         element.style.backgroundColor = "#f8d7da"; 
         element.style.color = "#721c24";
         element.style.fontWeight = "bold";
     } 
-    // DEFAULT FILLED STATE
+    // DEFAULT: Any other text gets a clean white "Filled" look
     else {
         element.style.backgroundColor = "#ffffff";
         element.style.color = "#333333";
@@ -803,14 +803,8 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
                 });
 
 element.onchange = () => {
-    applyCellColor(element, element.value);
-    
-    // Check if this is the "Trade Partners" (Multi) column
-    if (col === 6) {
-        updateMultiValue(rowNumericId, dayLabel, element.value);
-    } else {
-        saveRow(rowNumericId, dayLabel);
-    }
+    applyCellColor(element, element.value); // This sends the signal to color it
+    saveRow(rowNumericId, dayLabel);
 };
             } else {
                 element = document.createElement('input');
