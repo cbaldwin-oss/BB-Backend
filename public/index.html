@@ -1251,33 +1251,35 @@ async function loadData() {
         if (error) throw error;
 
         if (data) {
-            // 1. Establish "Today" at midnight for accurate historical comparison
+            // 1. Establish "Today" at midnight for accurate comparison
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
+            // Using a for...of loop to handle async deletes properly
             for (const row of data) {
-                // 2. Convert day_label (YYYY-MM-DD) to a local Date object
+                // 2. Parse the day_label (YYYY-MM-DD) as a local date
                 const rowDate = new Date(row.day_label + "T00:00:00");
 
-                // 3. UPDATED CLEANUP LOGIC: 
-                // Checks if the date is in the past AND Col 3 & Col 4 are effectively empty
-                const isCol3Empty = !row.col3 || row.col3 === "" || row.col3 === "select...";
-                const isCol4Empty = !row.col4 || row.col4 === "" || row.col4 === "select...";
+                // 3. UPDATED CLEANUP LOGIC
+                // Check if Column 3 or Column 4 are effectively empty/default
+                const isCol3Empty = !row.col3 || row.col3 === "" || row.col3 === "Select...";
+                const isCol4Empty = !row.col4 || row.col4 === "" || row.col4 === "Select...";
 
+                // If date is in the past AND both columns are unused, delete the row
                 if (rowDate < today && isCol3Empty && isCol4Empty) {
-                    console.log(`🗑️ Auto-deleting empty historical row: ${row.id} from ${row.day_label}`);
+                    console.log(`🗑️ Auto-deleting unused historical row: ${row.id} from ${row.day_label}`);
                     
-                    // Remove from Supabase
+                    // Delete from Supabase 'BackEndData'
                     await _supabase.from('BackEndData').delete().eq('id', row.id);
                     
                     // Remove from UI if it exists
                     const wrapper = document.getElementById(`row-wrapper-${row.id}`);
                     if (wrapper) wrapper.remove();
                     
-                    continue; // Skip population for this deleted row
+                    continue; // Skip the rest of this loop for the deleted row
                 }
 
-                // 4. STANDARD POPULATION for active rows
+                // 4. STANDARD DATA POPULATION
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
@@ -1287,7 +1289,7 @@ async function loadData() {
                         
                         if (col === 6) {
                             el.setAttribute('data-selected', content);
-                            applyCellColor(el, content); 
+                            applyCellColor(el, content);
                         } else {
                             el.value = content;
                             applyCellColor(el, content);
@@ -1304,7 +1306,7 @@ async function loadData() {
         if (status) status.innerText = "Sync Error!";
     } finally {
         setTimeout(() => {
-            if (status && status.innerText === "Saved") status.innerText = "";
+            if (status && (status.innerText === "Saved")) status.innerText = "";
         }, 2000);
     }
 }
