@@ -1239,73 +1239,59 @@ function collapseEverything() {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    console.log("📥 Syncing with Cloud: Fetching row data...");
-    const status = document.getElementById('saveIndicator');
-    if (status) status.innerText = "Syncing with Cloud...";
-
+    console.log("📥 Syncing with Cloud...");
+    
     try {
-        const { data, error } = await _supabase
-            .from('BackEndData')
-            .select('*');
-
+        const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
 
-        if (data) {
-            // 1. Establish "Today" at midnight for accurate comparison
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+        // Get current date in YYYY-MM-DD format
+        const todayStr = new Date().toLocaleDateString('en-CA'); 
 
-            // Use a for...of loop to handle the asynchronous nature of deletes
-            for (const row of data) {
-                // 2. Convert day_label (YYYY-MM-DD) to a local Date object
-                const rowDate = new Date(row.day_label + "T00:00:00");
+        for (const row of data) {
+            // 1. Check if date is in the past
+            // If row.day_label is "2026-04-22" and today is "2026-04-23", it's old.
+            const isOld = row.day_label < todayStr;
 
-                // 3. CLEANUP LOGIC: 
-                // Check if the date is in the past AND Column 3 & 4 are effectively unused
-                const isCol3Empty = !row.col3 || row.col3 === "" || row.col3 === "Select...";
-                const isCol4Empty = !row.col4 || row.col4 === "" || row.col4 === "Select...";
+            // 2. Check if Col 3 and 4 are effectively empty
+            const val3 = (row.col3 || "").toLowerCase().trim();
+            const val4 = (row.col4 || "").toLowerCase().trim();
+            
+            const isCol3Empty = val3 === "" || val3.includes("select");
+            const isCol4Empty = val4 === "" || val4.includes("select");
 
-                if (rowDate < today && isCol3Empty && isCol4Empty) {
-                    console.log(`🗑️ Auto-deleting empty historical row: ${row.id} from ${row.day_label}`);
-                    
-                    // Remove from Supabase
-                    await _supabase.from('BackEndData').delete().eq('id', row.id);
-                    
-                    // Remove from UI if it exists on screen
-                    const wrapper = document.getElementById(`row-wrapper-${row.id}`);
-                    if (wrapper) wrapper.remove();
-                    
-                    continue; // Skip population for this deleted row
-                }
+            if (isOld && isCol3Empty && isCol4Empty) {
+                console.warn(`🗑️ DELETING ROW: ID ${row.id} | Date: ${row.day_label}`);
+                
+                // Remove from Database
+                await _supabase.from('BackEndData').delete().eq('id', row.id);
+                
+                // Remove from UI
+                const wrapper = document.getElementById(`row-wrapper-${row.id}`);
+                if (wrapper) wrapper.remove();
+                
+                continue; // Move to next row
+            }
 
-                // 4. STANDARD DATA POPULATION
-                for (let col = 1; col <= 8; col++) {
-                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
-                    const el = document.getElementById(cellId);
-                    
-                    if (el) {
-                        const content = row[`col${col}`] || "";
-                        if (col === 6) {
-                            el.setAttribute('data-selected', content);
-                            applyCellColor(el, content);
-                        } else {
-                            el.value = content;
-                            applyCellColor(el, content);
-                        }
+            // 3. Normal Population Logic
+            for (let col = 1; col <= 8; col++) {
+                const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                const el = document.getElementById(cellId);
+                if (el) {
+                    const content = row[`col${col}`] || "";
+                    if (col === 6) {
+                        el.setAttribute('data-selected', content);
+                        applyCellColor(el, content);
+                    } else {
+                        el.value = content;
+                        applyCellColor(el, content);
                     }
                 }
             }
-            console.log("✅ Cloud Sync Complete: Data popped into cells.");
         }
-
-        if (status) status.innerText = "Saved";
+        console.log("✅ Sync Complete.");
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
-        if (status) status.innerText = "Sync Error!";
-    } finally {
-        setTimeout(() => {
-            if (status && (status.innerText === "Saved")) status.innerText = "";
-        }, 2000);
     }
 }
 
