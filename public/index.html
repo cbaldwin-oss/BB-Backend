@@ -860,11 +860,14 @@ element.onchange = () => {
             }
             rowDiv.appendChild(element);
         }
-// --- ADD THE DELETE BUTTON BACK HERE ---
+// Inside addRowsToContainer, after the column loop (col 1-8):
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
-        delBtn.innerHTML = '×'; // Multiplication sign looks like a clean 'X'
+        delBtn.innerHTML = '×'; 
+        
+        // Ensure cellIdsInRow contains all IDs for that specific row
         delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
+        
         rowDiv.appendChild(delBtn);
         
         if (anchorBtn) {
@@ -1023,15 +1026,15 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
 
 async function deleteFullRow(wrapperId, cellIds) {
     if (confirm("Delete this entire line?")) {
-        // 1. Identify the Row ID from one of the cell IDs (Format: "Day-r101-c1")
+        // 1. Identify the Row ID from the first cell ID (e.g., "2026-04-20-r101-c1")
         const parts = cellIds[0].split('-r');
         const rowNumericId = parseInt(parts[1].split('-c')[0]);
 
-        // 2. Remove from the Screen immediately
+        // 2. Remove from the Screen immediately for instant feedback
         const element = document.getElementById(wrapperId);
         if (element) element.remove();
 
-        // 3. Remove from Supabase (Targeting the correct table 'BackEndData')
+        // 3. Remove from Supabase using the correct table name 'BackEndData'
         const { error } = await _supabase
             .from('BackEndData')
             .delete()
@@ -1042,6 +1045,13 @@ async function deleteFullRow(wrapperId, cellIds) {
             alert("Cloud Delete Failed: " + error.message);
         } else {
             console.log(`✅ Row ${rowNumericId} deleted from Cloud.`);
+            
+            // Optional: Update save indicator to show success
+            const status = document.getElementById('saveIndicator');
+            if (status) {
+                status.innerText = "Row Deleted";
+                setTimeout(() => { status.innerText = ""; }, 2000);
+            }
         }
     }
 }
