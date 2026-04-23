@@ -622,6 +622,9 @@ async function startApp() {
         
         // 5. REFRESH UI: Populate dropdown labels and colors
         refreshDropdowns();
+
+                // 4. MANUAL SYNC: Run the sync immediately once before the screen fades
+        await saveRow();
         
         // 6. THE BUFFER: Hold the screen so the user sees a finished product
         console.log(`⏱️ Holding for ${EXTRA_BUFFER}ms buffer...`);
