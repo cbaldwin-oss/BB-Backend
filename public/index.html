@@ -1251,30 +1251,33 @@ async function loadData() {
         if (error) throw error;
 
         if (data) {
-            // 1. Establish "Today" at midnight for accurate comparison
+            // 1. Establish "Today" at midnight for accurate historical comparison
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Use a for...of loop or Promise.all to handle async deletes correctly
             for (const row of data) {
-                // 2. Convert day_label (YYYY-MM-DD) to a Date object
+                // 2. Convert day_label (YYYY-MM-DD) to a local Date object
                 const rowDate = new Date(row.day_label + "T00:00:00");
 
-                // 3. CLEANUP LOGIC: If date is in the past AND Col 2 & Col 3 are empty
-                if (rowDate < today && (!row.col2 || row.col2 === "Select...") && (!row.col3 || row.col3 === "Select...")) {
+                // 3. UPDATED CLEANUP LOGIC: 
+                // Checks if the date is in the past AND Col 3 & Col 4 are effectively empty
+                const isCol3Empty = !row.col3 || row.col3 === "" || row.col3 === "select...";
+                const isCol4Empty = !row.col4 || row.col4 === "" || row.col4 === "select...";
+
+                if (rowDate < today && isCol3Empty && isCol4Empty) {
                     console.log(`🗑️ Auto-deleting empty historical row: ${row.id} from ${row.day_label}`);
                     
                     // Remove from Supabase
                     await _supabase.from('BackEndData').delete().eq('id', row.id);
                     
-                    // Remove from UI if it exists on screen
+                    // Remove from UI if it exists
                     const wrapper = document.getElementById(`row-wrapper-${row.id}`);
                     if (wrapper) wrapper.remove();
                     
-                    continue; // Move to the next row, don't try to populate this one
+                    continue; // Skip population for this deleted row
                 }
 
-                // 4. STANDARD POPULATION: For rows that aren't deleted
+                // 4. STANDARD POPULATION for active rows
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
@@ -1284,7 +1287,7 @@ async function loadData() {
                         
                         if (col === 6) {
                             el.setAttribute('data-selected', content);
-                            applyCellColor(el, content);
+                            applyCellColor(el, content); 
                         } else {
                             el.value = content;
                             applyCellColor(el, content);
