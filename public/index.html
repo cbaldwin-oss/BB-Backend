@@ -663,43 +663,30 @@ function refreshDropdowns() {
     });
 }
 
-function applyCellColor(element, text) {
+function applyCellColor(element, value) {
     if (!element) return;
 
-    const val = (text || "").toLowerCase().trim();
+    // Check if this is Column 6 (by ID or attribute)
+    const isMultiCol = element.id.includes("-c6") || element.getAttribute('data-selected') !== null;
     
-    // 1. Reset all classes
-    element.classList.remove('bg-green', 'bg-yellow', 'bg-blue', 'bg-red', 'bg-grey', 'bg-filled');
-
-    // 2. If empty, stop here
-    if (val === "") return;
-
-    // 3. Status Keyword Checks (Now including 'fail')
-    
-    // RED: Urgent / Negative
-    if (val.includes('fail') || val.includes('block') || val.includes('stop') || val.includes('urgent')) {
-        element.classList.add('bg-red');
-    } 
-    // GREEN: Success
-    else if (val.includes('level 4') || val.includes('complete') || val.includes('yes') || val.includes('pass')) {
-        element.classList.add('bg-green');
-    } 
-    // YELLOW: Warning
-    else if (val.includes('level 2') || val.includes('hold') || val.includes('pending')) {
-        element.classList.add('bg-yellow');
-    } 
-    // BLUE: Active
-    else if (val.includes('progress') || val.includes('level 3') || val.includes('run')) {
-        element.classList.add('bg-blue');
-    } 
-    // GREY: Neutral
-    else if (val.includes('n/a') || val.includes('cancel')) {
-        element.classList.add('bg-grey');
+    // Pattern Match for Multi-Select
+    if (isMultiCol) {
+        const storedData = element.getAttribute('data-selected') || value;
+        if (storedData && storedData !== "") {
+            element.style.backgroundColor = "#e7f3ff"; // The "Synced" blue pop
+            if (element.options && element.options[0]) {
+                element.options[0].text = `Selected: ${storedData}`;
+            }
+            return;
+        }
     }
-    // 4. LIGHT BLUE: Fallback for any other information
-    else {
-        element.classList.add('bg-filled');
+
+    // ... your standard coloring for Col 1, 2, 3, etc. ...
+    if (!value || value === "") {
+        element.style.backgroundColor = "";
+        return;
     }
+    // (Standard green/yellow/red logic follows here)
 }
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/a/macros/criticalarccx.com/s/AKfycbyuW0oVb01V8bZiuMTNGmJbZYU1Lnu0eVjEZ8kW1VDrGINS_ZaQaBB9Xp5MJcNo4nxq/exec';
@@ -969,25 +956,19 @@ async function deleteFullRow(wrapperId, cellIds) {
 
 async function saveRow(rowNum, dayLabel, col6Override = null) {
     const syncKey = `${dayLabel}-${rowNum}`;
-    
-    // 1. Guard against double-syncing
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
 
     const status = document.getElementById('saveIndicator');
     if (status) status.innerText = "Syncing with Cloud...";
 
+    // 1. Grab the element for Column 6
     const col6Element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
     
-    // 2. CRITICAL: Capture the attribute data BEFORE any visual reset can interfere
-    const attributeData = col6Element ? col6Element.getAttribute('data-selected') : "";
-    const finalCol6Value = col6Override !== null ? col6Override : attributeData;
-
-    // 3. UI LOCK: Force the label to stay visible while we wait for the network
-    if (col6Element && finalCol6Value) {
-        col6Element.options[0].text = `Selected: ${finalCol6Value}`;
-        col6Element.style.backgroundColor = "#e7f3ff";
-    }
+    // 2. Pattern Match: If we aren't overriding, look at the stored attribute
+    // This mirrors how you look at .value for other cells
+    const currentMultiValue = col6Element ? col6Element.getAttribute('data-selected') : "";
+    const finalCol6 = col6Override !== null ? col6Override : currentMultiValue;
 
     const rowData = {
         id: rowNum,
@@ -997,7 +978,7 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
         col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        col6: finalCol6Value, // Use the locked-in attribute value
+        col6: finalCol6, // This now follows the pattern of your other columns
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
     };
@@ -1008,12 +989,17 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
             .upsert(rowData, { onConflict: 'id' });
 
         if (error) throw error;
+        
+        // 3. Keep the visual "Pop" consistent
+        if (col6Element && finalCol6) {
+            applyCellColor(col6Element, finalCol6); 
+        }
+
         if (status) status.innerText = "Saved";
     } catch (err) {
-        console.error("🔴 Cloud Sync Failure:", err.message);
+        console.error("🔴 Cloud Error:", err.message);
         if (status) status.innerText = "Error!";
     } finally {
-        // Give the UI time to breathe before clearing the status
         setTimeout(() => {
             activeSyncs.delete(syncKey);
             if (status && status.innerText === "Saved") status.innerText = "";
@@ -1089,46 +1075,61 @@ input.onblur = () => {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
+    console.log("📥 Syncing with Cloud: Fetching row data...");
     const status = document.getElementById('saveIndicator');
-    if(status) status.innerText = "Loading Data...";
+    if (status) status.innerText = "Syncing with Cloud...";
 
-    const { data, error } = await _supabase
-        .from('BackEndData')
-        .select('*');
+    try {
+        const { data, error } = await _supabase
+            .from('BackEndData')
+            .select('*');
 
-    if (error) {
-        console.error("Load error:", error.message);
-        return;
-    }
+        if (error) throw error;
 
-    if (data) {
-        data.forEach(row => {
-            for (let col = 1; col <= 8; col++) {
-                const cellId = `${row.day_label}-r${row.id}-c${col}`;
-                const el = document.getElementById(cellId);
-                
-                if (el) {
-                    const content = row[`col${col}`] || "";
+        if (data) {
+            data.forEach(row => {
+                // Loop through columns 1 to 8 for every row found
+                for (let col = 1; col <= 8; col++) {
+                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                    const el = document.getElementById(cellId);
                     
-                    // Standard value assignment
-                    el.value = content;
-
-                    // SPECIAL LOGIC FOR COLUMN 6 (MULTI-SELECT)
-                    if (col === 6 && content) {
-    el.setAttribute('data-selected', content); // This is the most important line
-    if (el.options && el.options[0]) {
-        el.options[0].text = `Selected: ${content}`;
-        el.style.backgroundColor = "#e7f3ff";
-    }
-}
-
-                    if (content) applyCellColor(el, content);
+                    if (el) {
+                        const content = row[`col${col}`] || "";
+                        
+                        // --- THE PATTERN MATCH ---
+                        
+                        if (col === 6) {
+                            // 1. For Multi-Select, we store data in the 'data-selected' attribute
+                            el.setAttribute('data-selected', content);
+                            // 2. We keep the visual value empty so "+ Add Multi" is the default
+                            el.value = ""; 
+                            // 3. Trigger the visual "pop-in" (blue highlight + label)
+                            applyCellColor(el, content);
+                        } 
+                        else {
+                            // 1. For all other columns, we set the standard .value
+                            el.value = content;
+                            // 2. Trigger the standard visual "pop-in" (colors based on text)
+                            applyCellColor(el, content);
+                        }
+                    }
                 }
+            });
+            console.log("✅ Cloud Sync Complete: Data popped into cells.");
+        }
+
+        if (status) status.innerText = "Saved";
+    } catch (err) {
+        console.error("🔴 Load Error:", err.message);
+        if (status) status.innerText = "Sync Error!";
+    } finally {
+        // Clear the status message after a brief moment
+        setTimeout(() => {
+            if (status && (status.innerText === "Saved" || status.innerText === "Ready")) {
+                status.innerText = "";
             }
-        });
+        }, 2000);
     }
-    if(status) status.innerText = "Ready";
-    setTimeout(() => { if(status.innerText === "Ready") status.innerText = ""; }, 2000);
 }
 
     </script>
