@@ -1237,32 +1237,29 @@ function collapseEverything() {
     });
 }
 
-function groomUI() {
-    console.log("🧹 Grooming UI: Removing empty historical rows from screen...");
+function groomUI(todayStr) {
+    console.log("🧹 UI Cleanup: Grooming empty historical rows...");
     
-    const todayStr = new Date().toISOString().split('T')[0];
     const allRows = document.querySelectorAll('.cell-row');
 
     allRows.forEach(rowDiv => {
-        // 1. Get the date from the row (Format: row-wrapper-2026-04-20-r101)
-        // We extract the date part from the ID
-        const idParts = rowDiv.id.split('-'); 
-        const rowDate = `${idParts[2]}-${idParts[3]}-${idParts[4]}`;
+        // Your row IDs look like: "row-wrapper-2026-04-20-r101"
+        // We match exactly the YYYY-MM-DD pattern
+        const dateMatch = rowDiv.id.match(/(\d{4}-\d{2}-\d{2})/);
+        if (!dateMatch) return;
 
-        if (rowDate < todayStr) {
-            // 2. Check if Col 3 and Col 4 (selects) are empty/default
-            // We look for the specific IDs inside this row
+        const rowDateStr = dateMatch[0];
+
+        if (rowDateStr < todayStr) {
+            // Check Col 3 and 4 inputs/selects inside this row
             const col3 = rowDiv.querySelector(`[id$="-c3"]`);
             const col4 = rowDiv.querySelector(`[id$="-c4"]`);
 
             if (col3 && col4) {
-                const val3 = col3.value.toLowerCase();
-                const val4 = col4.value.toLowerCase();
+                const is3Empty = !col3.value || col3.value.toLowerCase().includes("select");
+                const is4Empty = !col4.value || col4.value.toLowerCase().includes("select");
 
-                const isCol3Empty = val3 === "" || val3.includes("select");
-                const isCol4Empty = val4 === "" || val4.includes("select");
-
-                if (isCol3Empty && isCol4Empty) {
+                if (is3Empty && is4Empty) {
                     rowDiv.remove();
                 }
             }
@@ -1272,65 +1269,54 @@ function groomUI() {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    console.log("📥 [Step 1] Fetching all rows from Supabase...");
+    console.log("📥 Syncing with Cloud...");
     
     try {
         const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
-        if (!data) return;
 
-        // Standardize Today (YYYY-MM-DD)
-        const todayStr = new Date().toISOString().split('T')[0];
-        console.log(`🔎 [Step 2] Found ${data.length} rows. Checking against Today: ${todayStr}`);
+        // Get Today as a simple string "YYYY-MM-DD" in YOUR local time
+        const now = new Date();
+        const todayStr = [
+            now.getFullYear(),
+            String(now.getMonth() + 1).padStart(2, '0'),
+            String(now.getDate()).padStart(2, '0')
+        ].join('-');
 
         for (const row of data) {
-            // We put a try/catch INSIDE the loop so one bad row doesn't break everything
-            try {
-                const rowDate = row.day_label; 
-                const val3 = (row.col3 || "").toLowerCase().trim();
-                const val4 = (row.col4 || "").toLowerCase().trim();
+            const isOld = row.day_label < todayStr;
+            
+            const val3 = (row.col3 || "").toLowerCase().trim();
+            const val4 = (row.col4 || "").toLowerCase().trim();
+            const isUnused = (val3 === "" || val3.includes("select")) && 
+                             (val4 === "" || val4.includes("select"));
 
-                const isOld = rowDate < todayStr;
-                const isCol3Empty = val3 === "" || val3.includes("select");
-                const isCol4Empty = val4 === "" || val4.includes("select");
+            if (isOld && isUnused) {
+                console.warn(`🗑️ Cloud Cleanup: Removing ID ${row.id} (${row.day_label})`);
+                await _supabase.from('BackEndData').delete().eq('id', row.id);
+                continue; 
+            }
 
-                console.log(`Checking ID ${row.id}: Date(${rowDate}) < Today(${todayStr})? ${isOld} | Empty? ${isCol3Empty && isCol4Empty}`);
-
-                if (isOld && isCol3Empty && isCol4Empty) {
-                    console.warn(`🚀 [MATCH] Deleting Row ID ${row.id} (${rowDate})`);
-                    await _supabase.from('BackEndData').delete().eq('id', row.id);
-                    
-                    const wrapper = document.getElementById(`row-wrapper-${row.id}`);
-                    if (wrapper) wrapper.remove();
-                    continue; 
-                }
-
-                // DATA POPULATION
-                for (let col = 1; col <= 8; col++) {
-                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
-                    const el = document.getElementById(cellId);
-                    if (el) {
-                        const content = row[`col${col}`] || "";
-                        if (col === 6) {
-                            el.setAttribute('data-selected', content);
-                            applyCellColor(el, content);
-                        } else {
-                            el.value = content;
-                            applyCellColor(el, content);
-                        }
+            // Normal Population Logic...
+            for (let col = 1; col <= 8; col++) {
+                const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                const el = document.getElementById(cellId);
+                if (el) {
+                    const content = row[`col${col}`] || "";
+                    if (col === 6) {
+                        el.setAttribute('data-selected', content);
+                        applyCellColor(el, content);
+                    } else {
+                        el.value = content;
+                        applyCellColor(el, content);
                     }
                 }
-            } catch (rowError) {
-                console.error(`❌ Error processing row ID ${row.id}:`, rowError);
-                // The loop will now CONTINUE to the next ID automatically
             }
         }
-        console.log("✅ All rows processed.");
-// --- ADD THIS LINE HERE ---
-        groomUI(); 
-
+        // Run UI cleanup AFTER database sync finishes
+        groomUI(todayStr); 
     } catch (err) {
-        console.error("🔴 Major Load Error:", err.message);
+        console.error("🔴 Load Error:", err.message);
     }
 }
 
