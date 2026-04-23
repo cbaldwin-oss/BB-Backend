@@ -1023,16 +1023,26 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
 
 async function deleteFullRow(wrapperId, cellIds) {
     if (confirm("Delete this entire line?")) {
-        // 1. Remove from Screen
-        document.getElementById(wrapperId).remove();
+        // 1. Identify the Row ID from one of the cell IDs (Format: "Day-r101-c1")
+        const parts = cellIds[0].split('-r');
+        const rowNumericId = parseInt(parts[1].split('-c')[0]);
 
-        // 2. Remove from Supabase
+        // 2. Remove from the Screen immediately
+        const element = document.getElementById(wrapperId);
+        if (element) element.remove();
+
+        // 3. Remove from Supabase (Targeting the correct table 'BackEndData')
         const { error } = await _supabase
-            .from('cells')
+            .from('BackEndData')
             .delete()
-            .in('id', cellIds);
+            .eq('id', rowNumericId);
 
-        if (error) console.error("Delete error:", error.message);
+        if (error) {
+            console.error("Delete error:", error.message);
+            alert("Cloud Delete Failed: " + error.message);
+        } else {
+            console.log(`✅ Row ${rowNumericId} deleted from Cloud.`);
+        }
     }
 }
 
