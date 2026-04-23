@@ -950,6 +950,8 @@ function createSections() {
         weekDiv.appendChild(weekContent);
         contentArea.appendChild(weekDiv);
     }
+    applyViewFilter(currentView);
+    loadData();
 }
 
 
@@ -1095,6 +1097,61 @@ for (let col = 1; col <= 8; col++) {
 
 let currentView = 'view1'; // Default view
 
+function applyViewFilter(viewId) {
+    const sections = document.querySelectorAll('.section-container');
+    const weekContainers = document.querySelectorAll('.week-container');
+
+    // Reset everything to visible first
+    sections.forEach(s => s.style.display = 'block');
+    weekContainers.forEach(w => w.style.display = 'block');
+
+    if (viewId === 'view2') {
+        // --- 3 DAY LOOK AHEAD LOGIC ---
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const threeDaysOut = new Date(today);
+        threeDaysOut.setDate(today.getDate() + 2); // Today + 2 more days = 3 days total
+
+        sections.forEach(section => {
+            // Find the rows container inside to get the date ID (YYYY-MM-DD)
+            const rowsDiv = section.querySelector('.rows-container');
+            if (!rowsDiv) return;
+            
+            const dateParts = rowsDiv.id.replace('rows-', '').split('-');
+            const sectionDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+            sectionDate.setHours(0, 0, 0, 0);
+
+            // If the date is before today or more than 2 days away, hide it
+            if (sectionDate < today || sectionDate > threeDaysOut) {
+                section.style.display = 'none';
+            }
+        });
+
+        // Hide week containers if they have no visible days inside
+        weekContainers.forEach(week => {
+            const visibleDays = Array.from(week.querySelectorAll('.section-container'))
+                                     .filter(s => s.style.display !== 'none');
+            if (visibleDays.length === 0) {
+                week.style.display = 'none';
+            } else {
+                // Auto-expand the week if it has relevant days
+                const content = week.querySelector('.week-content');
+                const arrow = week.querySelector('.week-arrow');
+                content.classList.remove('hidden');
+                if (arrow) arrow.innerText = '▼';
+            }
+        });
+    } else if (viewId === 'view3') {
+        // --- 1 WEEK LOOK AHEAD LOGIC (Optional) ---
+        // You can add similar logic here for 7 days if desired
+    } else {
+        // OVERALL SCHEDULE: Ensure everything is expanded
+        expandAllWeeks();
+        expandAllDays();
+    }
+}
+
 async function switchView(viewId, buttonElement) {
     currentView = viewId;
     
@@ -1102,10 +1159,10 @@ async function switchView(viewId, buttonElement) {
     document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
     buttonElement.classList.add('active');
 
-    // 2. Clear the screen immediately for the new view
-    document.querySelectorAll('input').forEach(input => input.value = '');
+    // 2. Apply Visibility Filter
+    applyViewFilter(viewId);
 
-    // 3. Load data for the new view
+    // 3. Optional: Sync data to ensure current view is fresh
     await loadData();
 }
 
