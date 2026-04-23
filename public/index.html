@@ -1165,47 +1165,35 @@ input.onblur = () => {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    console.log("📥 Fetching from Supabase...");
-    
     try {
-        // CRITICAL: You must 'await' this call
+        // Ensure you have 'await' here
         const { data, error } = await _supabase
             .from('BackEndData')
             .select('*');
 
         if (error) throw error;
 
-        if (data && data.length > 0) {
-            console.log(`📊 Found ${data.length} rows. Mapping to grid...`);
-            
-            for (const row of data) {
-                // We use 1-8 because your grid has 8 columns
+        if (data) {
+            data.forEach(row => {
                 for (let col = 1; col <= 8; col++) {
-                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
-                    const el = document.getElementById(cellId);
-                    
+                    const el = document.getElementById(`${row.day_label}-r${row.id}-c${col}`);
                     if (el) {
                         const content = row[`col${col}`] || "";
-                        
                         if (col === 6) {
-                            // Column 6: Multi-Select Pattern
                             el.setAttribute('data-selected', content);
-                            el.value = ""; 
                             applyCellColor(el, content);
                         } else {
-                            // Standard Pattern
                             el.value = content;
                             applyCellColor(el, content);
                         }
                     }
                 }
-            }
+            });
         }
-        return true; // Mission accomplished
     } catch (err) {
-        console.error("🔴 LoadData Error:", err.message);
-        return false; // Mission failed, but let the app open
+        console.error("🔴 LoadData failed but continuing:", err.message);
     }
+    return true; // Always return true so startApp can proceed
 }
 
 window.onload = () => {
