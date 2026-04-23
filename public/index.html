@@ -666,27 +666,59 @@ function refreshDropdowns() {
 function applyCellColor(element, value) {
     if (!element) return;
 
-    // Check if this is Column 6 (by ID or attribute)
-    const isMultiCol = element.id.includes("-c6") || element.getAttribute('data-selected') !== null;
+    // 1. SPECIFIC CHECK FOR COLUMN 6 (MULTI-SELECT)
+    // We check if the ID ends in '-c6' to be 100% sure
+    const isColumn6 = element.id && element.id.endsWith("-c6");
     
-    // Pattern Match for Multi-Select
-    if (isMultiCol) {
+    if (isColumn6) {
         const storedData = element.getAttribute('data-selected') || value;
         if (storedData && storedData !== "") {
-            element.style.backgroundColor = "#e7f3ff"; // The "Synced" blue pop
+            element.style.backgroundColor = "#e7f3ff"; // Blue highlight
+            element.style.color = "#0056b3";
+            element.style.fontWeight = "bold";
             if (element.options && element.options[0]) {
                 element.options[0].text = `Selected: ${storedData}`;
             }
-            return;
+        } else {
+            // Reset Column 6 if it's actually empty
+            element.style.backgroundColor = "";
+            if (element.options && element.options[0]) {
+                element.options[0].text = "+ Add Multi";
+            }
         }
+        return; // Exit here so Column 6 doesn't get standard colors
     }
 
-    // ... your standard coloring for Col 1, 2, 3, etc. ...
-    if (!value || value === "") {
-        element.style.backgroundColor = "";
-        return;
+    // 2. STANDARD COLOR LOGIC (For Columns 1, 2, 3, 4, 5, 7, 8)
+    // Reset styles first so old colors don't "stick"
+    element.style.backgroundColor = "";
+    element.style.color = "";
+    element.style.fontWeight = "";
+
+    if (!value || value === "") return;
+
+    const val = value.toLowerCase();
+
+    // Green Pattern
+    if (val.includes("high") || val.includes("pass") || val.includes("active") || val.includes("complete")) {
+        element.style.backgroundColor = "#d4edda"; 
+        element.style.color = "#155724";
+    } 
+    // Yellow Pattern
+    else if (val.includes("med") || val.includes("pending") || val.includes("hold") || val.includes("progress")) {
+        element.style.backgroundColor = "#fff3cd"; 
+        element.style.color = "#856404";
+    } 
+    // Red Pattern
+    else if (val.includes("low") || val.includes("fail") || val.includes("urgent") || val.includes("alert")) {
+        element.style.backgroundColor = "#f8d7da"; 
+        element.style.color = "#721c24";
+    } 
+    // Default "Filled" state (White/Grey)
+    else {
+        element.style.backgroundColor = "#ffffff";
+        element.style.color = "#333333";
     }
-    // (Standard green/yellow/red logic follows here)
 }
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/a/macros/criticalarccx.com/s/AKfycbyuW0oVb01V8bZiuMTNGmJbZYU1Lnu0eVjEZ8kW1VDrGINS_ZaQaBB9Xp5MJcNo4nxq/exec';
