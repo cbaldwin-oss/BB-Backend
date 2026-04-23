@@ -1239,65 +1239,62 @@ function collapseEverything() {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    console.log("📥 [Step 1] Fetching data from Supabase...");
+    console.log("📥 [Step 1] Fetching all rows from Supabase...");
     
     try {
         const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
-        if (!data || data.length === 0) {
-            console.log("❓ [Step 2] No data found in BackEndData table.");
-            return;
-        }
+        if (!data) return;
 
-        // Standardize Today to YYYY-MM-DD
-        const today = new Date();
-        const tY = today.getFullYear();
-        const tM = String(today.getMonth() + 1).padStart(2, '0');
-        const tD = String(today.getDate()).padStart(2, '0');
-        const todayStr = `${tY}-${tM}-${tD}`;
-        
-        console.log(`🔎 [Step 2] Checking ${data.length} rows against Today: ${todayStr}`);
+        // Standardize Today (YYYY-MM-DD)
+        const todayStr = new Date().toISOString().split('T')[0];
+        console.log(`🔎 [Step 2] Found ${data.length} rows. Checking against Today: ${todayStr}`);
 
         for (const row of data) {
-            // Standardize strings for comparison
-            const rowDate = row.day_label; 
-            const val3 = (row.col3 || "").toLowerCase().trim();
-            const val4 = (row.col4 || "").toLowerCase().trim();
+            // We put a try/catch INSIDE the loop so one bad row doesn't break everything
+            try {
+                const rowDate = row.day_label; 
+                const val3 = (row.col3 || "").toLowerCase().trim();
+                const val4 = (row.col4 || "").toLowerCase().trim();
 
-            const isOld = rowDate < todayStr;
-            const isCol3Empty = val3 === "" || val3.includes("select");
-            const isCol4Empty = val4 === "" || val4.includes("select");
+                const isOld = rowDate < todayStr;
+                const isCol3Empty = val3 === "" || val3.includes("select");
+                const isCol4Empty = val4 === "" || val4.includes("select");
 
-            // LOG EVERY ROW ATTEMPT
-            console.log(`Checking ID ${row.id}: Date(${rowDate}) < Today(${todayStr})? ${isOld} | Col3(${val3}) empty? ${isCol3Empty} | Col4(${val4}) empty? ${isCol4Empty}`);
+                console.log(`Checking ID ${row.id}: Date(${rowDate}) < Today(${todayStr})? ${isOld} | Empty? ${isCol3Empty && isCol4Empty}`);
 
-            if (isOld && isCol3Empty && isCol4Empty) {
-                console.warn(`🚀 [MATCH FOUND] Deleting Row ID ${row.id}`);
-                
-                await _supabase.from('BackEndData').delete().eq('id', row.id);
-                const wrapper = document.getElementById(`row-wrapper-${row.id}`);
-                if (wrapper) wrapper.remove();
-                continue; 
-            }
+                if (isOld && isCol3Empty && isCol4Empty) {
+                    console.warn(`🚀 [MATCH] Deleting Row ID ${row.id} (${rowDate})`);
+                    await _supabase.from('BackEndData').delete().eq('id', row.id);
+                    
+                    const wrapper = document.getElementById(`row-wrapper-${row.id}`);
+                    if (wrapper) wrapper.remove();
+                    continue; 
+                }
 
-            // Normal Population Logic
-            for (let col = 1; col <= 8; col++) {
-                const cellId = `${row.day_label}-r${row.id}-c${col}`;
-                const el = document.getElementById(cellId);
-                if (el) {
-                    const content = row[`col${col}`] || "";
-                    if (col === 6) {
-                        el.setAttribute('data-selected', content);
-                        applyCellColor(el, content);
-                    } else {
-                        el.value = content;
-                        applyCellColor(el, content);
+                // DATA POPULATION
+                for (let col = 1; col <= 8; col++) {
+                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                    const el = document.getElementById(cellId);
+                    if (el) {
+                        const content = row[`col${col}`] || "";
+                        if (col === 6) {
+                            el.setAttribute('data-selected', content);
+                            applyCellColor(el, content);
+                        } else {
+                            el.value = content;
+                            applyCellColor(el, content);
+                        }
                     }
                 }
+            } catch (rowError) {
+                console.error(`❌ Error processing row ID ${row.id}:`, rowError);
+                // The loop will now CONTINUE to the next ID automatically
             }
         }
+        console.log("✅ All rows processed.");
     } catch (err) {
-        console.error("🔴 Load Error:", err.message);
+        console.error("🔴 Major Load Error:", err.message);
     }
 }
 
