@@ -666,12 +666,15 @@ function refreshDropdowns() {
 function applyCellColor(element, value) {
     if (!element) return;
 
-    // 1. SPECIFIC CHECK FOR COLUMN 6 (MULTI-SELECT)
-    // We check if the ID ends in '-c6' to be 100% sure
+    // 1. DATA CAPTURE: If value is missing, grab it from the element
+    // This is crucial for when the function is called during a cloud sync
+    const finalValue = (value !== undefined && value !== null) ? value : element.value;
+    
+    // 2. SPECIFIC CHECK FOR COLUMN 6 (MULTI-SELECT)
     const isColumn6 = element.id && element.id.endsWith("-c6");
     
     if (isColumn6) {
-        const storedData = element.getAttribute('data-selected') || value;
+        const storedData = element.getAttribute('data-selected') || finalValue;
         if (storedData && storedData !== "") {
             element.style.backgroundColor = "#e7f3ff"; // Blue highlight
             element.style.color = "#0056b3";
@@ -680,41 +683,44 @@ function applyCellColor(element, value) {
                 element.options[0].text = `Selected: ${storedData}`;
             }
         } else {
-            // Reset Column 6 if it's actually empty
             element.style.backgroundColor = "";
             if (element.options && element.options[0]) {
                 element.options[0].text = "+ Add Multi";
             }
         }
-        return; // Exit here so Column 6 doesn't get standard colors
+        return; // Stop here for Column 6
     }
 
-    // 2. STANDARD COLOR LOGIC (For Columns 1, 2, 3, 4, 5, 7, 8)
-    // Reset styles first so old colors don't "stick"
+    // 3. STANDARD COLOR LOGIC (For All Other Columns)
+    // Clear styles first
     element.style.backgroundColor = "";
     element.style.color = "";
     element.style.fontWeight = "";
 
-    if (!value || value === "") return;
+    // If there's truly no data, stop here
+    if (!finalValue || finalValue.toString().trim() === "") return;
 
-    const val = value.toLowerCase();
+    const val = finalValue.toString().toLowerCase();
 
-    // Green Pattern
+    // GREEN PATTERN
     if (val.includes("high") || val.includes("pass") || val.includes("active") || val.includes("complete")) {
         element.style.backgroundColor = "#d4edda"; 
         element.style.color = "#155724";
+        element.style.fontWeight = "bold";
     } 
-    // Yellow Pattern
+    // YELLOW PATTERN
     else if (val.includes("med") || val.includes("pending") || val.includes("hold") || val.includes("progress")) {
         element.style.backgroundColor = "#fff3cd"; 
         element.style.color = "#856404";
+        element.style.fontWeight = "bold";
     } 
-    // Red Pattern
+    // RED PATTERN
     else if (val.includes("low") || val.includes("fail") || val.includes("urgent") || val.includes("alert")) {
         element.style.backgroundColor = "#f8d7da"; 
         element.style.color = "#721c24";
+        element.style.fontWeight = "bold";
     } 
-    // Default "Filled" state (White/Grey)
+    // DEFAULT FILLED STATE
     else {
         element.style.backgroundColor = "#ffffff";
         element.style.color = "#333333";
@@ -988,19 +994,20 @@ async function deleteFullRow(wrapperId, cellIds) {
 
 async function saveRow(rowNum, dayLabel, col6Override = null) {
     const syncKey = `${dayLabel}-${rowNum}`;
+    
+    // 1. SYNC GUARD: Prevents overlapping saves
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
 
     const status = document.getElementById('saveIndicator');
     if (status) status.innerText = "Syncing with Cloud...";
 
-    // 1. Grab the element for Column 6
+    // 2. DATA CAPTURE
     const col6Element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
+    const storedMultiValue = col6Element ? col6Element.getAttribute('data-selected') : "";
     
-    // 2. Pattern Match: If we aren't overriding, look at the stored attribute
-    // This mirrors how you look at .value for other cells
-    const currentMultiValue = col6Element ? col6Element.getAttribute('data-selected') : "";
-    const finalCol6 = col6Override !== null ? col6Override : currentMultiValue;
+    // Logic: Use override if provided, otherwise the attribute
+    const finalCol6 = col6Override !== null ? col6Override : (storedMultiValue || "");
 
     const rowData = {
         id: rowNum,
@@ -1010,32 +1017,42 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
         col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        col6: finalCol6, // This now follows the pattern of your other columns
+        col6: finalCol6,
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
     };
 
     try {
+        // 3. CLOUD UPLOAD
         const { error } = await _supabase
             .from('BackEndData')
             .upsert(rowData, { onConflict: 'id' });
 
         if (error) throw error;
-        
-        // 3. Keep the visual "Pop" consistent
-        if (col6Element && finalCol6) {
-            applyCellColor(col6Element, finalCol6); 
+
+        // 4. THE VISUAL REFRESH (The "Pop-In" Pattern)
+        // We select all 8 cells in this specific row
+        for (let col = 1; col <= 8; col++) {
+            const cell = document.getElementById(`${dayLabel}-r${rowNum}-c${col}`);
+            if (cell) {
+                // If it's col 6, we pass the final value to ensure the label stays
+                const cellValue = (col === 6) ? finalCol6 : cell.value;
+                applyCellColor(cell, cellValue);
+            }
         }
 
         if (status) status.innerText = "Saved";
     } catch (err) {
-        console.error("🔴 Cloud Error:", err.message);
-        if (status) status.innerText = "Error!";
+        console.error("🔴 Sync Failure:", err.message);
+        if (status) status.innerText = "Sync Error!";
     } finally {
+        // 5. RELEASE GUARD
         setTimeout(() => {
             activeSyncs.delete(syncKey);
-            if (status && status.innerText === "Saved") status.innerText = "";
-        }, 1000);
+            if (status && (status.innerText === "Saved" || status.innerText === "Ready")) {
+                status.innerText = "";
+            }
+        }, 1200);
     }
 }
 
