@@ -810,17 +810,20 @@ function generateNumericId(dayLabel, index) {
 
 function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
     for (let r = 0; r < count; r++) {
-        // --- CHANGE: Use stable numeric ID instead of Date.now() ---
         const rowNumericId = generateNumericId(dayLabel, r);
         
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
 
+        // --- THE FIX: Initialize the array for each new row ---
+        const cellIdsInRow = []; 
+
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
+            cellIdsInRow.push(cellId); // Add this cell to the row's list
+            
             let element;
-
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
                 element = document.createElement('select');
                 element.id = cellId;
@@ -838,17 +841,14 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
                     element.appendChild(opt);
                 });
 
-element.onchange = () => {
-    // Check if this is the "Trade Partners" column
-    if (col === 6) {
-        // CALL THE SPECIAL FUNCTION
-        updateMultiValue(rowNumericId, dayLabel, element.value);
-    } else {
-        // Standard save for all other columns
-        applyCellColor(element, element.value);
-        saveRow(rowNumericId, dayLabel);
-    }
-};
+                element.onchange = () => {
+                    if (col === 6) {
+                        updateMultiValue(rowNumericId, dayLabel, element.value);
+                    } else {
+                        applyCellColor(element, element.value);
+                        saveRow(rowNumericId, dayLabel);
+                    }
+                };
             } else {
                 element = document.createElement('input');
                 element.id = cellId;
@@ -860,12 +860,13 @@ element.onchange = () => {
             }
             rowDiv.appendChild(element);
         }
-// Inside addRowsToContainer, after the column loop (col 1-8):
+
+        // --- ADD THE DELETE BUTTON ---
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×'; 
         
-        // Ensure cellIdsInRow contains all IDs for that specific row
+        // Now cellIdsInRow is defined and accessible here
         delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
         
         rowDiv.appendChild(delBtn);
