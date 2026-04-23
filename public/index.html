@@ -603,27 +603,35 @@ setInterval(() => {
 async function startApp() {
     const loader = document.getElementById('loading-overlay');
     
-    // Build the grid structure first (Boxes will be empty)
+    // 1. Build the grid structure first (Empty boxes)
     createSections(); 
 
     try {
-        // Fetch the data
-        await Promise.allSettled([
-            fetchDropdownOptions(),
-            loadData()
-        ]);
+        // 2. Fetch the Dropdown Labels (Trade Partners, Assets, etc.)
+        await fetchDropdownOptions();
         
-        // NOW REFILL THE BOXES
+        // 3. Sync the Saved Row Data from Supabase
+        // The await here is key: it won't move to the next line until 
+        // the console says "Cloud Sync Complete"
+        await loadData();
+        
+        // 4. Refresh Dropdown UI
         refreshDropdowns();
         
-        console.log("🚀 Launch Successful.");
+        // 5. ADJUSTABLE BUFFER: Wait 500ms for the browser to "paint" the colors
+        // This ensures the user sees a colorful grid, not a white one that pops.
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log("🚀 Launch Successful. All data is on the page.");
     } catch (e) {
         console.error("Launch error:", e);
     } finally {
-        // Land the rocket
+        // 6. Land the rocket smoothly
         if (loader) {
-            loader.classList.add('hidden');
-            setTimeout(() => loader.style.display = 'none', 500);
+            loader.classList.add('hidden'); // Triggers CSS fade
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 800); // Wait for the transition to finish
         }
     }
 }
@@ -1169,6 +1177,8 @@ if (col === 6) {
                 }
             });
             console.log("✅ Cloud Sync Complete: Data popped into cells.");
+    
+    return true; // This "resolves" the promise for startApp
         }
 
         if (status) status.innerText = "Saved";
