@@ -1101,54 +1101,63 @@ function applyViewFilter(viewId) {
     const sections = document.querySelectorAll('.section-container');
     const weekContainers = document.querySelectorAll('.week-container');
 
-    // Reset everything to visible first
+    // 1. Reset everything to visible first
     sections.forEach(s => s.style.display = 'block');
     weekContainers.forEach(w => w.style.display = 'block');
 
-    if (viewId === 'view2') {
-        // --- 3 DAY LOOK AHEAD LOGIC ---
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const threeDaysOut = new Date(today);
-        threeDaysOut.setDate(today.getDate() + 2); // Today + 2 more days = 3 days total
+    // 2. Define the date range logic
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
+    let targetDate = null;
+
+    if (viewId === 'view2') {
+        // 3 Day Look Ahead (Today + 2)
+        targetDate = new Date(today);
+        targetDate.setDate(today.getDate() + 2);
+    } else if (viewId === 'view3') {
+        // 1 Week Look Ahead (Today + 6)
+        targetDate = new Date(today);
+        targetDate.setDate(today.getDate() + 6);
+    }
+
+    // 3. Apply the filter if a Look Ahead view is selected
+    if (targetDate) {
         sections.forEach(section => {
-            // Find the rows container inside to get the date ID (YYYY-MM-DD)
             const rowsDiv = section.querySelector('.rows-container');
             if (!rowsDiv) return;
             
-            const dateParts = rowsDiv.id.replace('rows-', '').split('-');
-            const sectionDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+            // Extract YYYY-MM-DD from ID: rows-2026-04-20
+            const dateStr = rowsDiv.id.replace('rows-', '');
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const sectionDate = new Date(y, m - 1, d);
             sectionDate.setHours(0, 0, 0, 0);
 
-            // If the date is before today or more than 2 days away, hide it
-            if (sectionDate < today || sectionDate > threeDaysOut) {
+            // Hide if date is in the past OR beyond our target window
+            if (sectionDate < today || sectionDate > targetDate) {
                 section.style.display = 'none';
             }
         });
 
-        // Hide week containers if they have no visible days inside
+        // 4. Clean up the Week Accordions
         weekContainers.forEach(week => {
             const visibleDays = Array.from(week.querySelectorAll('.section-container'))
                                      .filter(s => s.style.display !== 'none');
+            
             if (visibleDays.length === 0) {
                 week.style.display = 'none';
             } else {
-                // Auto-expand the week if it has relevant days
+                // Auto-expand the week so the user sees the filtered days immediately
                 const content = week.querySelector('.week-content');
                 const arrow = week.querySelector('.week-arrow');
-                content.classList.remove('hidden');
+                if (content) content.classList.remove('hidden');
                 if (arrow) arrow.innerText = '▼';
             }
         });
-    } else if (viewId === 'view3') {
-        // --- 1 WEEK LOOK AHEAD LOGIC (Optional) ---
-        // You can add similar logic here for 7 days if desired
     } else {
-        // OVERALL SCHEDULE: Ensure everything is expanded
-        expandAllWeeks();
-        expandAllDays();
+        // OVERALL SCHEDULE: ViewId 'view1' or default
+        // Standard behavior: make sure everything is expanded or follows default state
+        expandAllWeeks(); 
     }
 }
 
