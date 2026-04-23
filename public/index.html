@@ -591,29 +591,33 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
+    console.log("🚀 Launching App...");
     const loader = document.getElementById('loading-overlay');
     
-    // Build the grid structure first (Boxes will be empty)
+    // 1. Build the UI skeleton immediately (no data yet)
     createSections(); 
 
     try {
-        // Fetch the data
-        await Promise.allSettled([
+        // 2. THE WAIT: We wait for both Dropdowns AND saved Row Data
+        // Promise.all ensures we don't move forward until both are done
+        await Promise.all([
             fetchDropdownOptions(),
             loadData()
         ]);
         
-        // NOW REFILL THE BOXES
+        // 3. REFILL: Now that data is in memory, populate the dropdowns
         refreshDropdowns();
         
-        console.log("🚀 Launch Successful.");
-    } catch (e) {
-        console.error("Launch error:", e);
+        console.log("✅ Data fully synced from cloud.");
+    } catch (error) {
+        console.error("⚠️ Launch interrupted:", error);
     } finally {
-        // Land the rocket
+        // 4. LANDING: Only hide the loader after the 'try' block finishes
         if (loader) {
-            loader.classList.add('hidden');
-            setTimeout(() => loader.style.display = 'none', 500);
+            loader.classList.add('hidden'); // Trigger fade out
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 600); // Match this to your CSS transition time
         }
     }
 }
@@ -1118,20 +1122,24 @@ input.onblur = () => {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    console.log("📥 Syncing with Cloud: Fetching row data...");
+    console.log("📥 Syncing with Cloud: Loading saved row data...");
+    
+    // Optional: Update a small status text if you have one, but the 
+    // main loading screen will still be visible over everything.
     const status = document.getElementById('saveIndicator');
-    if (status) status.innerText = "Syncing with Cloud...";
+    if (status) status.innerText = "Fetching data...";
 
     try {
+        // 1. Fetch all rows from Supabase
         const { data, error } = await _supabase
             .from('BackEndData')
             .select('*');
 
         if (error) throw error;
 
-        if (data) {
+        if (data && data.length > 0) {
             data.forEach(row => {
-                // Loop through columns 1 to 8 for every row found
+                // Loop through all 8 columns for each row
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
@@ -1139,39 +1147,32 @@ async function loadData() {
                     if (el) {
                         const content = row[`col${col}`] || "";
                         
-                        // --- THE PATTERN MATCH ---
-                        
+                        // 2. COLUMN 6 PATTERN: Use Attribute + Blue Pop
                         if (col === 6) {
-                            // 1. For Multi-Select, we store data in the 'data-selected' attribute
                             el.setAttribute('data-selected', content);
-                            // 2. We keep the visual value empty so "+ Add Multi" is the default
-                            el.value = ""; 
-                            // 3. Trigger the visual "pop-in" (blue highlight + label)
+                            el.value = ""; // Keep dropdown visual clean
                             applyCellColor(el, content);
                         } 
+                        // 3. STANDARD COLUMN PATTERN: Use Value + Dynamic Color
                         else {
-                            // 1. For all other columns, we set the standard .value
                             el.value = content;
-                            // 2. Trigger the standard visual "pop-in" (colors based on text)
                             applyCellColor(el, content);
                         }
                     }
                 }
             });
-            console.log("✅ Cloud Sync Complete: Data popped into cells.");
+            console.log(`✅ ${data.length} rows successfully synced.`);
+        } else {
+            console.log("ℹ️ No saved data found in 'BackEndData'.");
         }
 
-        if (status) status.innerText = "Saved";
     } catch (err) {
-        console.error("🔴 Load Error:", err.message);
+        console.error("🔴 Load Data Failure:", err.message);
         if (status) status.innerText = "Sync Error!";
+        // We don't re-throw here so the app can still "start" even if data fails
     } finally {
-        // Clear the status message after a brief moment
-        setTimeout(() => {
-            if (status && (status.innerText === "Saved" || status.innerText === "Ready")) {
-                status.innerText = "";
-            }
-        }, 2000);
+        if (status) status.innerText = "Ready";
+        // This return is implicit in async, but it signals startApp that we are done.
     }
 }
 
