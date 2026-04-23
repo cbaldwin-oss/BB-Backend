@@ -1251,29 +1251,30 @@ async function loadData() {
         if (error) throw error;
 
         if (data) {
+            // 1. Establish "Today" at midnight for accurate comparison
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            data.forEach(async (row) => {
-                // --- 1. HISTORICAL CLEANUP LOGIC ---
-                // Convert the day_label (YYYY-MM-DD) to a Date object
+            // Use a for...of loop or Promise.all to handle async deletes correctly
+            for (const row of data) {
+                // 2. Convert day_label (YYYY-MM-DD) to a Date object
                 const rowDate = new Date(row.day_label + "T00:00:00");
-                
-                // If the date is BEFORE today AND both Col 2 and Col 3 are empty
-                if (rowDate < today && !row.col2 && !row.col3) {
+
+                // 3. CLEANUP LOGIC: If date is in the past AND Col 2 & Col 3 are empty
+                if (rowDate < today && (!row.col2 || row.col2 === "") && (!row.col3 || row.col3 === "")) {
                     console.log(`🗑️ Auto-deleting empty historical row: ${row.id} from ${row.day_label}`);
                     
-                    // Delete from Supabase
+                    // Remove from Supabase
                     await _supabase.from('BackEndData').delete().eq('id', row.id);
                     
-                    // Remove from UI if it exists
+                    // Remove from UI if it exists on screen
                     const wrapper = document.getElementById(`row-wrapper-${row.id}`);
                     if (wrapper) wrapper.remove();
                     
-                    return; // Skip the rest of the loop for this specific row
+                    continue; // Move to the next row, don't try to populate this one
                 }
 
-                // --- 2. STANDARD DATA POPULATION ---
+                // 4. STANDARD POPULATION: For rows that aren't deleted
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
@@ -1290,7 +1291,7 @@ async function loadData() {
                         }
                     }
                 }
-            });
+            }
             console.log("✅ Cloud Sync Complete: Data popped into cells.");
         }
 
@@ -1300,7 +1301,7 @@ async function loadData() {
         if (status) status.innerText = "Sync Error!";
     } finally {
         setTimeout(() => {
-            if (status && (status.innerText === "Saved")) status.innerText = "";
+            if (status && status.innerText === "Saved") status.innerText = "";
         }, 2000);
     }
 }
