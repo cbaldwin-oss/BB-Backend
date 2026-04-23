@@ -919,22 +919,24 @@ function toggleAllSections() {
 }
 
 async function updateMultiValue(rowNum, dayLabel, newValue) {
+    // 1. Ignore if user clicks the placeholder or if it's an empty reset
     if (!newValue || newValue === "") return; 
 
     const element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
     let currentContent = element.getAttribute('data-selected') || "";
     let items = currentContent ? currentContent.split(', ').filter(x => x) : [];
 
+    // Toggle logic
     const index = items.indexOf(newValue);
     if (index === -1) items.push(newValue);
     else items.splice(index, 1);
 
     const updatedString = items.join(', ');
 
-    // 1. Anchor the data to the element attribute
+    // 2. Lock the data into the attribute
     element.setAttribute('data-selected', updatedString);
     
-    // 2. Update the visual display immediately
+    // 3. Update the UI Text
     if (items.length > 0) {
         element.options[0].text = `Selected (${items.length}): ${updatedString}`;
         element.style.backgroundColor = "#e7f3ff";
@@ -943,11 +945,11 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
         element.style.backgroundColor = "";
     }
 
-    // 3. Reset dropdown so it's ready for the next pick
-    element.value = ""; 
-
-    // 4. Trigger the cloud save with the confirmed string
+    // 4. Force the cloud save with the string directly (bypass the element's current value)
     await saveRow(rowNum, dayLabel, updatedString);
+
+    // 5. Reset visual selection ONLY AFTER the save process has the data
+    element.value = ""; 
 }
 
 async function deleteFullRow(wrapperId, cellIds) {
@@ -967,20 +969,23 @@ async function deleteFullRow(wrapperId, cellIds) {
 
 async function saveRow(rowNum, dayLabel, col6Override = null) {
     const syncKey = `${dayLabel}-${rowNum}`;
+    
+    // 1. Guard against double-syncing
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
 
     const status = document.getElementById('saveIndicator');
-    if (status) status.innerText = "Syncing...";
+    if (status) status.innerText = "Syncing with Cloud...";
 
     const col6Element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
-    // 🛡️ LOCK IN THE DATA: Grab from attribute so we don't save an empty string
-    const storedMultiValue = col6Element ? col6Element.getAttribute('data-selected') : "";
+    
+    // 2. CRITICAL: Capture the attribute data BEFORE any visual reset can interfere
+    const attributeData = col6Element ? col6Element.getAttribute('data-selected') : "";
+    const finalCol6Value = col6Override !== null ? col6Override : attributeData;
 
-    // 🛡️ LOCK IN THE UI: Force the label to stay visible while the cloud works
-    if (col6Element && (col6Override || storedMultiValue)) {
-        const valToDisplay = col6Override || storedMultiValue;
-        col6Element.options[0].text = `Selected: ${valToDisplay}`;
+    // 3. UI LOCK: Force the label to stay visible while we wait for the network
+    if (col6Element && finalCol6Value) {
+        col6Element.options[0].text = `Selected: ${finalCol6Value}`;
         col6Element.style.backgroundColor = "#e7f3ff";
     }
 
@@ -992,8 +997,7 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
         col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        // Source of Truth logic
-        col6: col6Override !== null ? col6Override : (storedMultiValue || ""),
+        col6: finalCol6Value, // Use the locked-in attribute value
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
     };
@@ -1006,13 +1010,14 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         if (error) throw error;
         if (status) status.innerText = "Saved";
     } catch (err) {
-        console.error("🔴 Sync Error:", err.message);
+        console.error("🔴 Cloud Sync Failure:", err.message);
         if (status) status.innerText = "Error!";
     } finally {
+        // Give the UI time to breathe before clearing the status
         setTimeout(() => {
             activeSyncs.delete(syncKey);
             if (status && status.innerText === "Saved") status.innerText = "";
-        }, 1200);
+        }, 1000);
     }
 }
 
