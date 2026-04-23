@@ -490,6 +490,16 @@ position: sticky;
     pointer-events: none !important;
     transition: opacity 0.5s ease;
 }
+/* Update your Column 6 style in the <style> block */
+[id$="-c6"] {
+    height: auto !important;
+    min-height: 38px;       /* Standard height when empty */
+    white-space: normal !important; /* Forces text to wrap to next line */
+    word-wrap: break-word;
+    line-height: 1.4;
+    padding: 8px 4px;
+    display: block;         /* Allows height to be controlled more easily */
+}
 </style>
 </head>
 <body>
@@ -670,18 +680,15 @@ function refreshDropdowns() {
 function applyCellColor(element, value) {
     if (!element) return;
 
-    // 1. DATA CAPTURE (Fixes the "not defined" error)
-    // Priority: Passed Value > Attribute (for Col 6) > Element Value
+    // 1. DATA CAPTURE
     let capturedValue = value;
-    
     if (capturedValue === undefined || capturedValue === null) {
         capturedValue = element.getAttribute('data-selected') || element.value || "";
     }
 
-    // 2. COLUMN 6 (MULTI-SELECT) LOGIC
+    // 2. COLUMN 6 (MULTI-SELECT) DYNAMIC SIZING
     const isColumn6 = element.id && element.id.endsWith("-c6");
     if (isColumn6) {
-        // Clean up the string for display
         let rawList = capturedValue.toString().replace(/^Selected:\s*/i, "").trim();
 
         if (rawList && rawList !== "" && rawList !== "+ Add Multi") {
@@ -692,15 +699,22 @@ function applyCellColor(element, value) {
             if (element.options && element.options[0]) {
                 element.options[0].text = `Selected: ${rawList}`;
                 
-                // Vertical expansion for long lists
-                if (rawList.length > 20) {
-                    element.style.height = "auto";
-                    element.style.minHeight = "50px";
+                // --- GOOGLE SHEETS DYNAMIC SIZING ---
+                // We estimate height based on character count. 
+                // A standard cell fits ~25-30 chars per line.
+                const charCount = rawList.length + 10; // +10 for "Selected: "
+                if (charCount > 30) {
+                    // Calculate how many rows of text we need
+                    const estimatedLines = Math.ceil(charCount / 28); 
+                    const newHeight = (estimatedLines * 20) + 10; // 20px per line + padding
+                    element.style.height = newHeight + "px";
+                } else {
+                    element.style.height = "40px"; // Default height
                 }
             }
         } else {
             element.style.backgroundColor = "transparent";
-            element.style.height = "40px";
+            element.style.height = "40px"; // Reset
             if (element.options && element.options[0]) {
                 element.options[0].text = "+ Add Multi";
             }
