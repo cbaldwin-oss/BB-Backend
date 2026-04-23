@@ -1239,41 +1239,48 @@ function collapseEverything() {
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    console.log("📥 Syncing with Cloud...");
+    console.log("📥 [Step 1] Fetching data from Supabase...");
     
     try {
         const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
+        if (!data || data.length === 0) {
+            console.log("❓ [Step 2] No data found in BackEndData table.");
+            return;
+        }
 
-        // Get current date in YYYY-MM-DD format
-        const todayStr = new Date().toLocaleDateString('en-CA'); 
+        // Standardize Today to YYYY-MM-DD
+        const today = new Date();
+        const tY = today.getFullYear();
+        const tM = String(today.getMonth() + 1).padStart(2, '0');
+        const tD = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${tY}-${tM}-${tD}`;
+        
+        console.log(`🔎 [Step 2] Checking ${data.length} rows against Today: ${todayStr}`);
 
         for (const row of data) {
-            // 1. Check if date is in the past
-            // If row.day_label is "2026-04-22" and today is "2026-04-23", it's old.
-            const isOld = row.day_label < todayStr;
-
-            // 2. Check if Col 3 and 4 are effectively empty
+            // Standardize strings for comparison
+            const rowDate = row.day_label; 
             const val3 = (row.col3 || "").toLowerCase().trim();
             const val4 = (row.col4 || "").toLowerCase().trim();
-            
+
+            const isOld = rowDate < todayStr;
             const isCol3Empty = val3 === "" || val3.includes("select");
             const isCol4Empty = val4 === "" || val4.includes("select");
 
+            // LOG EVERY ROW ATTEMPT
+            console.log(`Checking ID ${row.id}: Date(${rowDate}) < Today(${todayStr})? ${isOld} | Col3(${val3}) empty? ${isCol3Empty} | Col4(${val4}) empty? ${isCol4Empty}`);
+
             if (isOld && isCol3Empty && isCol4Empty) {
-                console.warn(`🗑️ DELETING ROW: ID ${row.id} | Date: ${row.day_label}`);
+                console.warn(`🚀 [MATCH FOUND] Deleting Row ID ${row.id}`);
                 
-                // Remove from Database
                 await _supabase.from('BackEndData').delete().eq('id', row.id);
-                
-                // Remove from UI
                 const wrapper = document.getElementById(`row-wrapper-${row.id}`);
                 if (wrapper) wrapper.remove();
-                
-                continue; // Move to next row
+                continue; 
             }
 
-            // 3. Normal Population Logic
+            // Normal Population Logic
             for (let col = 1; col <= 8; col++) {
                 const cellId = `${row.day_label}-r${row.id}-c${col}`;
                 const el = document.getElementById(cellId);
@@ -1289,7 +1296,6 @@ async function loadData() {
                 }
             }
         }
-        console.log("✅ Sync Complete.");
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
     }
