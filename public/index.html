@@ -719,7 +719,7 @@ function applyCellColor(element, value) {
     }
 
     // 3. STANDARD COLUMN LOGIC (1-5, 7, 8)
-    element.style.backgroundColor = "#ffffff"; // Default filled
+    element.style.backgroundColor = "#e7f3ff"; // Default filled
     element.style.color = "#333";
     element.style.fontWeight = "normal";
 
@@ -1130,21 +1130,6 @@ function collapseEverything() {
         if (arrow) arrow.innerText = '▶';
     });
 }
-
-// UPDATE YOUR SAVE LOGIC (inside the loop)
-input.onblur = () => {
-    // 1. Update the cell color immediately for visual feedback
-    applyCellColor(input, input.value);
-
-    // 2. Extract rowNum and dayLabel from the ID string
-    // Format is "DayLabel-r101-c5"
-    const parts = input.id.split('-r');
-    const dayLabel = parts[0];
-    const rowNumericId = parseInt(parts[1].split('-c')[0]);
-
-    // 3. Trigger the full row save
-    saveRow(rowNumericId, dayLabel);
-};
 
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
