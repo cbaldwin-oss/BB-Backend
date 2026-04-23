@@ -1237,6 +1237,39 @@ function collapseEverything() {
     });
 }
 
+function groomUI() {
+    console.log("🧹 Grooming UI: Removing empty historical rows from screen...");
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+    const allRows = document.querySelectorAll('.cell-row');
+
+    allRows.forEach(rowDiv => {
+        // 1. Get the date from the row (Format: row-wrapper-2026-04-20-r101)
+        // We extract the date part from the ID
+        const idParts = rowDiv.id.split('-'); 
+        const rowDate = `${idParts[2]}-${idParts[3]}-${idParts[4]}`;
+
+        if (rowDate < todayStr) {
+            // 2. Check if Col 3 and Col 4 (selects) are empty/default
+            // We look for the specific IDs inside this row
+            const col3 = rowDiv.querySelector(`[id$="-c3"]`);
+            const col4 = rowDiv.querySelector(`[id$="-c4"]`);
+
+            if (col3 && col4) {
+                const val3 = col3.value.toLowerCase();
+                const val4 = col4.value.toLowerCase();
+
+                const isCol3Empty = val3 === "" || val3.includes("select");
+                const isCol4Empty = val4 === "" || val4.includes("select");
+
+                if (isCol3Empty && isCol4Empty) {
+                    rowDiv.remove();
+                }
+            }
+        }
+    });
+}
+
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
     console.log("📥 [Step 1] Fetching all rows from Supabase...");
@@ -1293,6 +1326,9 @@ async function loadData() {
             }
         }
         console.log("✅ All rows processed.");
+// --- ADD THIS LINE HERE ---
+        groomUI(); 
+
     } catch (err) {
         console.error("🔴 Major Load Error:", err.message);
     }
