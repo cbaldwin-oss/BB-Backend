@@ -670,30 +670,35 @@ function refreshDropdowns() {
 function applyCellColor(element, value) {
     if (!element) return;
 
-    const isColumn6 = element.id && element.id.endsWith("-c6");
+    // 1. DATA CAPTURE (Fixes the "not defined" error)
+    // Priority: Passed Value > Attribute (for Col 6) > Element Value
+    let capturedValue = value;
     
+    if (capturedValue === undefined || capturedValue === null) {
+        capturedValue = element.getAttribute('data-selected') || element.value || "";
+    }
+
+    // 2. COLUMN 6 (MULTI-SELECT) LOGIC
+    const isColumn6 = element.id && element.id.endsWith("-c6");
     if (isColumn6) {
-        // Grab the raw list (without the "Selected:" label)
-        let rawList = element.getAttribute('data-selected') || value || "";
-        rawList = rawList.replace(/^Selected:\s*/i, "").trim();
+        // Clean up the string for display
+        let rawList = capturedValue.toString().replace(/^Selected:\s*/i, "").trim();
 
         if (rawList && rawList !== "" && rawList !== "+ Add Multi") {
-            element.style.backgroundColor = "#e7f3ff"; // Sync Blue
+            element.style.backgroundColor = "#e7f3ff";
             element.style.color = "#0056b3";
             element.style.fontWeight = "bold";
 
             if (element.options && element.options[0]) {
-                // Update the visible text to show ALL items
                 element.options[0].text = `Selected: ${rawList}`;
                 
-                // Expansion logic for Google Sheets style
+                // Vertical expansion for long lists
                 if (rawList.length > 20) {
                     element.style.height = "auto";
                     element.style.minHeight = "50px";
                 }
             }
         } else {
-            // Reset state
             element.style.backgroundColor = "transparent";
             element.style.height = "40px";
             if (element.options && element.options[0]) {
@@ -703,23 +708,34 @@ function applyCellColor(element, value) {
         return; 
     }
 
-    // 3. STANDARD COLUMN LOGIC
-    element.style.backgroundColor = "#ffffff"; 
-    const val = finalValue ? finalValue.toString().trim() : "";
-    const lowerVal = val.toLowerCase();
+    // 3. STANDARD COLUMN LOGIC (1-5, 7, 8)
+    element.style.backgroundColor = "#ffffff"; // Default filled
+    element.style.color = "#333";
+    element.style.fontWeight = "normal";
 
-    if (val === "" || lowerVal === "select...") {
+    const cleanVal = capturedValue.toString().trim();
+    const lowerVal = cleanVal.toLowerCase();
+
+    if (cleanVal === "" || lowerVal === "select...") {
         element.style.backgroundColor = "transparent";
         return;
     }
 
     // Priority Colors
-    if (lowerVal.includes("high")) {
+    if (lowerVal.includes("high") || lowerVal.includes("pass") || lowerVal.includes("active")) {
         element.style.backgroundColor = "#d4edda";
-    } else if (lowerVal.includes("med")) {
+        element.style.color = "#155724";
+        element.style.fontWeight = "bold";
+    } 
+    else if (lowerVal.includes("med") || lowerVal.includes("pending") || lowerVal.includes("hold")) {
         element.style.backgroundColor = "#fff3cd";
-    } else if (lowerVal.includes("low")) {
+        element.style.color = "#856404";
+        element.style.fontWeight = "bold";
+    } 
+    else if (lowerVal.includes("low") || lowerVal.includes("fail") || lowerVal.includes("urgent")) {
         element.style.backgroundColor = "#f8d7da";
+        element.style.color = "#721c24";
+        element.style.fontWeight = "bold";
     }
 }
 
@@ -1042,12 +1058,13 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
 
         // 4. THE VISUAL REFRESH (The "Pop-In" Pattern)
         // We select all 8 cells in this specific row
-        for (let col = 1; col <= 8; col++) {
+for (let col = 1; col <= 8; col++) {
             const cell = document.getElementById(`${dayLabel}-r${rowNum}-c${col}`);
             if (cell) {
-                // If it's col 6, we pass the final value to ensure the label stays
-                const cellValue = (col === 6) ? finalCol6 : cell.value;
-                applyCellColor(cell, cellValue);
+                // For Column 6, we pass the attribute string directly
+                // For others, we just let applyCellColor figure it out from the element
+                const valToPass = (col === 6) ? cell.getAttribute('data-selected') : cell.value;
+                applyCellColor(cell, valToPass);
             }
         }
 
