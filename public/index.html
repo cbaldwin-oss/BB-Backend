@@ -663,55 +663,42 @@ function refreshDropdowns() {
     });
 }
 
-function applyCellColor(element, value) {
+function applyCellColor(element, text) {
     if (!element) return;
 
-    // 1. MULTI-SELECT LOCK-IN
-    // Check if this is Column 6 or has multi-data stored
-    const storedMulti = element.getAttribute('data-selected');
+    const val = (text || "").toLowerCase().trim();
     
-    if (storedMulti && storedMulti !== "") {
-        // Force the "Active" look regardless of the dropdown's temporary value
-        element.style.backgroundColor = "#e7f3ff"; // Soft blue highlight
-        element.style.color = "#0056b3";           // Darker blue text
-        element.style.fontWeight = "bold";
-        
-        // Ensure the placeholder reflects the cloud data
-        if (element.options && element.options[0]) {
-            element.options[0].text = `Selected: ${storedMulti}`;
-        }
-        return; // EXIT: Do not let standard color logic overwrite a Multi-Select
+    // 1. Reset all classes
+    element.classList.remove('bg-green', 'bg-yellow', 'bg-blue', 'bg-red', 'bg-grey', 'bg-filled');
+
+    // 2. If empty, stop here
+    if (val === "") return;
+
+    // 3. Status Keyword Checks (Now including 'fail')
+    
+    // RED: Urgent / Negative
+    if (val.includes('fail') || val.includes('block') || val.includes('stop') || val.includes('urgent')) {
+        element.classList.add('bg-red');
+    } 
+    // GREEN: Success
+    else if (val.includes('level 4') || val.includes('complete') || val.includes('yes') || val.includes('pass')) {
+        element.classList.add('bg-green');
+    } 
+    // YELLOW: Warning
+    else if (val.includes('level 2') || val.includes('hold') || val.includes('pending')) {
+        element.classList.add('bg-yellow');
+    } 
+    // BLUE: Active
+    else if (val.includes('progress') || val.includes('level 3') || val.includes('run')) {
+        element.classList.add('bg-blue');
+    } 
+    // GREY: Neutral
+    else if (val.includes('n/a') || val.includes('cancel')) {
+        element.classList.add('bg-grey');
     }
-
-    // 2. STANDARD COLOR LOGIC (For Columns 1, 2, 3, 4, 7 and Inputs)
-    // Reset defaults first
-    element.style.backgroundColor = "";
-    element.style.color = "";
-    element.style.fontWeight = "";
-
-    if (!value || value === "") {
-        return; // Leave as default if empty
-    }
-
-    // Example conditional coloring (Adjust these keywords to match your data)
-    const val = value.toLowerCase();
-
-    if (val.includes("high") || val.includes("pass") || val.includes("active")) {
-        element.style.backgroundColor = "#d4edda"; // Green
-        element.style.color = "#155724";
-    } 
-    else if (val.includes("med") || val.includes("pending") || val.includes("hold")) {
-        element.style.backgroundColor = "#fff3cd"; // Yellow
-        element.style.color = "#856404";
-    } 
-    else if (val.includes("low") || val.includes("fail") || val.includes("urgent")) {
-        element.style.backgroundColor = "#f8d7da"; // Red
-        element.style.color = "#721c24";
-    } 
+    // 4. LIGHT BLUE: Fallback for any other information
     else {
-        // Default "Filled" state for any other text
-        element.style.backgroundColor = "#ffffff";
-        element.style.color = "#333333";
+        element.classList.add('bg-filled');
     }
 }
 
@@ -932,25 +919,28 @@ function toggleAllSections() {
 }
 
 async function updateMultiValue(rowNum, dayLabel, newValue) {
-    // 1. IGNORE the reset call
-    if (newValue === "" || !newValue) return; 
+    if (!newValue || newValue === "") return;
 
-    const element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
+    const cellId = `${dayLabel}-r${rowNum}-c6`;
+    const element = document.getElementById(cellId);
     
     let currentContent = element.getAttribute('data-selected') || "";
     let items = currentContent ? currentContent.split(', ').filter(x => x) : [];
 
     // Toggle logic
     const index = items.indexOf(newValue);
-    if (index === -1) items.push(newValue);
-    else items.splice(index, 1);
+    if (index === -1) {
+        items.push(newValue); 
+    } else {
+        items.splice(index, 1); 
+    }
 
     const updatedString = items.join(', ');
 
-    // 2. SET ATTRIBUTE FIRST (This is the anchor)
+    // 1. Update UI Attribute immediately
     element.setAttribute('data-selected', updatedString);
     
-    // 3. Update the visual placeholder
+    // 2. Update the visual display
     if (items.length > 0) {
         element.options[0].text = `Selected (${items.length}): ${updatedString}`;
         element.style.backgroundColor = "#e7f3ff";
@@ -959,10 +949,10 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
         element.style.backgroundColor = "";
     }
 
-    // 4. RESET THE VALUE (This triggers a second onchange, which Step 1 ignores)
+    // 3. Reset the dropdown visual so it doesn't trigger another change event
     element.value = ""; 
 
-    // 5. FINALLY, save to cloud
+    // 4. Force a single save call
     await saveRow(rowNum, dayLabel, updatedString);
 }
 
@@ -984,24 +974,16 @@ async function deleteFullRow(wrapperId, cellIds) {
 async function saveRow(rowNum, dayLabel, col6Override = null) {
     const syncKey = `${dayLabel}-${rowNum}`;
     
-    // 1. SYNC GUARD: Prevents the "Infinite Loop" and race conditions
+    // 1. EXIT if this row is already syncing (The Guard)
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
 
     const status = document.getElementById('saveIndicator');
-    if (status) status.innerText = "Syncing...";
+    if(status) status.innerText = "Syncing...";
 
-    // 2. DATA CAPTURE
     const col6Element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
-    // Look at data-selected attribute first to ensure we don't save an empty string
+    // CRITICAL: Always prioritize the override or the attribute
     const storedMultiValue = col6Element ? col6Element.getAttribute('data-selected') : "";
-
-    // 3. VISUAL LOCK: Keep the cell blue and labeled during the sync
-    if (col6Element && (col6Override || storedMultiValue)) {
-        const valToDisplay = col6Override || storedMultiValue;
-        col6Element.options[0].text = `Selected: ${valToDisplay}`;
-        col6Element.style.backgroundColor = "#e7f3ff";
-    }
 
     const rowData = {
         id: rowNum,
@@ -1011,32 +993,28 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
         col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        // PRIORITY: Override provided > Attribute stored > Visual value
-        col6: col6Override !== null ? col6Override : (storedMultiValue || col6Element?.value || ""),
+        col6: col6Override !== null ? col6Override : storedMultiValue,
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
     };
 
     try {
-        // 4. SUPABASE UPSERT
         const { error } = await _supabase
             .from('BackEndData')
             .upsert(rowData, { onConflict: 'id', ignoreDuplicates: false });
 
         if (error) throw error;
         
-        if (status) status.innerText = "Saved";
+        if(status) status.innerText = "Saved";
     } catch (err) {
         console.error("🔴 Sync Error:", err.message);
-        if (status) status.innerText = "Error!";
+        if(status) status.innerText = "Error!";
     } finally {
-        // 5. RELEASE THE GUARD: Small delay to let the network breathe
+        // 2. RELEASE the guard after a small delay
         setTimeout(() => {
             activeSyncs.delete(syncKey);
-            if (status && status.innerText === "Saved") {
-                status.innerText = "";
-            }
-        }, 1200);
+            if(status && status.innerText === "Saved") status.innerText = "";
+        }, 1000);
     }
 }
 
