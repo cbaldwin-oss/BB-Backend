@@ -860,6 +860,12 @@ element.onchange = () => {
             }
             rowDiv.appendChild(element);
         }
+// --- ADD THE DELETE BUTTON BACK HERE ---
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn';
+        delBtn.innerHTML = '×'; // Multiplication sign looks like a clean 'X'
+        delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
+        rowDiv.appendChild(delBtn);
         
         if (anchorBtn) {
             container.insertBefore(rowDiv, anchorBtn);
