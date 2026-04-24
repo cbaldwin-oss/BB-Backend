@@ -960,7 +960,6 @@ function createSections() {
         contentArea.appendChild(weekDiv);
     }
     applyViewFilter(currentView);
-    loadData();
 }
 
 
@@ -1237,43 +1236,44 @@ function collapseEverything() {
 }
 
 function groomUI() {
-    // 1. Get Today in YYYY-MM-DD format (Local Time)
+    // 1. Get Today's date in local time YYYY-MM-DD
     const now = new Date();
-    const todayStr = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, '0'),
-        String(now.getDate()).padStart(2, '0')
-    ].join('-');
+    const tY = now.getFullYear();
+    const tM = String(now.getMonth() + 1).padStart(2, '0');
+    const tD = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${tY}-${tM}-${tD}`;
 
-    console.log("🧹 Grooming UI starting. Today is:", todayStr);
+    console.log("🧹 Grooming UI. Today's Local Date:", todayStr);
 
-    // 2. Select every row wrapper
-    // Your IDs look like: row-wrapper-2026-04-20-r101
+    // 2. Select all row wrappers
     const allRowWrappers = document.querySelectorAll('[id^="row-wrapper-"]');
 
     allRowWrappers.forEach(wrapper => {
-        // Extract the date string from the ID (the first 10 characters after 'row-wrapper-')
-        const rowDateStr = wrapper.id.substring(12, 22); 
+        // Extract date: row-wrapper-2026-04-24-r101 -> 2026-04-24
+        const idParts = wrapper.id.split('-'); 
+        const rowDateStr = `${idParts[2]}-${idParts[3]}-${idParts[4]}`;
 
-        // 3. Only proceed if the date is strictly BEFORE today
+        // 3. ONLY process if the date is strictly LESS THAN today
         if (rowDateStr < todayStr) {
-            // Find Col 3 and Col 4 within this specific wrapper
             const col3 = wrapper.querySelector(`[id$="-c3"]`);
             const col4 = wrapper.querySelector(`[id$="-c4"]`);
 
             if (col3 && col4) {
-                // Check for empty, null, or the default "Select..."
                 const val3 = col3.value ? col3.value.toLowerCase().trim() : "";
                 const val4 = col4.value ? col4.value.toLowerCase().trim() : "";
 
-                const is3Empty = val3 === "" || val3.includes("select");
-                const is4Empty = val4 === "" || val4.includes("select");
+                const is3Unused = val3 === "" || val3.includes("select");
+                const is4Unused = val4 === "" || val4.includes("select");
 
-                if (is3Empty && is4Empty) {
-                    console.log(`🗑️ UI Cleanup: Removing empty row ${wrapper.id}`);
+                // 4. Delete if OLD and UNUSED
+                if (is3Unused && is4Unused) {
                     wrapper.remove();
                 }
             }
+        } else {
+            // 5. FUTURE SAFETY: If date is today or in the future, 
+            // ensure it is visible (prevents accidental hiding)
+            wrapper.style.display = 'flex'; 
         }
     });
 }
@@ -1324,8 +1324,6 @@ async function loadData() {
                 }
             }
         }
-        // Run UI cleanup AFTER database sync finishes
-        groomUI(todayStr); 
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
     }
