@@ -603,28 +603,42 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
+    console.log("🚀 Launching App...");
     const loader = document.getElementById('loading-overlay');
     
-    // 1. Build the grid
+    // ADJUSTABLE BUFFER (ms): Gives the browser time to paint colors
+    // Increase this if you still see a split-second "pop" of data
+    const PAINT_BUFFER = 1000; 
+
+    // 1. Build the HTML grid structure immediately
     createSections(); 
-    
+
     try {
-        // 2. Fetch options
+        // 2. FETCH DROPDOWNS FIRST (Trade Partners, Assets, etc.)
         await fetchDropdownOptions();
         
-        // 3. Load actual data (which should call groomUI internally)
+        // 3. FETCH SAVED DATA: This is the "Hard Stop"
+        // The script pauses here until every cell is populated
+        console.log("⏳ Syncing cloud data before reveal...");
         await loadData();
         
-        // 4. Final safety groom
-        setTimeout(groomUI, 500); 
+        // 4. REFRESH UI: Final labels and multi-select text
+        refreshDropdowns();
+
+        // 5. THE BUFFER: Hold the loader so the user sees a finished product
+        await new Promise(resolve => setTimeout(resolve, PAINT_BUFFER));
 
     } catch (e) {
-        console.error(e);
+        console.error("❌ Launch error:", e);
     } finally {
+        // 6. REVEAL: Only hide the loader after everything above is done
         if (loader) {
             loader.classList.add('hidden');
-            setTimeout(() => { loader.style.display = 'none'; }, 800);
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 800); 
         }
+        console.log("✅ Launch Successful: Grid is fully painted.");
     }
 }
 
@@ -1222,97 +1236,58 @@ function collapseEverything() {
     });
 }
 
-function groomUI() {
-    // 1. Get Today's date in local time YYYY-MM-DD
-    const now = new Date();
-    const tY = now.getFullYear();
-    const tM = String(now.getMonth() + 1).padStart(2, '0');
-    const tD = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${tY}-${tM}-${tD}`;
-
-    console.log("🧹 Grooming UI. Today's Local Date:", todayStr);
-
-    // 2. Select all row wrappers
-    const allRowWrappers = document.querySelectorAll('[id^="row-wrapper-"]');
-
-    allRowWrappers.forEach(wrapper => {
-        // Extract date: row-wrapper-2026-04-24-r101 -> 2026-04-24
-        const idParts = wrapper.id.split('-'); 
-        const rowDateStr = `${idParts[2]}-${idParts[3]}-${idParts[4]}`;
-
-        // 3. ONLY process if the date is strictly LESS THAN today
-        if (rowDateStr < todayStr) {
-            const col3 = wrapper.querySelector(`[id$="-c3"]`);
-            const col4 = wrapper.querySelector(`[id$="-c4"]`);
-
-            if (col3 && col4) {
-                const val3 = col3.value ? col3.value.toLowerCase().trim() : "";
-                const val4 = col4.value ? col4.value.toLowerCase().trim() : "";
-
-                const is3Unused = val3 === "" || val3.includes("select");
-                const is4Unused = val4 === "" || val4.includes("select");
-
-                // 4. Delete if OLD and UNUSED
-                if (is3Unused && is4Unused) {
-                    wrapper.remove();
-                }
-            }
-        } else {
-            // 5. FUTURE SAFETY: If date is today or in the future, 
-            // ensure it is visible (prevents accidental hiding)
-            wrapper.style.display = 'flex'; 
-        }
-    });
-}
-
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
-    console.log("📥 Syncing with Cloud...");
-    
-    try {
+    console.log("📥 Syncing with Cloud: Fetching row data...");
+    const status = document.getElementById('saveIndicator');
+    if (status) status.innerText = "Syncing with Cloud...";
+
+   try {
         const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
 
-        // Get Today as a simple string "YYYY-MM-DD" in YOUR local time
-        const now = new Date();
-        const todayStr = [
-            now.getFullYear(),
-            String(now.getMonth() + 1).padStart(2, '0'),
-            String(now.getDate()).padStart(2, '0')
-        ].join('-');
-
-        for (const row of data) {
-            const isOld = row.day_label < todayStr;
-            
-            const val3 = (row.col3 || "").toLowerCase().trim();
-            const val4 = (row.col4 || "").toLowerCase().trim();
-            const isUnused = (val3 === "" || val3.includes("select")) && 
-                             (val4 === "" || val4.includes("select"));
-
-            if (isOld && isUnused) {
-                console.warn(`🗑️ Cloud Cleanup: Removing ID ${row.id} (${row.day_label})`);
-                await _supabase.from('BackEndData').delete().eq('id', row.id);
-                continue; 
-            }
-
-            // Normal Population Logic...
-            for (let col = 1; col <= 8; col++) {
-                const cellId = `${row.day_label}-r${row.id}-c${col}`;
-                const el = document.getElementById(cellId);
-                if (el) {
-                    const content = row[`col${col}`] || "";
-                    if (col === 6) {
-                        el.setAttribute('data-selected', content);
-                        applyCellColor(el, content);
-                    } else {
-                        el.value = content;
-                        applyCellColor(el, content);
+        if (data) {
+            data.forEach(row => {
+                // Loop through columns 1 to 8 for every row found
+                for (let col = 1; col <= 8; col++) {
+                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                    const el = document.getElementById(cellId);
+                    
+                    if (el) {
+                        const content = row[`col${col}`] || "";
+                        
+                        // --- THE PATTERN MATCH ---
+                        
+if (col === 6) {
+    el.setAttribute('data-selected', content);
+    applyCellColor(el, content); // This builds the "Selected: Partner A, Partner B" text
+}
+                        else {
+                            // 1. For all other columns, we set the standard .value
+                            el.value = content;
+                            // 2. Trigger the standard visual "pop-in" (colors based on text)
+                            applyCellColor(el, content);
+                        }
                     }
                 }
-            }
+            });
+            console.log("✅ Cloud Sync Complete: Data popped into cells.");
+    
+    return true; // This "resolves" the promise for startApp
         }
+
+        if (status) status.innerText = "Saved";
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
+            return false;
+        if (status) status.innerText = "Sync Error!";
+    } finally {
+        // Clear the status message after a brief moment
+        setTimeout(() => {
+            if (status && (status.innerText === "Saved" || status.innerText === "Ready")) {
+                status.innerText = "";
+            }
+        }, 2000);
     }
 }
 
