@@ -628,8 +628,6 @@ async function startApp() {
         // Give the UI 1 full second to "paint" the data into the boxes
         // before we decide which ones are empty and should be hidden.
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        autoCleanUI();
 
     } catch (e) {
         console.error("❌ Launch error:", e);
@@ -639,6 +637,7 @@ async function startApp() {
             loader.classList.add('hidden');
             setTimeout(() => {
                 loader.style.display = 'none';
+             autoCleanUI();
             }, 800); 
         }
         console.log("✅ Launch Successful: Grid is fully painted.");
@@ -1240,7 +1239,6 @@ function collapseEverything() {
 }
 
 function autoCleanUI() {
-    // 1. Get Today in local YYYY-MM-DD format
     const now = new Date();
     const todayStr = [
         now.getFullYear(),
@@ -1248,35 +1246,39 @@ function autoCleanUI() {
         String(now.getDate()).padStart(2, '0')
     ].join('-');
 
-    console.log("🧼 Surgical Cleanup. Today is:", todayStr);
+    console.log("🧹 Protected Cleanup starting...");
 
-    // 2. Target all wrappers that have our date attribute
     const allRows = document.querySelectorAll('[data-date]');
 
     allRows.forEach(row => {
         const rowDate = row.getAttribute('data-date');
-
-        // 3. STRICT CHECK: Only act if rowDate is BEFORE today
-        // This ensures future dates (which are "greater than" todayStr) are NEVER touched.
+        
+        // 1. Is the row from a past date?
         if (rowDate < todayStr) {
-            const col3 = row.querySelector(`[id$="-c3"]`);
-            const col4 = row.querySelector(`[id$="-c4"]`);
+            
+            // 2. Is this row "Occupied" by Supabase data?
+            const isOccupied = row.getAttribute('data-occupied') === 'true';
 
-            if (col3 && col4) {
-                const val3 = col3.value ? col3.value.toLowerCase().trim() : "";
-                const val4 = col4.value ? col4.value.toLowerCase().trim() : "";
+            if (!isOccupied) {
+                // 3. Secondary check: Are the columns actually still empty?
+                const col3 = row.querySelector(`[id$="-c3"]`);
+                const col4 = row.querySelector(`[id$="-c4"]`);
+                
+                const val3 = col3?.value?.toLowerCase() || "";
+                const val4 = col4?.value?.toLowerCase() || "";
+                
+                const isTrulyEmpty = (val3 === "" || val3.includes("select")) && 
+                                     (val4 === "" || val4.includes("select"));
 
-                const is3Unused = val3 === "" || val3.includes("select");
-                const is4Unused = val4 === "" || val4.includes("select");
-
-                if (is3Unused && is4Unused) {
-                    // We use display: none instead of .remove() to prevent 
-                    // potential script errors if other functions look for these IDs
-                    row.style.display = 'none'; 
+                if (isTrulyEmpty) {
+                    row.style.display = 'none';
                 }
+            } else {
+                // Row has data! Ensure it is visible.
+                row.style.display = 'flex';
             }
         } else {
-            // 4. Safety: Force future and current days to stay visible
+            // Today or Future: Always visible.
             row.style.display = 'flex';
         }
     });
@@ -1307,6 +1309,11 @@ async function loadData() {
 if (col === 6) {
     el.setAttribute('data-selected', content);
     applyCellColor(el, content); // This builds the "Selected: Partner A, Partner B" text
+
+    // Mark the entire row wrapper as "Occupied" so it's never hidden
+    const wrapper = document.getElementById(`row-wrapper-${row.id}`);
+    if (wrapper) wrapper.setAttribute('data-occupied', 'true');
+}
 }
                         else {
                             // 1. For all other columns, we set the standard .value
