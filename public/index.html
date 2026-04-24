@@ -625,8 +625,9 @@ async function startApp() {
         // 4. REFRESH UI: Final labels and multi-select text
         refreshDropdowns();
 
-        // 5. THE BUFFER: Hold the loader so the user sees a finished product
-        await new Promise(resolve => setTimeout(resolve, PAINT_BUFFER));
+        // Give the UI 1 full second to "paint" the data into the boxes
+        // before we decide which ones are empty and should be hidden.
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
     } catch (e) {
         console.error("❌ Launch error:", e);
@@ -636,6 +637,7 @@ async function startApp() {
             loader.classList.add('hidden');
             setTimeout(() => {
                 loader.style.display = 'none';
+             autoCleanUI();
             }, 800); 
         }
         console.log("✅ Launch Successful: Grid is fully painted.");
@@ -814,34 +816,26 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
-        rowDiv.setAttribute('data-date', dayLabel); // Keep our cleanup tag!
+        rowDiv.setAttribute('data-date', dayLabel); // dayLabel is "2026-04-20"
 
+        // --- THE FIX: Initialize the array for each new row ---
         const cellIdsInRow = []; 
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-            cellIdsInRow.push(cellId);
+            cellIdsInRow.push(cellId); // Add this cell to the row's list
             
             let element;
-            // Columns that should be dropdowns
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
                 element = document.createElement('select');
                 element.id = cellId;
                 
-                // 1. Add the Default "Select..." option
                 const defaultOpt = document.createElement('option');
                 defaultOpt.value = "";
                 defaultOpt.text = (col === 6) ? "+ Add Multi" : "Select...";
                 element.appendChild(defaultOpt);
 
-                // 2. FETCH OPTIONS FROM GLOBAL STORE
-                // Ensure dropdownData contains the options fetched from Supabase
                 const options = dropdownData[`col${col}`] || [];
-                
-                if (options.length === 0) {
-                    console.warn(`⚠️ No options found for Column ${col}. Check fetchDropdownOptions.`);
-                }
-
                 options.forEach(text => {
                     const opt = document.createElement('option');
                     opt.value = text;
@@ -858,7 +852,6 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
                     }
                 };
             } else {
-                // Input columns (5 and 8)
                 element = document.createElement('input');
                 element.id = cellId;
                 element.placeholder = "...";
@@ -870,11 +863,14 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
             rowDiv.appendChild(element);
         }
 
-        // Add Delete Button
+        // --- ADD THE DELETE BUTTON ---
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×'; 
+        
+        // Now cellIdsInRow is defined and accessible here
         delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
+        
         rowDiv.appendChild(delBtn);
         
         if (anchorBtn) {
@@ -967,7 +963,6 @@ function createSections() {
         contentArea.appendChild(weekDiv);
     }
     applyViewFilter(currentView);
-    loadData();
 }
 
 
@@ -1243,6 +1238,52 @@ function collapseEverything() {
     });
 }
 
+function autoCleanUI() {
+    const now = new Date();
+    const todayStr = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0')
+    ].join('-');
+
+    console.log("🧹 Protected Cleanup starting...");
+
+    const allRows = document.querySelectorAll('[data-date]');
+
+    allRows.forEach(row => {
+        const rowDate = row.getAttribute('data-date');
+        
+        // 1. Is the row from a past date?
+        if (rowDate < todayStr) {
+            
+            // 2. Is this row "Occupied" by Supabase data?
+            const isOccupied = row.getAttribute('data-occupied') === 'true';
+
+            if (!isOccupied) {
+                // 3. Secondary check: Are the columns actually still empty?
+                const col3 = row.querySelector(`[id$="-c3"]`);
+                const col4 = row.querySelector(`[id$="-c4"]`);
+                
+                const val3 = col3?.value?.toLowerCase() || "";
+                const val4 = col4?.value?.toLowerCase() || "";
+                
+                const isTrulyEmpty = (val3 === "" || val3.includes("select")) && 
+                                     (val4 === "" || val4.includes("select"));
+
+                if (isTrulyEmpty) {
+                    row.style.display = 'none';
+                }
+            } else {
+                // Row has data! Ensure it is visible.
+                row.style.display = 'flex';
+            }
+        } else {
+            // Today or Future: Always visible.
+            row.style.display = 'flex';
+        }
+    });
+}
+
 // UPDATE YOUR LOAD LOGIC
 async function loadData() {
     console.log("📥 Syncing with Cloud: Fetching row data...");
@@ -1268,6 +1309,10 @@ async function loadData() {
 if (col === 6) {
     el.setAttribute('data-selected', content);
     applyCellColor(el, content); // This builds the "Selected: Partner A, Partner B" text
+
+    // Mark the entire row wrapper as "Occupied" so it's never hidden
+    const wrapper = document.getElementById(`row-wrapper-${row.id}`);
+    if (wrapper) wrapper.setAttribute('data-occupied', 'true');
 }
                         else {
                             // 1. For all other columns, we set the standard .value
