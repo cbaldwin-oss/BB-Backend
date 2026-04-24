@@ -582,7 +582,7 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-        
+      let dropdownData = {}; // Initialize as empty global object  
 // This runs every 10 seconds without any flickering
 setInterval(() => {
     // We check if you are currently typing. 
@@ -816,26 +816,34 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
-        rowDiv.setAttribute('data-date', dayLabel); // dayLabel is "2026-04-20"
+        rowDiv.setAttribute('data-date', dayLabel); // Keep our cleanup tag!
 
-        // --- THE FIX: Initialize the array for each new row ---
         const cellIdsInRow = []; 
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-            cellIdsInRow.push(cellId); // Add this cell to the row's list
+            cellIdsInRow.push(cellId);
             
             let element;
+            // Columns that should be dropdowns
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
                 element = document.createElement('select');
                 element.id = cellId;
                 
+                // 1. Add the Default "Select..." option
                 const defaultOpt = document.createElement('option');
                 defaultOpt.value = "";
                 defaultOpt.text = (col === 6) ? "+ Add Multi" : "Select...";
                 element.appendChild(defaultOpt);
 
+                // 2. FETCH OPTIONS FROM GLOBAL STORE
+                // Ensure dropdownData contains the options fetched from Supabase
                 const options = dropdownData[`col${col}`] || [];
+                
+                if (options.length === 0) {
+                    console.warn(`⚠️ No options found for Column ${col}. Check fetchDropdownOptions.`);
+                }
+
                 options.forEach(text => {
                     const opt = document.createElement('option');
                     opt.value = text;
@@ -852,6 +860,7 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
                     }
                 };
             } else {
+                // Input columns (5 and 8)
                 element = document.createElement('input');
                 element.id = cellId;
                 element.placeholder = "...";
@@ -863,14 +872,11 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
             rowDiv.appendChild(element);
         }
 
-        // --- ADD THE DELETE BUTTON ---
+        // Add Delete Button
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×'; 
-        
-        // Now cellIdsInRow is defined and accessible here
         delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
-        
         rowDiv.appendChild(delBtn);
         
         if (anchorBtn) {
