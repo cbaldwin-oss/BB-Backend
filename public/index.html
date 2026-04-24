@@ -603,40 +603,27 @@ setInterval(() => {
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    console.log("🚀 Launching App...");
     const loader = document.getElementById('loading-overlay');
     
-    // ADJUSTABLE BUFFER (ms): Gives the browser time to paint colors
-    // Increase this if you still see a split-second "pop" of data
-    const PAINT_BUFFER = 1000; 
-
-    // 1. Build the HTML grid structure immediately
+    // 1. Build the grid
     createSections(); 
-
+    
     try {
-        // 2. FETCH DROPDOWNS FIRST (Trade Partners, Assets, etc.)
+        // 2. Fetch options
         await fetchDropdownOptions();
         
-        // 3. FETCH SAVED DATA: This is the "Hard Stop"
-        // The script pauses here until every cell is populated
-        console.log("⏳ Syncing cloud data before reveal...");
+        // 3. Load actual data (which should call groomUI internally)
         await loadData();
         
-        // 4. REFRESH UI: Final labels and multi-select text
-        refreshDropdowns();
-
-        // 5. THE BUFFER: Hold the loader so the user sees a finished product
-        await new Promise(resolve => setTimeout(resolve, PAINT_BUFFER));
+        // 4. Final safety groom
+        setTimeout(groomUI, 500); 
 
     } catch (e) {
         console.error(e);
     } finally {
         if (loader) {
             loader.classList.add('hidden');
-            setTimeout(() => { 
-                loader.style.display = 'none'; 
-                groomUI(); // Final check once the screen is visible
-            }, 800);
+            setTimeout(() => { loader.style.display = 'none'; }, 800);
         }
     }
 }
