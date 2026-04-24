@@ -621,6 +621,9 @@ async function startApp() {
         // The script pauses here until every cell is populated
         console.log("⏳ Syncing cloud data before reveal...");
         await loadData();
+
+        // Give the UI a split second to finish rendering, then auto-clean
+        autoCleanHistoricalRows();
         
         // 4. REFRESH UI: Final labels and multi-select text
         refreshDropdowns();
@@ -1233,6 +1236,58 @@ function collapseEverything() {
         container.classList.add('hidden');
         const arrow = document.querySelectorAll('.arrow')[i];
         if (arrow) arrow.innerText = '▶';
+    });
+}
+
+function autoCleanHistoricalRows() {
+    // 1. Get Today in YYYY-MM-DD
+    const now = new Date();
+    const todayStr = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0')
+    ].join('-');
+
+    console.log("🤖 Auto-Cleanup: Scanning for old blank lines...");
+
+    // 2. Find all row wrappers
+    const allRowWrappers = document.querySelectorAll('[id^="row-wrapper-"]');
+
+    allRowWrappers.forEach(wrapper => {
+        // Extract date from ID: row-wrapper-2026-04-20-r101
+        const idParts = wrapper.id.split('-'); 
+        const rowDateStr = `${idParts[2]}-${idParts[3]}-${idParts[4]}`;
+
+        // 3. If the date is before today
+        if (rowDateStr < todayStr) {
+            const col3 = wrapper.querySelector(`[id$="-c3"]`);
+            const col4 = wrapper.querySelector(`[id$="-c4"]`);
+
+            if (col3 && col4) {
+                const val3 = col3.value ? col3.value.toLowerCase() : "";
+                const val4 = col4.value ? col4.value.toLowerCase() : "";
+
+                const is3Empty = val3 === "" || val3.includes("select");
+                const is4Empty = val4 === "" || val4.includes("select");
+
+                // 4. If it's old and blank, find the delete button and click it
+                if (is3Empty && is4Empty) {
+                    const deleteBtn = wrapper.querySelector('.delete-btn');
+                    if (deleteBtn) {
+                        console.log(`🤖 Auto-clicking delete for: ${wrapper.id}`);
+                        
+                        // IMPORTANT: Since your deleteFullRow has a confirm() window,
+                        // we temporarily bypass it for the auto-cleaner.
+                        const originalConfirm = window.confirm;
+                        window.confirm = () => true; // Force confirm to say "Yes"
+                        
+                        deleteBtn.click(); // Trigger the actual delete function
+                        
+                        window.confirm = originalConfirm; // Restore confirm to normal
+                    }
+                }
+            }
+        }
     });
 }
 
