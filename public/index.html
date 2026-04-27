@@ -822,77 +822,38 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-            cellIdsInRow.push(cellId);
+            cellIdsInRow.push(cellId); 
             
             let element;
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
-                // --- SPECIAL LOGIC FOR MULTI-SELECT (COL 6) ---
-                if (col === 6) {
-                    const multiContainer = document.createElement('div');
-                    multiContainer.className = 'multi-select-container';
-                    multiContainer.style.flex = "1";
-                    multiContainer.style.position = "relative";
+                element = document.createElement('select');
+                element.id = cellId;
+                
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = "";
+                defaultOpt.text = (col === 6) ? "+ Add Multi" : "Select...";
+                element.appendChild(defaultOpt);
 
-                    // The label span that updateMultiValue looks for
-                    const span = document.createElement('span');
-                    span.id = `label-${cellId}`;
-                    span.className = 'multi-select-label';
-                    span.innerText = "+ Add Multi";
-                    // Style to match your existing CSS
-                    span.style.position = "absolute";
-                    span.style.left = "8px";
-                    span.style.top = "50%";
-                    span.style.transform = "translateY(-50%)";
-                    span.style.pointerEvents = "none";
-                    span.style.fontSize = "13px";
-                    multiContainer.appendChild(span);
+                // --- THE FIX: Reference the global window.dropdownData ---
+                // This ensures both initial load and "Add Rows" button have access to Supabase data
+                const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
+                
+                options.forEach(text => {
+                    const opt = document.createElement('option');
+                    opt.value = text;
+                    opt.text = text;
+                    element.appendChild(opt);
+                });
 
-                    element = document.createElement('select');
-                    element.id = cellId;
-                    element.style.width = "100%";
-                    
-                    const defaultOpt = document.createElement('option');
-                    defaultOpt.value = "";
-                    defaultOpt.text = ""; // Keep empty so span is visible
-                    element.appendChild(defaultOpt);
-
-                    const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
-                    options.forEach(text => {
-                        const opt = document.createElement('option');
-                        opt.value = text;
-                        opt.text = text;
-                        element.appendChild(opt);
-                    });
-
-                    element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
-                    
-                    multiContainer.appendChild(element);
-                    rowDiv.appendChild(multiContainer);
-                } else {
-                    // Standard Dropdowns (1, 2, 3, 4, 7)
-                    element = document.createElement('select');
-                    element.id = cellId;
-                    const defaultOpt = document.createElement('option');
-                    defaultOpt.value = "";
-                    defaultOpt.text = "Select...";
-                    element.appendChild(defaultOpt);
-
-                    const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
-                    options.forEach(text => {
-                        const opt = document.createElement('option');
-                        opt.value = text;
-                        opt.text = text;
-                        element.appendChild(opt);
-                    });
-
-                    element.onchange = () => {
+                element.onchange = () => {
+                    if (col === 6) {
+                        updateMultiValue(rowNumericId, dayLabel, element.value);
+                    } else {
                         applyCellColor(element, element.value);
                         saveRow(rowNumericId, dayLabel);
-                    };
-                    rowDiv.appendChild(element);
-                }
+                    }
+                };
             } else {
-                // Input columns
                 element = document.createElement('input');
                 element.id = cellId;
                 element.placeholder = "...";
@@ -900,14 +861,15 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
                     applyCellColor(element, element.value);
                     saveRow(rowNumericId, dayLabel);
                 };
-                rowDiv.appendChild(element);
             }
+            rowDiv.appendChild(element);
         }
 
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×'; 
         delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
+        
         rowDiv.appendChild(delBtn);
         
         if (anchorBtn) {
