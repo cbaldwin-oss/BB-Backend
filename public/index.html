@@ -816,14 +816,13 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
-        rowDiv.setAttribute('data-date', dayLabel); // dayLabel is "2026-04-20"
+        rowDiv.setAttribute('data-date', dayLabel); // Ensures auto-cleaner works for new rows
 
-        // --- THE FIX: Initialize the array for each new row ---
         const cellIdsInRow = []; 
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-            cellIdsInRow.push(cellId); // Add this cell to the row's list
+            cellIdsInRow.push(cellId);
             
             let element;
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
@@ -835,7 +834,10 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
                 defaultOpt.text = (col === 6) ? "+ Add Multi" : "Select...";
                 element.appendChild(defaultOpt);
 
-                const options = dropdownData[`col${col}`] || [];
+                // --- FIX: Reference the global window.dropdownData ---
+                // This ensures manually added rows pull the same options as the initial grid
+                const options = window.dropdownData[`col${col}`] || [];
+                
                 options.forEach(text => {
                     const opt = document.createElement('option');
                     opt.value = text;
@@ -863,14 +865,10 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
             rowDiv.appendChild(element);
         }
 
-        // --- ADD THE DELETE BUTTON ---
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×'; 
-        
-        // Now cellIdsInRow is defined and accessible here
         delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
-        
         rowDiv.appendChild(delBtn);
         
         if (anchorBtn) {
