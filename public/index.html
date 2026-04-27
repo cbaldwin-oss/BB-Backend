@@ -816,7 +816,7 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
-        rowDiv.setAttribute('data-date', dayLabel);
+        rowDiv.setAttribute('data-date', dayLabel); 
 
         const cellIdsInRow = []; 
 
@@ -830,19 +830,30 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
                 if (col === 6) {
                     const multiContainer = document.createElement('div');
                     multiContainer.className = 'multi-select-container';
+                    multiContainer.style.flex = "1";
+                    multiContainer.style.position = "relative";
 
+                    // The label span that updateMultiValue looks for
                     const span = document.createElement('span');
                     span.id = `label-${cellId}`;
                     span.className = 'multi-select-label';
                     span.innerText = "+ Add Multi";
+                    // Style to match your existing CSS
+                    span.style.position = "absolute";
+                    span.style.left = "8px";
+                    span.style.top = "50%";
+                    span.style.transform = "translateY(-50%)";
+                    span.style.pointerEvents = "none";
+                    span.style.fontSize = "13px";
                     multiContainer.appendChild(span);
 
                     element = document.createElement('select');
                     element.id = cellId;
+                    element.style.width = "100%";
                     
                     const defaultOpt = document.createElement('option');
                     defaultOpt.value = "";
-                    defaultOpt.text = "+ Add Multi";
+                    defaultOpt.text = ""; // Keep empty so span is visible
                     element.appendChild(defaultOpt);
 
                     const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
