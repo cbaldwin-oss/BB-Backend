@@ -816,13 +816,13 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
-        rowDiv.setAttribute('data-date', dayLabel); // Ensures auto-cleaner works for new rows
+        rowDiv.setAttribute('data-date', dayLabel); 
 
         const cellIdsInRow = []; 
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-            cellIdsInRow.push(cellId);
+            cellIdsInRow.push(cellId); 
             
             let element;
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
@@ -834,9 +834,9 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
                 defaultOpt.text = (col === 6) ? "+ Add Multi" : "Select...";
                 element.appendChild(defaultOpt);
 
-                // --- FIX: Reference the global window.dropdownData ---
-                // This ensures manually added rows pull the same options as the initial grid
-                const options = window.dropdownData[`col${col}`] || [];
+                // --- THE FIX: Reference the global window.dropdownData ---
+                // This ensures both initial load and "Add Rows" button have access to Supabase data
+                const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
                 
                 options.forEach(text => {
                     const opt = document.createElement('option');
@@ -869,6 +869,7 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×'; 
         delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
+        
         rowDiv.appendChild(delBtn);
         
         if (anchorBtn) {
