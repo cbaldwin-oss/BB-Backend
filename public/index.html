@@ -654,29 +654,52 @@ function refreshDropdowns() {
         const parts = select.id.split('-c');
         if (parts.length < 2) return;
         
+        const cellId = select.id;
         const colNum = parseInt(parts[1]);
         const colKey = `col${colNum}`;
         const options = window.dropdownData[colKey] || [];
         
-        // Save state before clearing
+        // Save current selection state
         const savedValue = select.value;
         const savedMultiText = select.getAttribute('data-selected');
 
         select.innerHTML = '';
 
-        // Create Placeholder (Option 0)
-        const def = document.createElement('option');
-        def.value = "";
-        
-        // Restore Multi-Select label if it exists
-        if (colNum === 6 && savedMultiText) {
-            def.text = `Selected: ${savedMultiText}`;
-        } else {
-            def.text = colNum === 6 ? "+ Add Multi" : "Select...";
-        }
-        select.appendChild(def);
+        // --- THE FIX: Handle Multi-Select (Column 6) ---
+        if (colNum === 6) {
+            // Check if the label span already exists in the container
+            let label = document.getElementById(`label-${cellId}`);
+            
+            // Only create the span if it doesn't already exist
+            if (!label) {
+                const multiContainer = select.parentElement;
+                if (multiContainer && multiContainer.classList.contains('multi-select-container')) {
+                    label = document.createElement('span');
+                    label.id = `label-${cellId}`;
+                    label.className = 'multi-select-label';
+                    multiContainer.insertBefore(label, select);
+                }
+            }
 
-        // Fill Options
+            // Update label text based on current selection
+            if (label) {
+                label.innerText = savedMultiText ? `Selected: ${savedMultiText}` : "+ Add Multi";
+            }
+
+            // The first option for Col 6 must have NO text to avoid doubling
+            const def = document.createElement('option');
+            def.value = "";
+            def.text = ""; 
+            select.appendChild(def);
+        } else {
+            // Standard Placeholder for other columns
+            const def = document.createElement('option');
+            def.value = "";
+            def.text = "Select...";
+            select.appendChild(def);
+        }
+
+        // Fill Options from global dropdownData
         options.forEach(text => {
             const opt = document.createElement('option');
             opt.value = text;
@@ -684,7 +707,7 @@ function refreshDropdowns() {
             select.appendChild(opt);
         });
 
-        // Restore selection
+        // Restore selection state
         select.value = savedValue;
     });
 }
