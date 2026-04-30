@@ -654,37 +654,47 @@ function refreshDropdowns() {
         const parts = select.id.split('-c');
         if (parts.length < 2) return;
         
+        const cellId = select.id;
         const colNum = parseInt(parts[1]);
         const colKey = `col${colNum}`;
         const options = window.dropdownData[colKey] || [];
         
-        // Save state before clearing
         const savedValue = select.value;
         const savedMultiText = select.getAttribute('data-selected');
 
         select.innerHTML = '';
 
-        // Create Placeholder (Option 0)
-        const def = document.createElement('option');
-        def.value = "";
-        
-        // Restore Multi-Select label if it exists
-        if (colNum === 6 && savedMultiText) {
-            def.text = `Selected: ${savedMultiText}`;
-        } else {
-            def.text = colNum === 6 ? "+ Add Multi" : "Select...";
-        }
-        select.appendChild(def);
+        if (colNum === 6) {
+            const label = document.getElementById(`label-${cellId}`);
+            if (label) {
+                // Set text: Data if exists, otherwise placeholder
+                label.innerText = (savedMultiText && savedMultiText !== "") ? `Selected: ${savedMultiText}` : "+ Add Multi";
+                
+                // Coloring logic
+                if (savedMultiText && savedMultiText !== "") {
+                    label.style.color = "#0056b3"; // Professional Blue
+                    label.style.fontWeight = "bold";
+                } else {
+                    label.style.color = ""; // Default
+                    label.style.fontWeight = "";
+                }
+            }
 
-        // Fill Options
+            const def = document.createElement('option');
+            def.value = ""; def.text = ""; // Keep empty to avoid doubling
+            select.appendChild(def);
+        } else {
+            const def = document.createElement('option');
+            def.value = ""; def.text = "Select...";
+            select.appendChild(def);
+        }
+
         options.forEach(text => {
             const opt = document.createElement('option');
-            opt.value = text;
-            opt.text = text;
+            opt.value = text; opt.text = text;
             select.appendChild(opt);
         });
 
-        // Restore selection
         select.value = savedValue;
     });
 }
@@ -811,7 +821,7 @@ function generateNumericId(dayLabel, index) {
 }
 
 function addRowsToContainer(container, dayLabel, anchorBtn = null) {
-    const MAX_ROWS_PER_DAY = 20; // Pre-create 20 rows per day
+    const MAX_ROWS_PER_DAY = 20; 
     
     for (let r = 0; r < MAX_ROWS_PER_DAY; r++) {
         const rowNumericId = generateNumericId(dayLabel, r);
@@ -821,11 +831,7 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
         rowDiv.setAttribute('data-date', dayLabel);
 
         // --- REVEAL LOGIC: Hide rows beyond the first 3 by default ---
-        if (r > 2) {
-            rowDiv.style.display = 'none';
-        } else {
-            rowDiv.style.display = 'flex';
-        }
+        rowDiv.style.display = (r > 2) ? 'none' : 'flex';
 
         const cellIdsInRow = []; 
 
@@ -842,7 +848,7 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                     const span = document.createElement('span');
                     span.id = `label-${cellId}`;
                     span.className = 'multi-select-label';
-                    span.innerText = ""; // Will be populated by refreshDropdowns
+                    span.innerText = ""; // Leave blank; refreshDropdowns handles this
                     multiContainer.appendChild(span);
 
                     element = document.createElement('select');
@@ -850,14 +856,13 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                     
                     const defaultOpt = document.createElement('option');
                     defaultOpt.value = "";
-                    defaultOpt.text = ""; 
+                    defaultOpt.text = ""; // Keep empty to prevent doubling
                     element.appendChild(defaultOpt);
 
                     const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
                     options.forEach(text => {
                         const opt = document.createElement('option');
-                        opt.value = text;
-                        opt.text = text;
+                        opt.value = text; opt.text = text;
                         element.appendChild(opt);
                     });
 
@@ -875,8 +880,7 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                     const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
                     options.forEach(text => {
                         const opt = document.createElement('option');
-                        opt.value = text;
-                        opt.text = text;
+                        opt.value = text; opt.text = text;
                         element.appendChild(opt);
                     });
 
@@ -906,7 +910,6 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
         
         container.appendChild(rowDiv);
     }
-    
     if (anchorBtn) container.appendChild(anchorBtn);
 }
 
@@ -966,24 +969,24 @@ function createSections() {
                 header.querySelector('.arrow').innerText = isHidden ? '▶' : '▼';
             };
 
-            const addBtn = document.createElement('button');
-            addBtn.className = 'add-rows-btn';
-            addBtn.innerText = "+ Add 5 Rows";
-            
-            addBtn.onclick = (e) => {
-                e.stopPropagation();
-                // REVEAL LOGIC: Find 5 hidden rows and show them
-                const hiddenRows = Array.from(rowsDiv.querySelectorAll('.cell-row'))
-                                        .filter(r => r.style.display === 'none');
-                
-                for (let i = 0; i < 5 && i < hiddenRows.length; i++) {
-                    hiddenRows[i].style.display = 'flex';
-                }
+// Inside createSections loop
+const addBtn = document.createElement('button');
+addBtn.className = 'add-rows-btn';
+addBtn.innerText = "+ Add 5 Rows";
+addBtn.onclick = (e) => {
+    e.stopPropagation();
+    // REVEAL LOGIC: Find next 5 hidden rows in this specific container
+    const hiddenRows = Array.from(rowsDiv.querySelectorAll('.cell-row'))
+                            .filter(r => r.style.display === 'none');
+    
+    for (let i = 0; i < 5 && i < hiddenRows.length; i++) {
+        hiddenRows[i].style.display = 'flex';
+    }
+    if (hiddenRows.length <= 5) addBtn.style.display = 'none';
+};
 
-                if (hiddenRows.length <= 5) addBtn.style.display = 'none';
-            };
-
-            addRowsToContainer(rowsDiv, dateId, addBtn);
+// Replace old call with this
+addRowsToContainer(rowsDiv, dateId, addBtn);
 
             section.appendChild(header);
             section.appendChild(rowsDiv);
