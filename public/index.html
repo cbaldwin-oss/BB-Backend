@@ -659,47 +659,37 @@ function refreshDropdowns() {
         const colKey = `col${colNum}`;
         const options = window.dropdownData[colKey] || [];
         
-        // Save current selection state
+        // 1. Capture what is currently there
         const savedValue = select.value;
         const savedMultiText = select.getAttribute('data-selected');
 
+        // 2. Clear out the dropdown
         select.innerHTML = '';
 
-        // --- THE FIX: Handle Multi-Select (Column 6) ---
+        // 3. Handle Column 6 (Multi-Select)
         if (colNum === 6) {
-            // Check if the label span already exists in the container
-            let label = document.getElementById(`label-${cellId}`);
+            // FIND the label that addRowsToContainer already created
+            const label = document.getElementById(`label-${cellId}`);
             
-            // Only create the span if it doesn't already exist
-            if (!label) {
-                const multiContainer = select.parentElement;
-                if (multiContainer && multiContainer.classList.contains('multi-select-container')) {
-                    label = document.createElement('span');
-                    label.id = `label-${cellId}`;
-                    label.className = 'multi-select-label';
-                    multiContainer.insertBefore(label, select);
-                }
-            }
-
-            // Update label text based on current selection
             if (label) {
+                // Update the text based on what was loaded from the database
                 label.innerText = savedMultiText ? `Selected: ${savedMultiText}` : "+ Add Multi";
             }
 
-            // The first option for Col 6 must have NO text to avoid doubling
+            // First option must be empty so it doesn't show behind the label
             const def = document.createElement('option');
             def.value = "";
             def.text = ""; 
             select.appendChild(def);
         } else {
-            // Standard Placeholder for other columns
+            // Standard columns
             const def = document.createElement('option');
             def.value = "";
             def.text = "Select...";
             select.appendChild(def);
         }
 
-        // Fill Options from global dropdownData
+        // 4. Fill with the Supabase options
         options.forEach(text => {
             const opt = document.createElement('option');
             opt.value = text;
@@ -707,7 +697,7 @@ function refreshDropdowns() {
             select.appendChild(opt);
         });
 
-        // Restore selection state
+        // 5. Restore the internal value
         select.value = savedValue;
     });
 }
