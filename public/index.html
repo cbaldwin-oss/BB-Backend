@@ -659,7 +659,7 @@ function refreshDropdowns() {
         const colKey = `col${colNum}`;
         const options = window.dropdownData[colKey] || [];
         
-        // 1. Capture what is currently there
+        // 1. Capture current state
         const savedValue = select.value;
         const savedMultiText = select.getAttribute('data-selected');
 
@@ -668,28 +668,28 @@ function refreshDropdowns() {
 
         // 3. Handle Column 6 (Multi-Select)
         if (colNum === 6) {
-            // FIND the label that addRowsToContainer already created
+            // --- THE FIX: Only update existing label, don't create a new one ---
             const label = document.getElementById(`label-${cellId}`);
             
             if (label) {
-                // Update the text based on what was loaded from the database
+                // Set the visible text based on database data or placeholder
                 label.innerText = savedMultiText ? `Selected: ${savedMultiText}` : "+ Add Multi";
             }
 
-            // First option must be empty so it doesn't show behind the label
+            // Ensure the first option is strictly empty so it doesn't overlap the label
             const def = document.createElement('option');
             def.value = "";
             def.text = ""; 
             select.appendChild(def);
         } else {
-            // Standard columns
+            // Standard columns placeholder
             const def = document.createElement('option');
             def.value = "";
             def.text = "Select...";
             select.appendChild(def);
         }
 
-        // 4. Fill with the Supabase options
+        // 4. Populate options from global window.dropdownData
         options.forEach(text => {
             const opt = document.createElement('option');
             opt.value = text;
@@ -697,7 +697,7 @@ function refreshDropdowns() {
             select.appendChild(opt);
         });
 
-        // 5. Restore the internal value
+        // 5. Restore the internal selection value
         select.value = savedValue;
     });
 }
@@ -856,7 +856,9 @@ if (col === 6) {
     const span = document.createElement('span');
     span.id = `label-${cellId}`;
     span.className = 'multi-select-label';
-    // Leave innerText empty initially; refreshDropdowns will set it
+    // --- FIX 1: LEAVE EMPTY ---
+    // This prevents the "+ Add Multi" placeholder from showing 
+    // at the same time as the actual data.
     span.innerText = ""; 
     multiContainer.appendChild(span);
 
@@ -865,7 +867,9 @@ if (col === 6) {
     
     const defaultOpt = document.createElement('option');
     defaultOpt.value = "";
-    defaultOpt.text = ""; // Keep this strictly empty
+    // --- FIX 2: LEAVE TEXT EMPTY ---
+    // This ensures the dropdown's default text doesn't show behind the label.
+    defaultOpt.text = ""; 
     element.appendChild(defaultOpt);
 
     const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
