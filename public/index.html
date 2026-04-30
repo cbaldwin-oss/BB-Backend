@@ -654,47 +654,37 @@ function refreshDropdowns() {
         const parts = select.id.split('-c');
         if (parts.length < 2) return;
         
-        const cellId = select.id;
         const colNum = parseInt(parts[1]);
         const colKey = `col${colNum}`;
         const options = window.dropdownData[colKey] || [];
         
+        // Save state before clearing
         const savedValue = select.value;
         const savedMultiText = select.getAttribute('data-selected');
 
         select.innerHTML = '';
 
-        if (colNum === 6) {
-            const label = document.getElementById(`label-${cellId}`);
-            if (label) {
-                // Set text: Data if exists, otherwise placeholder
-                label.innerText = (savedMultiText && savedMultiText !== "") ? `Selected: ${savedMultiText}` : "+ Add Multi";
-                
-                // Coloring logic
-                if (savedMultiText && savedMultiText !== "") {
-                    label.style.color = "#0056b3"; // Professional Blue
-                    label.style.fontWeight = "bold";
-                } else {
-                    label.style.color = ""; // Default
-                    label.style.fontWeight = "";
-                }
-            }
-
-            const def = document.createElement('option');
-            def.value = ""; def.text = ""; // Keep empty to avoid doubling
-            select.appendChild(def);
+        // Create Placeholder (Option 0)
+        const def = document.createElement('option');
+        def.value = "";
+        
+        // Restore Multi-Select label if it exists
+        if (colNum === 6 && savedMultiText) {
+            def.text = `Selected: ${savedMultiText}`;
         } else {
-            const def = document.createElement('option');
-            def.value = ""; def.text = "Select...";
-            select.appendChild(def);
+            def.text = colNum === 6 ? "+ Add Multi" : "Select...";
         }
+        select.appendChild(def);
 
+        // Fill Options
         options.forEach(text => {
             const opt = document.createElement('option');
-            opt.value = text; opt.text = text;
+            opt.value = text;
+            opt.text = text;
             select.appendChild(opt);
         });
 
+        // Restore selection
         select.value = savedValue;
     });
 }
