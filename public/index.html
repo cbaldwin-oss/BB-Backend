@@ -810,50 +810,89 @@ function generateNumericId(dayLabel, index) {
     return (dayMap[dayLabel] || 0) * 100 + index;
 }
 
-function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
-    for (let r = 0; r < count; r++) {
+function addRowsToContainer(container, dayLabel, anchorBtn = null) {
+    const MAX_ROWS_PER_DAY = 20; // Pre-create 20 rows per day
+    
+    for (let r = 0; r < MAX_ROWS_PER_DAY; r++) {
         const rowNumericId = generateNumericId(dayLabel, r);
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
-        rowDiv.setAttribute('data-date', dayLabel); 
+        rowDiv.setAttribute('data-date', dayLabel);
+
+        // --- REVEAL LOGIC: Hide rows beyond the first 3 by default ---
+        if (r > 2) {
+            rowDiv.style.display = 'none';
+        } else {
+            rowDiv.style.display = 'flex';
+        }
 
         const cellIdsInRow = []; 
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-            cellIdsInRow.push(cellId); 
+            cellIdsInRow.push(cellId);
             
             let element;
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
-                element = document.createElement('select');
-                element.id = cellId;
-                
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = "";
-                defaultOpt.text = (col === 6) ? "+ Add Multi" : "Select...";
-                element.appendChild(defaultOpt);
+                // Column 6: Multi-Select Logic
+                if (col === 6) {
+                    const multiContainer = document.createElement('div');
+                    multiContainer.className = 'multi-select-container';
+                    multiContainer.style.flex = "1";
+                    multiContainer.style.position = "relative";
 
-                // --- THE FIX: Reference the global window.dropdownData ---
-                // This ensures both initial load and "Add Rows" button have access to Supabase data
-                const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
-                
-                options.forEach(text => {
-                    const opt = document.createElement('option');
-                    opt.value = text;
-                    opt.text = text;
-                    element.appendChild(opt);
-                });
+                    const span = document.createElement('span');
+                    span.id = `label-${cellId}`;
+                    span.className = 'multi-select-label';
+                    span.innerText = "+ Add Multi";
+                    multiContainer.appendChild(span);
 
-                element.onchange = () => {
-                    if (col === 6) {
-                        updateMultiValue(rowNumericId, dayLabel, element.value);
-                    } else {
+                    element = document.createElement('select');
+                    element.id = cellId;
+                    element.style.width = "100%";
+                    
+                    const defaultOpt = document.createElement('option');
+                    defaultOpt.value = "";
+                    defaultOpt.text = ""; 
+                    element.appendChild(defaultOpt);
+
+                    const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
+                    options.forEach(text => {
+                        const opt = document.createElement('option');
+                        opt.value = text;
+                        opt.text = text;
+                        element.appendChild(opt);
+                    });
+
+                    element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
+                    multiContainer.appendChild(element);
+                    rowDiv.appendChild(multiContainer);
+                } else {
+                    // Standard Dropdowns
+                    element = document.createElement('select');
+                    element.id = cellId;
+                    const defaultOpt = document.createElement('option');
+                    defaultOpt.value = "";
+                    defaultOpt.text = "Select...";
+                    element.appendChild(defaultOpt);
+
+                    const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
+                    options.forEach(text => {
+                        const opt = document.createElement('option');
+                        opt.value = text;
+                        opt.text = text;
+                        element.appendChild(opt);
+                    });
+
+                    element.onchange = () => {
                         applyCellColor(element, element.value);
                         saveRow(rowNumericId, dayLabel);
-                    }
-                };
+                    };
+                    rowDiv.appendChild(element);
+                }
             } else {
+                // Standard Inputs
                 element = document.createElement('input');
                 element.id = cellId;
                 element.placeholder = "...";
@@ -861,23 +900,21 @@ function addRowsToContainer(container, dayLabel, count, anchorBtn = null) {
                     applyCellColor(element, element.value);
                     saveRow(rowNumericId, dayLabel);
                 };
+                rowDiv.appendChild(element);
             }
-            rowDiv.appendChild(element);
         }
 
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×'; 
         delBtn.onclick = () => deleteFullRow(rowDiv.id, cellIdsInRow);
-        
         rowDiv.appendChild(delBtn);
         
-        if (anchorBtn) {
-            container.insertBefore(rowDiv, anchorBtn);
-        } else {
-            container.appendChild(rowDiv);
-        }
+        container.appendChild(rowDiv);
     }
+    
+    // Always place the anchor button at the bottom of the container
+    if (anchorBtn) container.appendChild(anchorBtn);
 }
 
 const contentArea = document.getElementById('main-content-area');
@@ -890,7 +927,6 @@ function createSections() {
     const baseDate = new Date(START_DATE + "T00:00:00");
 
     for (let w = 0; w < WEEKS_TO_SHOW; w++) {
-        // --- 1. BUILD WEEK CONTAINER ---
         const weekDiv = document.createElement('div');
         weekDiv.className = 'week-container';
 
@@ -909,13 +945,11 @@ function createSections() {
         const weekContent = document.createElement('div');
         weekContent.className = 'week-content';
 
-        // Week Toggle
         weekHeader.onclick = () => {
             const isHidden = weekContent.classList.toggle('hidden');
             weekHeader.querySelector('.week-arrow').innerText = isHidden ? '▶' : '▼';
         };
 
-        // --- 2. BUILD DAYS INSIDE WEEK ---
         for (let d = 0; d < 7; d++) {
             const sectionDate = new Date(weekStart);
             sectionDate.setDate(weekStart.getDate() + d);
@@ -933,25 +967,32 @@ function createSections() {
             rowsDiv.className = 'rows-container';
             rowsDiv.id = `rows-${dateId}`;
 
-            // Day Toggle (Crucial: stopPropagation prevents week-header from firing)
             header.onclick = (e) => {
                 e.stopPropagation();
                 const isHidden = rowsDiv.classList.toggle('hidden');
                 header.querySelector('.arrow').innerText = isHidden ? '▶' : '▼';
             };
 
-            // Reuse your existing addRows function
-            addRowsToContainer(rowsDiv, dateId, INITIAL_ROWS);
-
             const addBtn = document.createElement('button');
             addBtn.className = 'add-rows-btn';
             addBtn.innerText = "+ Add 5 Rows";
+            
+            // REVEAL LOGIC: Unhide 5 rows at a time
             addBtn.onclick = (e) => {
-                e.stopPropagation(); // Keep week from collapsing when adding rows
-                addRowsToContainer(rowsDiv, dateId, 5, addBtn);
+                e.stopPropagation();
+                const hiddenRows = Array.from(rowsDiv.querySelectorAll('.cell-row'))
+                                        .filter(r => r.style.display === 'none');
+                
+                for (let i = 0; i < 5 && i < hiddenRows.length; i++) {
+                    hiddenRows[i].style.display = 'flex';
+                }
+
+                if (hiddenRows.length <= 5) addBtn.style.display = 'none';
             };
 
-            rowsDiv.appendChild(addBtn);
+            // Pre-build the 20 rows
+            addRowsToContainer(rowsDiv, dateId, addBtn);
+
             section.appendChild(header);
             section.appendChild(rowsDiv);
             weekContent.appendChild(section);
@@ -961,9 +1002,7 @@ function createSections() {
         weekDiv.appendChild(weekContent);
         contentArea.appendChild(weekDiv);
     }
-    applyViewFilter(currentView);
 }
-
 
 let allWeeksCollapsed = false; // Track the global state
 
@@ -1287,58 +1326,41 @@ function autoCleanUI() {
 async function loadData() {
     console.log("📥 Syncing with Cloud: Fetching row data...");
     const status = document.getElementById('saveIndicator');
-    if (status) status.innerText = "Syncing with Cloud...";
 
-   try {
+    try {
         const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
 
         if (data) {
             data.forEach(row => {
-                // Loop through columns 1 to 8 for every row found
+                const wrapper = document.getElementById(`row-wrapper-${row.id}`);
+                if (wrapper) {
+                    // Reveal the row if it has data
+                    wrapper.style.display = 'flex';
+                    wrapper.setAttribute('data-occupied', 'true');
+                }
+
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
                     
                     if (el) {
                         const content = row[`col${col}`] || "";
-                        
-                        // --- THE PATTERN MATCH ---
-                        
-if (col === 6) {
-    el.setAttribute('data-selected', content);
-    applyCellColor(el, content); // This builds the "Selected: Partner A, Partner B" text
-
-    // Mark the entire row wrapper as "Occupied" so it's never hidden
-    const wrapper = document.getElementById(`row-wrapper-${row.id}`);
-    if (wrapper) wrapper.setAttribute('data-occupied', 'true');
-}
-                        else {
-                            // 1. For all other columns, we set the standard .value
+                        if (col === 6) {
+                            el.setAttribute('data-selected', content);
+                            applyCellColor(el, content);
+                        } else {
                             el.value = content;
-                            // 2. Trigger the standard visual "pop-in" (colors based on text)
                             applyCellColor(el, content);
                         }
                     }
                 }
             });
-            console.log("✅ Cloud Sync Complete: Data popped into cells.");
-    
-    return true; // This "resolves" the promise for startApp
+            return true; 
         }
-
-        if (status) status.innerText = "Saved";
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
-            return false;
-        if (status) status.innerText = "Sync Error!";
-    } finally {
-        // Clear the status message after a brief moment
-        setTimeout(() => {
-            if (status && (status.innerText === "Saved" || status.innerText === "Ready")) {
-                status.innerText = "";
-            }
-        }, 2000);
+        return false;
     }
 }
 
