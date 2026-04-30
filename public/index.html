@@ -849,37 +849,37 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
             let element;
             if ([1, 2, 3, 4, 6, 7].includes(col)) {
                 // Column 6: Multi-Select Logic
-                if (col === 6) {
-                    const multiContainer = document.createElement('div');
-                    multiContainer.className = 'multi-select-container';
+if (col === 6) {
+    const multiContainer = document.createElement('div');
+    multiContainer.className = 'multi-select-container';
 
-                    const span = document.createElement('span');
-                    span.id = `label-${cellId}`;
-                    span.className = 'multi-select-label';
-                    span.innerText = "+ Add Multi";
-                    multiContainer.appendChild(span);
+    const span = document.createElement('span');
+    span.id = `label-${cellId}`;
+    span.className = 'multi-select-label';
+    // Leave innerText empty initially; refreshDropdowns will set it
+    span.innerText = ""; 
+    multiContainer.appendChild(span);
 
-                    element = document.createElement('select');
-                    element.id = cellId;
-                    
-                    const defaultOpt = document.createElement('option');
-                    defaultOpt.value = "";
-                    // --- THE FIX: Leave text empty so it doesn't double-up with the span ---
-                    defaultOpt.text = ""; 
-                    element.appendChild(defaultOpt);
+    element = document.createElement('select');
+    element.id = cellId;
+    
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = "";
+    defaultOpt.text = ""; // Keep this strictly empty
+    element.appendChild(defaultOpt);
 
-                    const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
-                    options.forEach(text => {
-                        const opt = document.createElement('option');
-                        opt.value = text;
-                        opt.text = text;
-                        element.appendChild(opt);
-                    });
+    const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
+    options.forEach(text => {
+        const opt = document.createElement('option');
+        opt.value = text;
+        opt.text = text;
+        element.appendChild(opt);
+    });
 
-                    element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
-                    multiContainer.appendChild(element);
-                    rowDiv.appendChild(multiContainer);
-                } else {
+    element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
+    multiContainer.appendChild(element);
+    rowDiv.appendChild(multiContainer);
+} else {
                     // Standard Dropdowns
                     element = document.createElement('select');
                     element.id = cellId;
