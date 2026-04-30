@@ -659,24 +659,35 @@ function refreshDropdowns() {
         const colKey = `col${colNum}`;
         const options = window.dropdownData[colKey] || [];
         
-        // 1. Capture current state
+        // 1. Capture current selection state
         const savedValue = select.value;
         const savedMultiText = select.getAttribute('data-selected');
 
-        // 2. Clear out the dropdown
+        // 2. Clear current options
         select.innerHTML = '';
 
         // 3. Handle Column 6 (Multi-Select)
         if (colNum === 6) {
-            // --- THE FIX: Only update existing label, don't create a new one ---
+            // Find the existing label created by addRowsToContainer
             const label = document.getElementById(`label-${cellId}`);
             
             if (label) {
-                // Set the visible text based on database data or placeholder
+                // Set text based on saved data or default placeholder
                 label.innerText = savedMultiText ? `Selected: ${savedMultiText}` : "+ Add Multi";
+                
+                // --- THE COLOR FIX ---
+                // If data exists, apply the "filled" blue style to the label
+                if (savedMultiText && savedMultiText !== "") {
+                    label.style.color = "#0056b3";
+                    label.style.fontWeight = "bold";
+                } else {
+                    label.style.color = ""; // Reset to default
+                    label.style.fontWeight = "";
+                }
             }
 
-            // Ensure the first option is strictly empty so it doesn't overlap the label
+            // --- THE DOUBLING FIX ---
+            // The first option MUST have empty text so it doesn't overlap the label
             const def = document.createElement('option');
             def.value = "";
             def.text = ""; 
@@ -689,7 +700,7 @@ function refreshDropdowns() {
             select.appendChild(def);
         }
 
-        // 4. Populate options from global window.dropdownData
+        // 4. Populate with Supabase options from window.dropdownData
         options.forEach(text => {
             const opt = document.createElement('option');
             opt.value = text;
