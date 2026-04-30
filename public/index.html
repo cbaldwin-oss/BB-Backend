@@ -839,8 +839,6 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                 if (col === 6) {
                     const multiContainer = document.createElement('div');
                     multiContainer.className = 'multi-select-container';
-                    multiContainer.style.flex = "1";
-                    multiContainer.style.position = "relative";
 
                     const span = document.createElement('span');
                     span.id = `label-${cellId}`;
@@ -850,10 +848,10 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
 
                     element = document.createElement('select');
                     element.id = cellId;
-                    element.style.width = "100%";
                     
                     const defaultOpt = document.createElement('option');
                     defaultOpt.value = "";
+                    // --- THE FIX: Leave text empty so it doesn't double-up with the span ---
                     defaultOpt.text = ""; 
                     element.appendChild(defaultOpt);
 
