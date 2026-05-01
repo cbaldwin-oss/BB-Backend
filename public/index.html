@@ -1129,7 +1129,7 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
             const cell = document.getElementById(`${dayLabel}-r${rowNum}-c${col}`);
             if (cell) {
                 const valToPass = (col === 6) ? cell.getAttribute('data-selected') : cell.value;
-                applyCellColor(cell, valToPass);
+                applyCellColor(cell, valToPass);l
             }
         }
 
@@ -1319,27 +1319,34 @@ async function loadData(isSilent = false) {
 
         if (data) {
             data.forEach(row => {
-                // ... (existing row visibility logic)
-                
+                // --- THE FIX: Find the row wrapper and make it visible ---
+                const wrapper = document.getElementById(`row-wrapper-${row.id}`);
+                if (wrapper) {
+                    wrapper.style.display = 'flex';
+                    wrapper.setAttribute('data-occupied', 'true');
+                }
+
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
                     
                     if (el) {
-                        // --- THE FIX: If this is the active cell, DO NOT overwrite it ---
+                        // Focus protection
                         if (el === document.activeElement) continue;
 
                         const content = row[`col${col}`] || "";
                         if (col === 6) {
                             el.setAttribute('data-selected', content);
-                            applyCellColor(el, content);
                         } else {
                             el.value = content;
-                            applyCellColor(el, content);
                         }
+                        
+                        // Recalculate color and height (crucial for wrapping textareas)
+                        applyCellColor(el, content);
                     }
                 }
             });
+            
             if (!isSilent && status) status.innerText = `Last saved at: ${getTimestamp()}`;
             return true;
         }
