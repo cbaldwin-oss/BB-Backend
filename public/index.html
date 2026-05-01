@@ -644,13 +644,10 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
         
 // This runs every 10 seconds without any flickering
 setInterval(() => {
-    // Add 'TEXTAREA' to the list of elements that block background syncing
     const isEditing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
-    
     if (!isEditing) {
-        console.log("Silent background sync...");
-        loadData(true); 
-        syncAllAssetLookups();
+        loadData(true); // Silent background sync
+        syncAllAssetLookups(); // Periodic Google Sheets refresh
     }
 }, 2000);
 
@@ -858,12 +855,13 @@ async function fetchDropdownOptions() {
 
 // Helper to create stable, short integers for Supabase int4
 function generateNumericId(dayLabel, index) {
-    const dayMap = { 
-        "Monday": 1, "Tuesday": 2, "Wednesday": 3, "Thursday": 4, 
-        "Friday": 5, "Saturday": 6, "Sunday": 7 
+    const days = { 
+        "Monday": 1000, "Tuesday": 2000, "Wednesday": 3000, 
+        "Thursday": 4000, "Friday": 5000, "Saturday": 6000, "Sunday": 7000 
     };
-    // Format: DayDigit + RowIndex (e.g., Monday Row 5 = 105)
-    return (dayMap[dayLabel] || 0) * 100 + index;
+    // Example: Monday Row 5 becomes 1005. Tuesday Row 5 becomes 2005.
+    const base = days[dayLabel] || 0;
+    return base + index;
 }
 
 function addRowsToContainer(container, dayLabel, anchorBtn = null) {
@@ -1092,44 +1090,29 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
 }
 
 async function deleteFullRow(wrapperId) {
-    if (confirm("Delete this entire line?")) {
-        // Extract the Numeric ID (e.g., "row-wrapper-105" -> 105)
-        const rowNumericId = parseInt(wrapperId.replace('row-wrapper-', ''));
+    if (!confirm("Delete this entire line?")) return;
 
-        // 1. UI RESET: Clear data and hide the row (keeps Reveal logic intact)
-        const rowElement = document.getElementById(wrapperId);
-        if (rowElement) {
-            rowElement.style.display = 'none';
-            rowElement.removeAttribute('data-occupied');
-            
-            // Clear all cells inside that row
-const cells = rowElement.querySelectorAll('input, select, textarea, .status-cell');
-cells.forEach(cell => {
-    if (cell.classList.contains('status-cell')) {
-        cell.innerText = "...";
-    } else {
-        cell.value = "";
-    }
-    applyCellColor(cell, "");
-});
-        }
+    const rowNumericId = parseInt(wrapperId.replace('row-wrapper-', ''));
+    const rowElement = document.getElementById(wrapperId);
 
-        // 2. DATABASE DELETE
-        const { error } = await _supabase
-            .from('BackEndData')
-            .delete()
-            .eq('id', rowNumericId);
+    if (rowElement) {
+        rowElement.style.display = 'none';
+        rowElement.removeAttribute('data-occupied');
 
-        if (error) {
-            console.error("Delete error:", error.message);
-        } else {
-            console.log(`✅ Row ${rowNumericId} deleted from Cloud.`);
-            const status = document.getElementById('saveIndicator');
-            if (status) {
-                status.innerText = "Row Deleted";
-                setTimeout(() => { if(status.innerText === "Row Deleted") status.innerText = ""; }, 2000);
+        // Clear UI elements
+        const cells = rowElement.querySelectorAll('input, select, textarea, .status-cell');
+        cells.forEach(cell => {
+            if (cell.classList.contains('status-cell')) {
+                cell.innerText = "...";
+            } else {
+                cell.value = "";
+                if (cell.tagName === 'SELECT') cell.setAttribute('data-selected', '');
             }
-        }
+            applyCellColor(cell, "");
+        });
+
+        // Delete from Database
+        await _supabase.from('BackEndData').delete().eq('id', rowNumericId);
     }
 }
 
@@ -1139,7 +1122,6 @@ async function lookupColumn5Value(rowNum, dayLabel) {
     const col5 = document.getElementById(`${dayLabel}-r${rowNum}-c5`);
 
     if (!val3 || !val4 || !col5) return;
-
     const currentText = col5.innerText;
 
     try {
@@ -1147,17 +1129,13 @@ async function lookupColumn5Value(rowNum, dayLabel) {
         const response = await fetch(url);
         const data = await response.json();
 
-        if (data && data.result) {
-            // --- THE OPTIMIZATION: Only update/save if the value has changed ---
-            if (data.result !== currentText) {
-                col5.innerText = data.result;
-                applyCellColor(col5, data.result);
-                saveRow(rowNum, dayLabel); 
-                console.log(`✅ Updated Asset Info for Row ${rowNum}`);
-            }
+        if (data && data.result && data.result !== currentText) {
+            col5.innerText = data.result;
+            applyCellColor(col5, data.result);
+            saveRow(rowNum, dayLabel); // Only save if value changed
         }
     } catch (e) {
-        console.error("VLOOKUP Timer Error:", e);
+        console.error("VLOOKUP Error:", e);
     }
 }
 
@@ -1166,6 +1144,9 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
 
+    const status = document.getElementById('saveIndicator');
+
+    // --- THE FIX: Explicitly define all 8 columns for the database ---
     const rowData = {
         id: rowNum,
         day_label: dayLabel,
@@ -1173,17 +1154,21 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
-        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.innerText || "", // Read innerText
+        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.innerText || "", // Read from Span
         col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
     };
 
     try {
-        const { error } = await _supabase.from('BackEndData').upsert(rowData, { onConflict: 'id' });
-        if (!error) document.getElementById('saveIndicator').innerText = `Last saved at: ${getTimestamp()}`;
+        const { error } = await _supabase
+            .from('BackEndData')
+            .upsert(rowData, { onConflict: 'id' });
+
+        if (error) throw error;
+        if (status) status.innerText = `Last saved at: ${getTimestamp()}`;
     } catch (err) {
-        console.error("🔴 Sync Failure:", err);
+        console.error("🔴 Sync Failure:", err.message);
     } finally {
         activeSyncs.delete(syncKey);
     }
@@ -1357,55 +1342,39 @@ function getTimestamp() {
 }
 
 async function loadData(isSilent = false) {
-    const status = document.getElementById('saveIndicator');
     try {
         const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
 
-        if (data) {
-            data.forEach(row => {
-                // --- THE FIX: Find the row wrapper and make it visible ---
-                const wrapper = document.getElementById(`row-wrapper-${row.id}`);
-                if (wrapper) {
-                    wrapper.style.display = 'flex';
-                    wrapper.setAttribute('data-occupied', 'true');
-                }
+        data.forEach(row => {
+            const wrapper = document.getElementById(`row-wrapper-${row.id}`);
+            if (wrapper) {
+                wrapper.style.display = 'flex';
+                wrapper.setAttribute('data-occupied', 'true');
+            }
 
-                for (let col = 1; col <= 8; col++) {
-                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
-                    const el = document.getElementById(cellId);
-                    
-                    if (el) {
-                        // Focus protection
-                        if (el === document.activeElement) continue;
+            for (let col = 1; col <= 8; col++) {
+                const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                const el = document.getElementById(cellId);
+                if (el) {
+                    // --- THE FIX: Do not overwrite the box currently being edited ---
+                    if (el === document.activeElement) continue;
 
-// Inside the column loop
-const content = row[`col${col}`] || "";
-if (col === 6) {
-    el.setAttribute('data-selected', content);
-    // Explicitly update the label for immediate visibility
-    if (el.options && el.options[0]) {
-        el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
-    }
-} else if (col === 5) {
-    el.innerText = content;
-} else {
-    el.value = content;
-}
-applyCellColor(el, content);
-                        
-                        // Recalculate color and height (crucial for wrapping textareas)
-                        applyCellColor(el, content);
+                    const content = row[`col${col}`] || "";
+                    if (col === 6) {
+                        el.setAttribute('data-selected', content);
+                    } else if (col === 5) {
+                        el.innerText = content; // Populates Span
+                    } else {
+                        el.value = content; // Populates Input/Textarea
                     }
+                    applyCellColor(el, content);
                 }
-            });
-            
-            if (!isSilent && status) status.innerText = `Last saved at: ${getTimestamp()}`;
-            return true;
-        }
+            }
+        });
+        if (!isSilent) document.getElementById('saveIndicator').innerText = `Last saved at: ${getTimestamp()}`;
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
-        return false;
     }
 }
 
