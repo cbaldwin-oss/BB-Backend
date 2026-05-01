@@ -1118,7 +1118,7 @@ const cells = rowElement.querySelectorAll('input, select, textarea, .status-cell
 cells.forEach(cell => {
     if (cell.classList.contains('status-cell')) {
         cell.innerText = "...";
-    } else {c
+    } else {
         cell.value = "";
     }
     applyCellColor(cell, "");
