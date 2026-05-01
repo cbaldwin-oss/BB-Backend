@@ -1158,7 +1158,7 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
-;}
+    };
 
     try {
         const { error } = await _supabase
