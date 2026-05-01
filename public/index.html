@@ -625,11 +625,12 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
         
 // This runs every 10 seconds without any flickering
 setInterval(() => {
-    // We check if you are currently typing. 
-    // If you are, we DON'T refresh so we don't overwrite your typing.
-    if (document.activeElement.tagName !== 'INPUT') {
-        console.log("Syncing with cloud...");
-        loadData();
+    // Add 'TEXTAREA' to the list of elements that block background syncing
+    const isEditing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
+    
+    if (!isEditing) {
+        console.log("Silent background sync...");
+        loadData(true); 
     }
 }, 2000);
         // --- CONFIGURE THESE ---
@@ -1114,6 +1115,11 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
+        if (cell) {
+    // Force the textarea to fit the text we just saved
+    cell.style.height = 'auto';
+    cell.style.height = cell.scrollHeight + 'px';
+}
     };
 
     try {
@@ -1310,26 +1316,24 @@ function getTimestamp() {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-async function loadData() {
+async function loadData(isSilent = false) {
     const status = document.getElementById('saveIndicator');
-    // REMOVED: status.innerText = "Syncing..."; <--- This stops the flashing
-
     try {
         const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
 
         if (data) {
             data.forEach(row => {
-                const wrapper = document.getElementById(`row-wrapper-${row.id}`);
-                if (wrapper) {
-                    wrapper.style.display = 'flex';
-                    wrapper.setAttribute('data-occupied', 'true');
-                }
-
+                // ... (existing row visibility logic)
+                
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
+                    
                     if (el) {
+                        // --- THE FIX: If this is the active cell, DO NOT overwrite it ---
+                        if (el === document.activeElement) continue;
+
                         const content = row[`col${col}`] || "";
                         if (col === 6) {
                             el.setAttribute('data-selected', content);
@@ -1341,15 +1345,11 @@ async function loadData() {
                     }
                 }
             });
-            
-            // Update the time silently once the fetch is done
-            if (status) status.innerText = `Last saved at: ${getTimestamp()}`;
-            return true; 
+            if (!isSilent && status) status.innerText = `Last saved at: ${getTimestamp()}`;
+            return true;
         }
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
-        // We only show an error if it actually fails
-        if (status) status.innerText = "Sync Error!";
         return false;
     }
 }
