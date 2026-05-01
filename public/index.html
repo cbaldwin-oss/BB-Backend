@@ -891,6 +891,7 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
+        rowDiv.setAttribute('data-date', dayLabel); // <--- ENSURE THIS LINE EXISTS
         rowDiv.style.display = (r > 2) ? 'none' : 'flex';
 
         for (let col = 1; col <= 8; col++) {
