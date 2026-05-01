@@ -667,29 +667,33 @@ function refreshDropdowns() {
         if (colNum === 6) {
             const label = document.getElementById(`label-${cellId}`);
             if (label) {
-                // If data exists, show blue text; otherwise show gray placeholder
+                // Determine text: Use saved data if it exists, else use placeholder
                 if (savedMultiText && savedMultiText !== "") {
                     label.innerText = `Selected: ${savedMultiText}`;
                     label.style.color = "#0056b3"; // Professional Blue
                     label.style.fontWeight = "bold";
                 } else {
                     label.innerText = "+ Add Multi";
-                    label.style.color = ""; // Default CSS style
+                    label.style.color = ""; // Default Gray
                     label.style.fontWeight = "";
                 }
             }
+
             const def = document.createElement('option');
-            def.value = ""; def.text = ""; 
+            def.value = ""; 
+            def.text = ""; // Keeps the select itself invisible
             select.appendChild(def);
         } else {
             const def = document.createElement('option');
-            def.value = ""; def.text = "Select...";
+            def.value = ""; 
+            def.text = "Select...";
             select.appendChild(def);
         }
 
         options.forEach(text => {
             const opt = document.createElement('option');
-            opt.value = text; opt.text = text;
+            opt.value = text;
+            opt.text = text;
             select.appendChild(opt);
         });
 
@@ -841,36 +845,38 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
             cellIdsInRow.push(cellId);
             
             let element;
-            if (col === 6) {
-                const multiContainer = document.createElement('div');
-                multiContainer.className = 'multi-select-container';
+if (col === 6) {
+    const multiContainer = document.createElement('div');
+    multiContainer.className = 'multi-select-container';
 
-                const span = document.createElement('span');
-                span.id = `label-${cellId}`;
-                span.className = 'multi-select-label';
-                // --- FIX: Leave empty so refreshDropdowns can set the text/color ---
-                span.innerText = ""; 
-                multiContainer.appendChild(span);
+    const span = document.createElement('span');
+    span.id = `label-${cellId}`;
+    span.className = 'multi-select-label';
+    // --- THE FIX: Remove "+ Add Multi" from here ---
+    span.innerText = ""; 
+    multiContainer.appendChild(span);
 
-                element = document.createElement('select');
-                element.id = cellId;
-                
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = "";
-                defaultOpt.text = ""; // Keep empty to prevent doubling
-                element.appendChild(defaultOpt);
+    element = document.createElement('select');
+    element.id = cellId;
+    
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = "";
+    // --- THE FIX: Keep text empty so it doesn't show behind the span ---
+    defaultOpt.text = ""; 
+    element.appendChild(defaultOpt);
 
-                const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
-                options.forEach(text => {
-                    const opt = document.createElement('option');
-                    opt.value = text; opt.text = text;
-                    element.appendChild(opt);
-                });
+    const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
+    options.forEach(text => {
+        const opt = document.createElement('option');
+        opt.value = text;
+        opt.text = text;
+        element.appendChild(opt);
+    });
 
-                element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
-                multiContainer.appendChild(element);
-                rowDiv.appendChild(multiContainer);
-            } else if ([1, 2, 3, 4, 7].includes(col)) {
+    element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
+    multiContainer.appendChild(element);
+    rowDiv.appendChild(multiContainer);
+}else if ([1, 2, 3, 4, 7].includes(col)) {
                 // Standard Dropdowns
                 element = document.createElement('select');
                 element.id = cellId;
