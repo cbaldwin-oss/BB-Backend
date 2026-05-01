@@ -1068,8 +1068,20 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
 
     const status = document.getElementById('saveIndicator');
 
-    // Capture and Save Logic...
-    // [Keep your existing rowData capture logic here]
+    // --- THE FIX: Capture data from all 8 columns into the rowData object ---
+    const rowData = {
+        id: rowNum,
+        day_label: dayLabel,
+        col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
+        col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
+        col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
+        col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
+        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
+        // Col 6 priority: uses override (if from updateMultiValue) or the stored data-selected attribute
+        col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
+        col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
+        col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
+    };
 
     try {
         const { error } = await _supabase
@@ -1078,7 +1090,7 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
 
         if (error) throw error;
 
-        // Visual Refresh for the specific row
+        // Refresh colors for all cells in this row after a successful save
         for (let col = 1; col <= 8; col++) {
             const cell = document.getElementById(`${dayLabel}-r${rowNum}-c${col}`);
             if (cell) {
@@ -1087,15 +1099,14 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
             }
         }
 
-        // --- THE TIMESTAMP UPDATE ---
+        // Update the timestamp on the screen
         if (status) status.innerText = `Last saved at: ${getTimestamp()}`;
+        
     } catch (err) {
         console.error("🔴 Sync Failure:", err.message);
         if (status) status.innerText = "Sync Error!";
     } finally {
         activeSyncs.delete(syncKey);
-        // Removed the setTimeout that clears the status, 
-        // so the user can always see when the last successful save was.
     }
 }
 
