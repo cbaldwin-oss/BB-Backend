@@ -654,6 +654,8 @@ const activeSyncs = new Set(); // Track which rows are currently uploading
 const START_DATE = "2026-04-20"; // A Monday
 const WEEKS_TO_SHOW = 2; 
 const INITIAL_ROWS = 20;
+// Add this near the top of your script area
+const deletingRows = new Set(); 
 // Add this at the top of your script section
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 </script>
@@ -663,6 +665,7 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
+
         
 // This runs every 10 seconds without any flickering
 setInterval(() => {
