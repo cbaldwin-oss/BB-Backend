@@ -857,88 +857,77 @@ function generateNumericId(dayLabel, index) {
 
 function addRowsToContainer(container, dayLabel, anchorBtn = null) {
     const MAX_ROWS = 20; 
-    
     for (let r = 0; r < MAX_ROWS; r++) {
         const rowNumericId = generateNumericId(dayLabel, r);
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
-        rowDiv.setAttribute('data-date', dayLabel);
-
-        if (r > 2) rowDiv.style.display = 'none';
-        else rowDiv.style.display = 'flex';
+        rowDiv.style.display = (r > 2) ? 'none' : 'flex';
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
             let element;
 
-            if (col === 6) {
-                // --- THE FIX: Standardize Column 6 to a single select ---
+            if (col === 5) {
+                // COLUMN 5: Read-Only Span
+                element = document.createElement('span');
+                element.id = cellId;
+                element.className = 'status-cell';
+                element.innerText = "...";
+                rowDiv.appendChild(element);
+            } 
+            else if (col === 6) {
+                // COLUMN 6: Multi-Select
                 element = document.createElement('select');
                 element.id = cellId;
-                
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = "";
-                defaultOpt.text = "+ Add Multi"; // Placeholder text inside the select
-                element.appendChild(defaultOpt);
-
-                const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
-                options.forEach(text => {
-                    const opt = document.createElement('option');
-                    opt.value = text; opt.text = text;
-                    element.appendChild(opt);
+                element.innerHTML = '<option value="">+ Add Multi</option>';
+                const opts = (window.dropdownData && window.dropdownData.col6) ? window.dropdownData.col6 : [];
+                opts.forEach(t => {
+                    const o = document.createElement('option');
+                    o.value = t; o.text = t;
+                    element.appendChild(o);
                 });
-
                 element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
-                rowDiv.appendChild(element); // Append directly to rowDiv
-            } else if (col === 5) {
-    element = document.createElement('span');
-    element.id = cellId;
-    element.className = 'status-cell';
-    element.innerText = "..."; // Initial placeholder
-    rowDiv.appendChild(element);
-} else if ([1, 2, 3, 4, 6, 7].includes(col)) {
-    // ... (Keep existing select logic)
-    element.onchange = () => {
-        if (col === 6) {
-            updateMultiValue(rowNumericId, dayLabel, element.value);
-        } else {
-            applyCellColor(element, element.value);
-            saveRow(rowNumericId, dayLabel);
-            
-            // --- THE FIX: Trigger lookup if Col 3 or 4 changes ---
-            if (col === 3 || col === 4) {
-                lookupColumn5Value(rowNumericId, dayLabel);
+                rowDiv.appendChild(element);
+            } 
+            else if ([1, 2, 3, 4, 7].includes(col)) {
+                // COLUMNS 1, 2, 3, 4, 7: Dropdowns
+                element = document.createElement('select');
+                element.id = cellId;
+                element.innerHTML = '<option value="">Select...</option>';
+                const opts = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
+                opts.forEach(t => {
+                    const o = document.createElement('option');
+                    o.value = t; o.text = t;
+                    element.appendChild(o);
+                });
+                element.onchange = () => { 
+                    applyCellColor(element, element.value); 
+                    saveRow(rowNumericId, dayLabel);
+                    if (col === 3 || col === 4) lookupColumn5Value(rowNumericId, dayLabel);
+                };
+                rowDiv.appendChild(element);
+            } 
+            else {
+                // COLUMN 8: Textarea (Auto-expanding)
+                element = document.createElement('textarea');
+                element.id = cellId;
+                element.placeholder = "...";
+                element.oninput = () => applyCellColor(element, element.value);
+                element.onblur = () => { 
+                    applyCellColor(element, element.value); 
+                    saveRow(rowNumericId, dayLabel); 
+                };
+                rowDiv.appendChild(element);
             }
         }
-    }
-                rowDiv.appendChild(element);
-            } else {
-    // CHANGE: Use textarea instead of input for Column 5 & 8
-    element = document.createElement('textarea');
-    element.id = cellId;
-    element.placeholder = "...";
-    
-    // Trigger expansion logic as the user types
-    element.oninput = () => {
-        applyCellColor(element, element.value);
-    };
-
-    element.onblur = () => {
-        applyCellColor(element, element.value);
-        saveRow(rowNumericId, dayLabel);
-    };
-    rowDiv.appendChild(element);
-}
-        }
         
-const delBtn = document.createElement('button');
-    delBtn.className = 'delete-btn';
-    delBtn.innerHTML = '×'; 
-    // THE FIX: Pass only the rowDiv.id
-    delBtn.onclick = () => deleteFullRow(rowDiv.id); 
-    rowDiv.appendChild(delBtn);
-    container.appendChild(rowDiv);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn';
+        delBtn.innerHTML = '×'; 
+        delBtn.onclick = () => deleteFullRow(rowDiv.id);
+        rowDiv.appendChild(delBtn);
+        container.appendChild(rowDiv);
     }
     if (anchorBtn) container.appendChild(anchorBtn);
 }
@@ -1166,32 +1155,24 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
 
-    const status = document.getElementById('saveIndicator');
-
-const rowData = {
-    id: rowNum,
-    day_label: dayLabel,
-    col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
-    col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
-    col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
-    col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
-    // --- THE FIX: Read innerText for Col 5 ---
-    col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.innerText || "", 
-    col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
-    col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
-    col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
-};
+    const rowData = {
+        id: rowNum,
+        day_label: dayLabel,
+        col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
+        col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
+        col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
+        col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
+        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.innerText || "", // Read innerText
+        col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
+        col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
+        col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
+    };
 
     try {
-        const { error } = await _supabase
-            .from('BackEndData')
-            .upsert(rowData, { onConflict: 'id' });
-
-        if (error) throw error;
-        if (status) status.innerText = `Last saved at: ${getTimestamp()}`;
+        const { error } = await _supabase.from('BackEndData').upsert(rowData, { onConflict: 'id' });
+        if (!error) document.getElementById('saveIndicator').innerText = `Last saved at: ${getTimestamp()}`;
     } catch (err) {
-        console.error("🔴 Sync Failure:", err.message);
-        if (status) status.innerText = "Sync Error!";
+        console.error("🔴 Sync Failure:", err);
     } finally {
         activeSyncs.delete(syncKey);
     }
