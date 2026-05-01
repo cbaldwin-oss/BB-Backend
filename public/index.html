@@ -710,40 +710,7 @@ function applyCellColor(element, value) {
     }
 
     // 2. COLUMN 6 (MULTI-SELECT) DYNAMIC SIZING
-    const isColumn6 = element.id && element.id.endsWith("-c6");
-    if (isColumn6) {
-        let rawList = capturedValue.toString().replace(/^Selected:\s*/i, "").trim();
-
-        if (rawList && rawList !== "" && rawList !== "+ Add Multi") {
-            element.style.backgroundColor = "#e7f3ff";
-            element.style.color = "#0056b3";
-            element.style.fontWeight = "bold";
-
-            if (element.options && element.options[0]) {
-                element.options[0].text = `Selected: ${rawList}`;
-                
-                // --- GOOGLE SHEETS DYNAMIC SIZING ---
-                // We estimate height based on character count. 
-                // A standard cell fits ~25-30 chars per line.
-                const charCount = rawList.length + 10; // +10 for "Selected: "
-                if (charCount > 30) {
-                    // Calculate how many rows of text we need
-                    const estimatedLines = Math.ceil(charCount / 28); 
-                    const newHeight = (estimatedLines * 20) + 10; // 20px per line + padding
-                    element.style.height = newHeight + "px";
-                } else {
-                    element.style.height = "40px"; // Default height
-                }
-            }
-        } else {
-            element.style.backgroundColor = "transparent";
-            element.style.height = "40px"; // Reset
-            if (element.options && element.options[0]) {
-                element.options[0].text = "+ Add Multi";
-            }
-        }
-        return; 
-    }
+    
 
     // 3. STANDARD COLUMN LOGIC (1-5, 7, 8)
     element.style.backgroundColor = "#e7f3ff"; // Default filled
@@ -752,6 +719,22 @@ function applyCellColor(element, value) {
 
     const cleanVal = capturedValue.toString().trim();
     const lowerVal = cleanVal.toLowerCase();
+
+    // 2. DYNAMIC SIZING (Applied to Column 6, 5, and 8)
+    const isExpandingCol = element.id && (element.id.endsWith("-c6") || element.id.endsWith("-c5") || element.id.endsWith("-c8"));
+    
+    if (isExpandingCol) {
+        // Estimate height: ~25-28 chars per line
+        const charCount = cleanVal.length + (element.id.endsWith("-c6") ? 10 : 0); 
+        
+        if (charCount > 28) {
+            const estimatedLines = Math.ceil(charCount / 25); 
+            const newHeight = (estimatedLines * 18) + 12; // 18px per line + padding
+            element.style.height = newHeight + "px";
+        } else {
+            element.style.height = "40px"; // Default height
+        }
+    }
 
     if (cleanVal === "" || lowerVal === "select...") {
         element.style.backgroundColor = "transparent";
@@ -873,12 +856,22 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                 element.onchange = () => { applyCellColor(element, element.value); saveRow(rowNumericId, dayLabel); };
                 rowDiv.appendChild(element);
             } else {
-                element = document.createElement('input');
-                element.id = cellId;
-                element.placeholder = "...";
-                element.onblur = () => { applyCellColor(element, element.value); saveRow(rowNumericId, dayLabel); };
-                rowDiv.appendChild(element);
-            }
+    // CHANGE: Use textarea instead of input for Column 5 & 8
+    element = document.createElement('textarea');
+    element.id = cellId;
+    element.placeholder = "...";
+    
+    // Trigger expansion logic as the user types
+    element.oninput = () => {
+        applyCellColor(element, element.value);
+    };
+
+    element.onblur = () => {
+        applyCellColor(element, element.value);
+        saveRow(rowNumericId, dayLabel);
+    };
+    rowDiv.appendChild(element);
+}
         }
         
         const delBtn = document.createElement('button');
