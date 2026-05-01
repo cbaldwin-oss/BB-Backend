@@ -748,19 +748,36 @@ function applyCellColor(element, value) {
         // 2. COLUMN 6 (MULTI-SELECT) DYNAMIC SIZING
     const isColumn8 = element.id && element.id.endsWith("-c8");
     if (isColumn8) {
-let val = value || element.getAttribute('data-selected') || element.value || "";
-    const cleanVal = val.toString().trim();
+        let rawList = capturedValue.toString().replace(/^Selected:\s*/i, "").trim();
 
-    // --- EXPANSION LOGIC (Same as Column 6) ---
-    const charCount = cleanVal.length;
-    if (charCount > 25) {
-        // 22 chars is roughly one line width
-        const estimatedLines = Math.ceil(charCount / 22); 
-        // 18px per line + 10px padding
-        element.style.height = (estimatedLines * 18) + 10 + "px";
-    } else {
-        element.style.height = "40px";
-    }
+        if (rawList && rawList !== "" && rawList !== "+ Add Multi") {
+            element.style.backgroundColor = "#e7f3ff";
+            element.style.color = "#0056b3";
+            element.style.fontWeight = "bold";
+
+            if (element.options && element.options[0]) {
+                element.options[0].text = `Selected: ${rawList}`;
+                
+                // --- GOOGLE SHEETS DYNAMIC SIZING ---
+                // We estimate height based on character count. 
+                // A standard cell fits ~25-30 chars per line.
+                const charCount = rawList.length + 10; // +10 for "Selected: "
+                if (charCount > 30) {
+                    // Calculate how many rows of text we need
+                    const estimatedLines = Math.ceil(charCount / 28); 
+                    const newHeight = (estimatedLines * 20) + 10; // 20px per line + padding
+                    element.style.height = newHeight + "px";
+                } else {
+                    element.style.height = "40px"; // Default height
+                }
+            }
+        } else {
+            element.style.backgroundColor = "transparent";
+            element.style.height = "40px"; // Reset
+            if (element.options && element.options[0]) {
+                element.options[0].text = "+ Add Multi";
+            }
+        }
         return; 
     }
 
