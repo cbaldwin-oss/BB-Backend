@@ -777,48 +777,46 @@ function refreshDropdowns() {
 function applyCellColor(element, value) {
     if (!element) return;
     
-    // 1. Get the value (priority: passed value > attribute > element value)
-    let val = value;
-    if (val === undefined || val === null) {
-        val = element.getAttribute('data-selected') || element.value || "";
-    }
+    let val = value || element.getAttribute('data-selected') || element.value || "";
     const cleanVal = val.toString().trim();
     const lowerVal = cleanVal.toLowerCase();
 
-    // --- THE FIX: Update Column 6 Display Label ---
-    if (element.id && element.id.endsWith("-c6") && element.tagName === "SELECT") {
-        if (element.options && element.options[0]) {
-            element.options[0].text = cleanVal ? `Selected: ${cleanVal}` : "+ Add Multi";
-            // Ensure the dropdown stays on the "label" option
-            element.selectedIndex = 0;
-        }
-    }
-
-    // 2. Expansion Logic (Keep as is)
+    // --- EXPANSION LOGIC FOR COLS 5, 6, 7, 8 ---
     const charCount = cleanVal.length;
-    if (charCount > 25) {
+    // We target cols 5, 6, 7, 8 specifically for wrapping
+    const isWrappingCol = element.id && (
+        element.id.includes("-c5") || 
+        element.id.includes("-c6") || 
+        element.id.includes("-c7") || 
+        element.id.includes("-c8")
+    );
+
+    if (isWrappingCol && charCount > 25) {
+        // Roughly 22 chars fit per line in your grid width
         const estimatedLines = Math.ceil(charCount / 22); 
-        element.style.height = (estimatedLines * 18) + 12 + "px";
+        const newHeight = (estimatedLines * 18) + 12; // 18px per line + padding
+        element.style.height = newHeight + "px";
     } else {
-        element.style.height = "40px";
+        element.style.height = "40px"; // Default height
     }
 
-    // 3. Color Logic (Consistency check)
-    if (cleanVal === "" || lowerVal === "select..." || lowerVal === "+ add multi" || lowerVal === "...") {
-        element.style.backgroundColor = "#f9f9f9"; 
+    // --- COLOR LOGIC (Existing) ---
+    if (cleanVal === "" || lowerVal === "select..." || lowerVal === "...") {
+        element.style.backgroundColor = "#f9f9f9";
         element.style.color = "#666";
         return;
     }
 
-    element.style.backgroundColor = "#e1f5fe"; // Default Blue
+    // Default "Filled" Blue
+    element.style.backgroundColor = "#e1f5fe";
     element.style.color = "#01579b";
 
-    // Priority Keywords
-    if (lowerVal.includes("high") || lowerVal.includes("pass") || lowerVal.includes("active")) {
+    // Priority Colors
+    if (lowerVal.includes("high") || lowerVal.includes("pass")) {
         element.style.backgroundColor = "#c8e6c9"; element.style.color = "#1b5e20";
-    } else if (lowerVal.includes("med") || lowerVal.includes("pending") || lowerVal.includes("hold")) {
+    } else if (lowerVal.includes("med") || lowerVal.includes("hold")) {
         element.style.backgroundColor = "#fff9c4"; element.style.color = "#f57f17";
-    } else if (lowerVal.includes("low") || lowerVal.includes("fail") || lowerVal.includes("urgent")) {
+    } else if (lowerVal.includes("low") || lowerVal.includes("fail")) {
         element.style.backgroundColor = "#ffcdd2"; element.style.color = "#b71c1c";
     }
 }
