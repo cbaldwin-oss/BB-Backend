@@ -906,12 +906,13 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
 }
         }
         
-        const delBtn = document.createElement('button');
-        delBtn.className = 'delete-btn';
-        delBtn.innerHTML = '×'; 
-        delBtn.onclick = () => deleteFullRow(rowDiv.id, []);
-        rowDiv.appendChild(delBtn);
-        container.appendChild(rowDiv);
+const delBtn = document.createElement('button');
+    delBtn.className = 'delete-btn';
+    delBtn.innerHTML = '×'; 
+    // THE FIX: Pass only the rowDiv.id
+    delBtn.onclick = () => deleteFullRow(rowDiv.id); 
+    rowDiv.appendChild(delBtn);
+    container.appendChild(rowDiv);
     }
     if (anchorBtn) container.appendChild(anchorBtn);
 }
@@ -1063,17 +1064,31 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
     element.value = ""; 
 }
 
-async function deleteFullRow(wrapperId, cellIds) {
+async function deleteFullRow(wrapperId) {
     if (confirm("Delete this entire line?")) {
-        // 1. Identify the Row ID from the first cell ID (e.g., "2026-04-20-r101-c1")
-        const parts = cellIds[0].split('-r');
-        const rowNumericId = parseInt(parts[1].split('-c')[0]);
+        // Extract the Numeric ID (e.g., "row-wrapper-105" -> 105)
+        const rowNumericId = parseInt(wrapperId.replace('row-wrapper-', ''));
 
-        // 2. Remove from the Screen immediately for instant feedback
-        const element = document.getElementById(wrapperId);
-        if (element) element.remove();
+        // 1. UI RESET: Clear data and hide the row (keeps Reveal logic intact)
+        const rowElement = document.getElementById(wrapperId);
+        if (rowElement) {
+            rowElement.style.display = 'none';
+            rowElement.removeAttribute('data-occupied');
+            
+            // Clear all cells inside that row
+            const cells = rowElement.querySelectorAll('input, select, textarea');
+            cells.forEach(cell => {
+                if (cell.tagName === 'SELECT') {
+                    cell.value = "";
+                    cell.setAttribute('data-selected', '');
+                } else {
+                    cell.value = "";
+                }
+                applyCellColor(cell, "");
+            });
+        }
 
-        // 3. Remove from Supabase using the correct table name 'BackEndData'
+        // 2. DATABASE DELETE
         const { error } = await _supabase
             .from('BackEndData')
             .delete()
@@ -1081,15 +1096,12 @@ async function deleteFullRow(wrapperId, cellIds) {
 
         if (error) {
             console.error("Delete error:", error.message);
-            alert("Cloud Delete Failed: " + error.message);
         } else {
             console.log(`✅ Row ${rowNumericId} deleted from Cloud.`);
-            
-            // Optional: Update save indicator to show success
             const status = document.getElementById('saveIndicator');
             if (status) {
                 status.innerText = "Row Deleted";
-                setTimeout(() => { status.innerText = ""; }, 2000);
+                setTimeout(() => { if(status.innerText === "Row Deleted") status.innerText = ""; }, 2000);
             }
         }
     }
@@ -1102,7 +1114,7 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
 
     const status = document.getElementById('saveIndicator');
 
-    // --- THE FIX: Capture data from all 8 columns into the rowData object ---
+    // --- THE FIX: Explicitly define rowData for Supabase ---
     const rowData = {
         id: rowNum,
         day_label: dayLabel,
@@ -1111,7 +1123,6 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
         col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        // Col 6 priority: uses override (if from updateMultiValue) or the stored data-selected attribute
         col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
@@ -1123,19 +1134,7 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
             .upsert(rowData, { onConflict: 'id' });
 
         if (error) throw error;
-
-        // Refresh colors for all cells in this row after a successful save
-        for (let col = 1; col <= 8; col++) {
-            const cell = document.getElementById(`${dayLabel}-r${rowNum}-c${col}`);
-            if (cell) {
-                const valToPass = (col === 6) ? cell.getAttribute('data-selected') : cell.value;
-                applyCellColor(cell, valToPass);l
-            }
-        }
-
-        // Update the timestamp on the screen
         if (status) status.innerText = `Last saved at: ${getTimestamp()}`;
-        
     } catch (err) {
         console.error("🔴 Sync Failure:", err.message);
         if (status) status.innerText = "Sync Error!";
