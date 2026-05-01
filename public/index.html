@@ -1130,8 +1130,6 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
             if (cell) {
                 const valToPass = (col === 6) ? cell.getAttribute('data-selected') : cell.value;
                 applyCellColor(cell, valToPass);
-                cell.style.height = 'auto';
-    cell.style.height = cell.scrollHeight + 'px';
             }
         }
 
