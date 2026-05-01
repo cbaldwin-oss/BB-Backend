@@ -889,14 +889,11 @@ function generateNumericId(dateStr, index) {
 function addRowsToContainer(container, dayLabel, anchorBtn = null) {
     const MAX_ROWS = 20; 
     for (let r = 0; r < MAX_ROWS; r++) {
-        // dayLabel here is the date (e.g., "2026-04-20")
-        const rowNumericId = generateNumericId(dayLabel, r);
+        const rowNumericId = generateNumericId(dayLabel, r); // dayLabel is date (e.g. "2026-04-20")
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
         rowDiv.setAttribute('data-date', dayLabel);
-        
-        // Rows 0-2 visible by default, others hidden until "Add 5 Rows" is clicked
         rowDiv.style.display = (r > 2) ? 'none' : 'flex';
 
         for (let col = 1; col <= 8; col++) {
@@ -904,7 +901,6 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
             let element;
 
             if (col === 5) {
-                // COLUMN 5: Read-Only Status
                 element = document.createElement('span');
                 element.id = cellId;
                 element.className = 'status-cell';
@@ -912,43 +908,30 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                 rowDiv.appendChild(element);
             } 
             else if (col === 6) {
-                // COLUMN 6: Multi-Select
                 element = document.createElement('select');
                 element.id = cellId;
                 element.innerHTML = '<option value="">+ Add Multi</option>';
-                const opts = (window.dropdownData && window.dropdownData.col6) ? window.dropdownData.col6 : [];
-                opts.forEach(t => {
-                    const o = document.createElement('option');
-                    o.value = t; o.text = t;
-                    element.appendChild(o);
-                });
+                const opts = (window.dropdownData?.col6) || [];
+                opts.forEach(t => { element.appendChild(new Option(t, t)); });
                 element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
                 rowDiv.appendChild(element);
             } 
             else if ([1, 2, 3, 4, 7].includes(col)) {
-                // COLUMNS 1, 2, 3, 4, 7: Dropdowns
                 element = document.createElement('select');
                 element.id = cellId;
                 element.innerHTML = '<option value="">Select...</option>';
-                const opts = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
-                opts.forEach(t => {
-                    const o = document.createElement('option');
-                    o.value = t; o.text = t;
-                    element.appendChild(o);
-                });
+                const opts = (window.dropdownData?.[`col${col}`]) || [];
+                opts.forEach(t => { element.appendChild(new Option(t, t)); });
                 element.onchange = () => { 
                     applyCellColor(element, element.value); 
                     saveRow(rowNumericId, dayLabel);
-                    // Automatic Asset Lookup for Column 5
                     if (col === 3 || col === 4) lookupColumn5Value(rowNumericId, dayLabel);
                 };
                 rowDiv.appendChild(element);
             } 
             else {
-                // COLUMN 8: Expanding Textarea
                 element = document.createElement('textarea');
                 element.id = cellId;
-                element.placeholder = "...";
                 element.oninput = () => applyCellColor(element, element.value);
                 element.onblur = () => { 
                     applyCellColor(element, element.value); 
