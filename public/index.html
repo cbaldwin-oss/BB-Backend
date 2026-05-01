@@ -500,6 +500,59 @@ position: sticky;
     padding: 8px 4px;
     display: block;         /* Allows height to be controlled more easily */
 }
+/* Allow rows to grow based on content */
+.cell-row {
+    height: auto !important;
+    min-height: 40px;
+    align-items: stretch; /* Ensures all cells in a row have the same height */
+}
+
+/* Style for auto-expanding Textareas (Cols 5 & 8) */
+.cell-row textarea {
+    flex: 1;
+    border: none;
+    border-right: 1px solid #f0f0f0;
+    padding: 8px;
+    font-size: 13px;
+    resize: none; 
+    overflow: hidden;
+    min-height: 38px;
+    background-color: #f9f9f9;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+/* Layout for Wrapping Dropdowns (Cols 1-4, 6, 7) */
+.select-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+    min-width: 0;
+}
+
+.select-wrapper span {
+    width: 100%;
+    padding: 8px;
+    font-size: 13px;
+    border-right: 1px solid #f0f0f0;
+    background: #f9f9f9;
+    white-space: normal; /* Enables text wrapping */
+    word-wrap: break-word;
+    display: block;
+    min-height: 38px;
+    box-sizing: border-box;
+}
+
+.select-wrapper select {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0; /* Invisible but clickable */
+    cursor: pointer;
+    z-index: 2;
+}
 </style>
 </head>
 <body>
@@ -647,47 +700,42 @@ async function startApp() {
 window.onload = startApp;
 
 function refreshDropdowns() {
-    console.log("🔄 Syncing dropdown options...");
-    const selects = document.querySelectorAll('select');
-    
-    selects.forEach(select => {
-        const parts = select.id.split('-c');
-        if (parts.length < 2) return;
-        
+    document.querySelectorAll('select').forEach(select => {
         const cellId = select.id;
+        const parts = cellId.split('-c');
+        if (parts.length < 2) return;
         const colNum = parseInt(parts[1]);
-        const colKey = `col${colNum}`;
-        const options = window.dropdownData[colKey] || [];
+        const options = window.dropdownData[`col${colNum}`] || [];
         
         const savedValue = select.value;
         const savedMultiText = select.getAttribute('data-selected');
+        const span = document.getElementById(`label-${cellId}`);
 
-        select.innerHTML = '';
-
-        if (colNum === 6) {
-            // --- THE FIX: Handle Column 6 text inside the select ---
-            const def = document.createElement('option');
-            def.value = ""; 
-            // Set the placeholder text directly to the first option
-            def.text = (savedMultiText && savedMultiText !== "") ? `Selected: ${savedMultiText}` : "+ Add Multi";
-            select.appendChild(def);
-        } else {
-            const def = document.createElement('option');
-            def.value = ""; def.text = "Select...";
-            select.appendChild(def);
-        }
-
+        // Update dropdown options
+        select.innerHTML = '<option value=""></option>';
         options.forEach(text => {
             const opt = document.createElement('option');
             opt.value = text; opt.text = text;
             select.appendChild(opt);
         });
-
         select.value = savedValue;
-        
-        // Final coloring pass to ensure the single cell looks correct
-        const colorVal = (colNum === 6) ? savedMultiText : select.value;
-        applyCellColor(select, colorVal);
+
+        // Update the visible label
+        if (span) {
+            if (colNum === 6) {
+                span.innerText = savedMultiText ? `Selected: ${savedMultiText}` : "+ Add Multi";
+                applyCellColor(select, savedMultiText);
+            } else {
+                span.innerText = savedValue || "Select...";
+                applyCellColor(select, savedValue);
+            }
+        }
+    });
+
+    // Auto-resize all textareas after load
+    document.querySelectorAll('textarea').forEach(tx => {
+        tx.style.height = 'auto';
+        tx.style.height = tx.scrollHeight + 'px';
     });
 }
 
@@ -814,68 +862,66 @@ function generateNumericId(dayLabel, index) {
 
 function addRowsToContainer(container, dayLabel, anchorBtn = null) {
     const MAX_ROWS = 20; 
-    
     for (let r = 0; r < MAX_ROWS; r++) {
         const rowNumericId = generateNumericId(dayLabel, r);
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
-        rowDiv.setAttribute('data-date', dayLabel);
-
-        if (r > 2) rowDiv.style.display = 'none';
-        else rowDiv.style.display = 'flex';
+        rowDiv.style.display = (r > 2) ? 'none' : 'flex';
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-            let element;
+            
+            if ([1, 2, 3, 4, 6, 7].includes(col)) {
+                // WRAPPING DROPDOWN STRUCTURE
+                const wrapper = document.createElement('div');
+                wrapper.className = 'select-wrapper';
+                const span = document.createElement('span');
+                span.id = `label-${cellId}`;
+                span.innerText = (col === 6) ? "+ Add Multi" : "Select...";
+                wrapper.appendChild(span);
 
-            if (col === 6) {
-                // --- THE FIX: Standardize Column 6 to a single select ---
-                element = document.createElement('select');
-                element.id = cellId;
-                
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = "";
-                defaultOpt.text = "+ Add Multi"; // Placeholder text inside the select
-                element.appendChild(defaultOpt);
-
+                const select = document.createElement('select');
+                select.id = cellId;
+                select.innerHTML = '<option value=""></option>';
                 const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
                 options.forEach(text => {
                     const opt = document.createElement('option');
                     opt.value = text; opt.text = text;
-                    element.appendChild(opt);
+                    select.appendChild(opt);
                 });
 
-                element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
-                rowDiv.appendChild(element); // Append directly to rowDiv
-            } else if ([1, 2, 3, 4, 7].includes(col)) {
-                element = document.createElement('select');
-                element.id = cellId;
-                const def = document.createElement('option');
-                def.value = ""; def.text = "Select...";
-                element.appendChild(def);
-
-                const opts = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
-                opts.forEach(t => {
-                    const o = document.createElement('option');
-                    o.value = t; o.text = t;
-                    element.appendChild(o);
-                });
-                element.onchange = () => { applyCellColor(element, element.value); saveRow(rowNumericId, dayLabel); };
-                rowDiv.appendChild(element);
+                select.onchange = () => {
+                    if (col === 6) {
+                        updateMultiValue(rowNumericId, dayLabel, select.value);
+                    } else {
+                        span.innerText = select.value || "Select...";
+                        applyCellColor(select, select.value);
+                        saveRow(rowNumericId, dayLabel);
+                    }
+                };
+                wrapper.appendChild(select);
+                rowDiv.appendChild(wrapper);
             } else {
-                element = document.createElement('input');
-                element.id = cellId;
-                element.placeholder = "...";
-                element.onblur = () => { applyCellColor(element, element.value); saveRow(rowNumericId, dayLabel); };
-                rowDiv.appendChild(element);
+                // AUTO-EXPANDING TEXTAREA STRUCTURE
+                const textarea = document.createElement('textarea');
+                textarea.id = cellId;
+                textarea.placeholder = "...";
+                textarea.oninput = () => {
+                    textarea.style.height = 'auto';
+                    textarea.style.height = textarea.scrollHeight + 'px';
+                };
+                textarea.onblur = () => {
+                    applyCellColor(textarea, textarea.value);
+                    saveRow(rowNumericId, dayLabel);
+                };
+                rowDiv.appendChild(textarea);
             }
         }
-        
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×'; 
-        delBtn.onclick = () => deleteFullRow(rowDiv.id, []);
+        delBtn.onclick = () => deleteFullRow(rowDiv.id, [/* cellIds */]);
         rowDiv.appendChild(delBtn);
         container.appendChild(rowDiv);
     }
@@ -1068,8 +1114,19 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
 
     const status = document.getElementById('saveIndicator');
 
-    // Capture and Save Logic...
-    // [Keep your existing rowData capture logic here]
+    // --- FIX: DEFINING ROW DATA ---
+    const rowData = {
+        id: rowNum,
+        day_label: dayLabel,
+        col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
+        col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
+        col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
+        col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
+        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
+        col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
+        col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
+        col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
+    };
 
     try {
         const { error } = await _supabase
@@ -1078,24 +1135,22 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
 
         if (error) throw error;
 
-        // Visual Refresh for the specific row
+        // Visual Refresh for colors
         for (let col = 1; col <= 8; col++) {
             const cell = document.getElementById(`${dayLabel}-r${rowNum}-c${col}`);
             if (cell) {
-                const valToPass = (col === 6) ? cell.getAttribute('data-selected') : cell.value;
-                applyCellColor(cell, valToPass);
+                const val = (col === 6) ? cell.getAttribute('data-selected') : cell.value;
+                applyCellColor(cell, val);
             }
         }
 
-        // --- THE TIMESTAMP UPDATE ---
+        // --- SILENT TIMESTAMP UPDATE ---
         if (status) status.innerText = `Last saved at: ${getTimestamp()}`;
     } catch (err) {
         console.error("🔴 Sync Failure:", err.message);
         if (status) status.innerText = "Sync Error!";
     } finally {
         activeSyncs.delete(syncKey);
-        // Removed the setTimeout that clears the status, 
-        // so the user can always see when the last successful save was.
     }
 }
 
