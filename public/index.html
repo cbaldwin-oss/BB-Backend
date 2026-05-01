@@ -709,106 +709,95 @@ async function startApp() {
 window.onload = startApp;
 
 function refreshDropdowns() {
-    console.log("🔄 Syncing dropdown options...");
-    const selects = document.querySelectorAll('select');
-    
-    selects.forEach(select => {
-        const parts = select.id.split('-c');
-        if (parts.length < 2) return;
-        
+    document.querySelectorAll('select').forEach(select => {
         const cellId = select.id;
+        const parts = cellId.split('-c');
+        if (parts.length < 2) return;
         const colNum = parseInt(parts[1]);
-        const colKey = `col${colNum}`;
-        const options = window.dropdownData[colKey] || [];
+        const options = window.dropdownData[`col${colNum}`] || [];
         
-        const savedValue = select.value;
-        const savedMultiText = select.getAttribute('data-selected');
+        // Preserve the "Multi" data
+        const savedMultiText = select.getAttribute('data-selected') || "";
 
-        select.innerHTML = '';
-
+        // Rebuild Options
+        select.innerHTML = "";
+        
+        // Create the Label Option (Index 0)
+        const labelOpt = document.createElement('option');
+        labelOpt.value = "";
         if (colNum === 6) {
-            // --- THE FIX: Handle Column 6 text inside the select ---
-            const def = document.createElement('option');
-            def.value = ""; 
-            // Set the placeholder text directly to the first option
-            def.text = (savedMultiText && savedMultiText !== "") ? `Selected: ${savedMultiText}` : "+ Add Multi";
-            select.appendChild(def);
+            labelOpt.text = savedMultiText ? `Selected: ${savedMultiText}` : "+ Add Multi";
         } else {
-            const def = document.createElement('option');
-            def.value = ""; def.text = "Select...";
-            select.appendChild(def);
+            labelOpt.text = "Select...";
         }
+        select.appendChild(labelOpt);
 
+        // Add Data Options
         options.forEach(text => {
             const opt = document.createElement('option');
-            opt.value = text; opt.text = text;
+            opt.value = text; 
+            opt.text = text;
             select.appendChild(opt);
         });
 
-        select.value = savedValue;
-        
-        // Final coloring pass to ensure the single cell looks correct
-        const colorVal = (colNum === 6) ? savedMultiText : select.value;
-        applyCellColor(select, colorVal);
+        // Trigger visual refresh
+        applyCellColor(select, (colNum === 6 ? savedMultiText : select.value));
+    });
+
+    // Handle Textarea resizing
+    document.querySelectorAll('textarea').forEach(tx => {
+        tx.style.height = 'auto';
+        tx.style.height = tx.scrollHeight + 'px';
+        applyCellColor(tx, tx.value);
     });
 }
 
 function applyCellColor(element, value) {
     if (!element) return;
-
-    // 1. DATA CAPTURE
-    let capturedValue = value;
-    if (capturedValue === undefined || capturedValue === null) {
-        capturedValue = element.getAttribute('data-selected') || element.value || "";
-    }
-
-    // 2. COLUMN 6 (MULTI-SELECT) DYNAMIC SIZING
     
-
-    // 3. STANDARD COLUMN LOGIC (1-5, 7, 8)
-    element.style.backgroundColor = "#e7f3ff"; // Default filled
-    element.style.color = "#333";
-    element.style.fontWeight = "normal";
-
-    const cleanVal = capturedValue.toString().trim();
+    // 1. Get the value (priority: passed value > attribute > element value)
+    let val = value;
+    if (val === undefined || val === null) {
+        val = element.getAttribute('data-selected') || element.value || "";
+    }
+    const cleanVal = val.toString().trim();
     const lowerVal = cleanVal.toLowerCase();
 
-    // 2. DYNAMIC SIZING (Applied to Column 6, 5, and 8)
-    const isExpandingCol = element.id && (element.id.endsWith("-c6") || element.id.endsWith("-c5") || element.id.endsWith("-c8"));
-    
-    if (isExpandingCol) {
-        // Estimate height: ~25-28 chars per line
-        const charCount = cleanVal.length + (element.id.endsWith("-c6") ? 10 : 0); 
-        
-        if (charCount > 28) {
-            const estimatedLines = Math.ceil(charCount / 25); 
-            const newHeight = (estimatedLines * 18) + 12; // 18px per line + padding
-            element.style.height = newHeight + "px";
-        } else {
-            element.style.height = "40px"; // Default height
+    // --- THE FIX: Update Column 6 Display Label ---
+    if (element.id && element.id.endsWith("-c6") && element.tagName === "SELECT") {
+        if (element.options && element.options[0]) {
+            element.options[0].text = cleanVal ? `Selected: ${cleanVal}` : "+ Add Multi";
+            // Ensure the dropdown stays on the "label" option
+            element.selectedIndex = 0;
         }
     }
 
-    if (cleanVal === "" || lowerVal === "select...") {
-        element.style.backgroundColor = "transparent";
+    // 2. Expansion Logic (Keep as is)
+    const charCount = cleanVal.length;
+    if (charCount > 25) {
+        const estimatedLines = Math.ceil(charCount / 22); 
+        element.style.height = (estimatedLines * 18) + 12 + "px";
+    } else {
+        element.style.height = "40px";
+    }
+
+    // 3. Color Logic (Consistency check)
+    if (cleanVal === "" || lowerVal === "select..." || lowerVal === "+ add multi" || lowerVal === "...") {
+        element.style.backgroundColor = "#f9f9f9"; 
+        element.style.color = "#666";
         return;
     }
 
-    // Priority Colors
+    element.style.backgroundColor = "#e1f5fe"; // Default Blue
+    element.style.color = "#01579b";
+
+    // Priority Keywords
     if (lowerVal.includes("high") || lowerVal.includes("pass") || lowerVal.includes("active")) {
-        element.style.backgroundColor = "#d4edda";
-        element.style.color = "#155724";
-        element.style.fontWeight = "bold";
-    } 
-    else if (lowerVal.includes("med") || lowerVal.includes("pending") || lowerVal.includes("hold")) {
-        element.style.backgroundColor = "#fff3cd";
-        element.style.color = "#856404";
-        element.style.fontWeight = "bold";
-    } 
-    else if (lowerVal.includes("low") || lowerVal.includes("fail") || lowerVal.includes("urgent")) {
-        element.style.backgroundColor = "#f8d7da";
-        element.style.color = "#721c24";
-        element.style.fontWeight = "bold";
+        element.style.backgroundColor = "#c8e6c9"; element.style.color = "#1b5e20";
+    } else if (lowerVal.includes("med") || lowerVal.includes("pending") || lowerVal.includes("hold")) {
+        element.style.backgroundColor = "#fff9c4"; element.style.color = "#f57f17";
+    } else if (lowerVal.includes("low") || lowerVal.includes("fail") || lowerVal.includes("urgent")) {
+        element.style.backgroundColor = "#ffcdd2"; element.style.color = "#b71c1c";
     }
 }
 
@@ -1392,15 +1381,18 @@ async function loadData(isSilent = false) {
 
 // Inside the column loop
 const content = row[`col${col}`] || "";
-if (col === 5) {
-    el.innerText = content; // Set innerText for span
-    applyCellColor(el, content);
-} else if (col === 6) {
-    // ... existing Col 6 logic
+if (col === 6) {
+    el.setAttribute('data-selected', content);
+    // Explicitly update the label for immediate visibility
+    if (el.options && el.options[0]) {
+        el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
+    }
+} else if (col === 5) {
+    el.innerText = content;
 } else {
     el.value = content;
-    applyCellColor(el, content);
 }
+applyCellColor(el, content);
                         
                         // Recalculate color and height (crucial for wrapping textareas)
                         applyCellColor(el, content);
