@@ -1263,17 +1263,14 @@ function autoCleanUI() {
 // UPDATE YOUR LOAD LOGIC
 // Helper to get simple AM/PM time
 function getTimestamp() {
-    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 async function loadData() {
-    console.log("📥 Syncing with Cloud: Fetching row data...");
     const status = document.getElementById('saveIndicator');
-    
-    // Optional: Keep the "Syncing..." message while it's in progress
-    if (status) status.innerText = "Syncing...";
+    // REMOVED: status.innerText = "Syncing..."; <--- This stops the flashing
 
-   try {
+    try {
         const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
 
@@ -1284,6 +1281,7 @@ async function loadData() {
                     wrapper.style.display = 'flex';
                     wrapper.setAttribute('data-occupied', 'true');
                 }
+
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
@@ -1300,12 +1298,13 @@ async function loadData() {
                 }
             });
             
-            // --- THE FIX: Update text BEFORE returning ---
+            // Update the time silently once the fetch is done
             if (status) status.innerText = `Last saved at: ${getTimestamp()}`;
             return true; 
         }
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
+        // We only show an error if it actually fails
         if (status) status.innerText = "Sync Error!";
         return false;
     }
