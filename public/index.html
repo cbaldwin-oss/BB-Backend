@@ -1288,64 +1288,53 @@ function autoCleanUI() {
 }
 
 // UPDATE YOUR LOAD LOGIC
-async function loadData() {
-    console.log("📥 Syncing with Cloud: Fetching row data...");
+async function loadData(isSilent = false) {
     const status = document.getElementById('saveIndicator');
-    if (status) status.innerText = "Syncing with Cloud...";
+    
+    // Only show the message if it's not a silent background sync
+    if (!isSilent && status) {
+        status.innerText = "Syncing with Cloud...";
+    }
 
-   try {
+    try {
         const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
 
-if (data) {
-        data.forEach(row => {
-            const wrapper = document.getElementById(`row-wrapper-${row.id}`);
-            if (wrapper) {
-                // Ensure rows with data are visible
-                wrapper.style.display = 'flex';
-                wrapper.setAttribute('data-occupied', 'true');
-            }
-                // Loop through columns 1 to 8 for every row found
+        if (data) {
+            data.forEach(row => {
+                const wrapper = document.getElementById(`row-wrapper-${row.id}`);
+                if (wrapper) {
+                    wrapper.style.display = 'flex';
+                    wrapper.setAttribute('data-occupied', 'true');
+                }
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
-                    
                     if (el) {
                         const content = row[`col${col}`] || "";
-                        
-                        // --- THE PATTERN MATCH ---
-                        
-if (col === 6) {
-    el.setAttribute('data-selected', content);
-    applyCellColor(el, content); // This builds the "Selected: Partner A, Partner B" text
-
-    // Mark the entire row wrapper as "Occupied" so it's never hidden
-    const wrapper = document.getElementById(`row-wrapper-${row.id}`);
-    if (wrapper) wrapper.setAttribute('data-occupied', 'true');
-}
-                        else {
-                            // 1. For all other columns, we set the standard .value
+                        if (col === 6) {
+                            el.setAttribute('data-selected', content);
+                            applyCellColor(el, content);
+                        } else {
                             el.value = content;
-                            // 2. Trigger the standard visual "pop-in" (colors based on text)
                             applyCellColor(el, content);
                         }
                     }
                 }
             });
-            console.log("✅ Cloud Sync Complete: Data popped into cells.");
-    
-    return true; // This "resolves" the promise for startApp
+            
+            // --- THE FIX: Update status before returning ---
+            if (!isSilent && status) status.innerText = "Saved";
+            return true; 
         }
-
-        if (status) status.innerText = "Saved";
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
-            return false;
         if (status) status.innerText = "Sync Error!";
+        return false;
     } finally {
-        // Clear the status message after a brief moment
+        // Clear the message after 2 seconds if it says Saved
         setTimeout(() => {
-            if (status && (status.innerText === "Saved" || status.innerText === "Ready")) {
+            if (status && (status.innerText === "Saved")) {
                 status.innerText = "";
             }
         }, 2000);
