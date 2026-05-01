@@ -665,22 +665,11 @@ function refreshDropdowns() {
         select.innerHTML = '';
 
         if (colNum === 6) {
-            const label = document.getElementById(`label-${cellId}`);
-            if (label) {
-                // If data exists, show it; otherwise show placeholder
-                if (savedMultiText && savedMultiText !== "") {
-                    label.innerText = `Selected: ${savedMultiText}`;
-                    label.style.color = "#01579b"; // Loaded Data Blue
-                    label.style.fontWeight = "bold";
-                } else {
-                    label.innerText = "+ Add Multi";
-                    label.style.color = ""; // Default Gray
-                    label.style.fontWeight = "normal";
-                }
-            }
-            // Keep actual select blank to prevent ghosting
+            // --- THE FIX: Handle Column 6 text inside the select ---
             const def = document.createElement('option');
-            def.value = ""; def.text = ""; 
+            def.value = ""; 
+            // Set the placeholder text directly to the first option
+            def.text = (savedMultiText && savedMultiText !== "") ? `Selected: ${savedMultiText}` : "+ Add Multi";
             select.appendChild(def);
         } else {
             const def = document.createElement('option');
@@ -695,6 +684,10 @@ function refreshDropdowns() {
         });
 
         select.value = savedValue;
+        
+        // Final coloring pass to ensure the single cell looks correct
+        const colorVal = (colNum === 6) ? savedMultiText : select.value;
+        applyCellColor(select, colorVal);
     });
 }
 
@@ -829,7 +822,6 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
         rowDiv.id = `row-wrapper-${rowNumericId}`;
         rowDiv.setAttribute('data-date', dayLabel);
 
-        // Standard Reveal Logic
         if (r > 2) rowDiv.style.display = 'none';
         else rowDiv.style.display = 'flex';
 
@@ -838,23 +830,13 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
             let element;
 
             if (col === 6) {
-                const multiContainer = document.createElement('div');
-                multiContainer.className = 'multi-select-container';
-
-                const span = document.createElement('span');
-                span.id = `label-${cellId}`;
-                span.className = 'multi-select-label';
-                // --- THE FIX: REMOVE "+ Add Multi" FROM HERE ---
-                span.innerText = ""; 
-                multiContainer.appendChild(span);
-
+                // --- THE FIX: Standardize Column 6 to a single select ---
                 element = document.createElement('select');
                 element.id = cellId;
                 
                 const defaultOpt = document.createElement('option');
                 defaultOpt.value = "";
-                // --- THE FIX: KEEP TEXT EMPTY ---
-                defaultOpt.text = ""; 
+                defaultOpt.text = "+ Add Multi"; // Placeholder text inside the select
                 element.appendChild(defaultOpt);
 
                 const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
@@ -865,10 +847,8 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                 });
 
                 element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
-                multiContainer.appendChild(element);
-                rowDiv.appendChild(multiContainer);
+                rowDiv.appendChild(element); // Append directly to rowDiv
             } else if ([1, 2, 3, 4, 7].includes(col)) {
-                // Standard Selects
                 element = document.createElement('select');
                 element.id = cellId;
                 const def = document.createElement('option');
@@ -884,7 +864,6 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                 element.onchange = () => { applyCellColor(element, element.value); saveRow(rowNumericId, dayLabel); };
                 rowDiv.appendChild(element);
             } else {
-                // Inputs
                 element = document.createElement('input');
                 element.id = cellId;
                 element.placeholder = "...";
@@ -892,11 +871,11 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                 rowDiv.appendChild(element);
             }
         }
-        // ... rest of row assembly (delete button, etc) ...
+        
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×'; 
-        delBtn.onclick = () => deleteFullRow(rowDiv.id, [/* cell ids */]);
+        delBtn.onclick = () => deleteFullRow(rowDiv.id, []);
         rowDiv.appendChild(delBtn);
         container.appendChild(rowDiv);
     }
