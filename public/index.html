@@ -1118,27 +1118,24 @@ async function deleteFullRow(wrapperId) {
 async function lookupColumn5Value(rowNum, dayLabel) {
     const val3 = document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value;
     const val4 = document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value;
-    const col5 = document.getElementById(`${dayLabel}-r${rowNum}-c5`);
+    const span5 = document.getElementById(`label-${dayLabel}-r${rowNum}-c5`);
+    const input5 = document.getElementById(`${dayLabel}-r${rowNum}-c5`);
 
-    if (!val3 || !val4 || !col5) return;
+    if (!val3 || !val4 || !span5) return;
 
     try {
-        // Construct the URL with action=lookup and the two search terms
         const url = `${GOOGLE_SCRIPT_URL}?action=lookup&col3=${encodeURIComponent(val3)}&col4=${encodeURIComponent(val4)}`;
-        
         const response = await fetch(url);
         const data = await response.json();
 
         if (data && data.result) {
-            col5.value = data.result;
+            span5.innerText = data.result;
+            if (input5) input5.value = data.result; // Store for Supabase
             
-            // Re-run color/size logic for the new text and save to Supabase
-            applyCellColor(col5, col5.value);
+            applyCellColor(span5, data.result);
             saveRow(rowNum, dayLabel);
         }
-    } catch (error) {
-        console.error("VLOOKUP Error:", error);
-    }
+    } catch (e) { console.error("Lookup failed", e); }
 }
 
 async function saveRow(rowNum, dayLabel, col6Override = null) {
@@ -1156,7 +1153,8 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
-        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
+        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || 
+      document.getElementById(`label-${dayLabel}-r${rowNum}-c5`)?.innerText || "",
         col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
