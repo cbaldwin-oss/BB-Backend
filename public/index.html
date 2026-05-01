@@ -650,17 +650,10 @@ setInterval(() => {
     if (!isEditing) {
         console.log("Silent background sync...");
         loadData(true); 
+        syncAllAssetLookups();
     }
 }, 2000);
 
-// NEW: Google Sheets Asset Sync (Every 60 seconds)
-setInterval(() => {
-    const isEditing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
-    // Only sync if the user isn't actively typing/selecting
-    if (!isEditing) {
-        syncAllAssetLookups();
-    }
-}, 60000);
         // --- CONFIGURE THESE ---
         const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjbnhldGNvbWRybHh2bGFycW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NDIyMjksImV4cCI6MjA5MjAxODIyOX0.gP37sT5OrCOVRZXekMrBZHm5mtfnr6JrC2YGflWsDQU';
