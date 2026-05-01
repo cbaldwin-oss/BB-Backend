@@ -1115,11 +1115,6 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
         col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
-        if (cell) {
-    // Force the textarea to fit the text we just saved
-    cell.style.height = 'auto';
-    cell.style.height = cell.scrollHeight + 'px';
-}
     };
 
     try {
@@ -1135,6 +1130,8 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
             if (cell) {
                 const valToPass = (col === 6) ? cell.getAttribute('data-selected') : cell.value;
                 applyCellColor(cell, valToPass);
+                cell.style.height = 'auto';
+    cell.style.height = cell.scrollHeight + 'px';
             }
         }
 
