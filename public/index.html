@@ -1116,29 +1116,38 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
 }
 
 async function deleteFullRow(wrapperId) {
-    if (!confirm("Delete this entire line?")) return;
+    if (confirm("Delete this entire line?")) {
+        const rowNumericId = parseInt(wrapperId.replace('row-wrapper-', ''));
+        
+        // --- THE FIX: Lock this row so the sync ignores it ---
+        deletingRows.add(rowNumericId);
 
-    const rowNumericId = parseInt(wrapperId.replace('row-wrapper-', ''));
-    const rowElement = document.getElementById(wrapperId);
+        const rowElement = document.getElementById(wrapperId);
+        if (rowElement) {
+            rowElement.style.display = 'none';
+            rowElement.removeAttribute('data-occupied');
+            
+            const cells = rowElement.querySelectorAll('input, select, textarea, .status-cell');
+            cells.forEach(cell => {
+                if (cell.classList.contains('status-cell')) cell.innerText = "...";
+                else cell.value = "";
+                applyCellColor(cell, "");
+            });
+        }
 
-    if (rowElement) {
-        rowElement.style.display = 'none';
-        rowElement.removeAttribute('data-occupied');
+        try {
+            const { error } = await _supabase
+                .from('BackEndData')
+                .delete()
+                .eq('id', rowNumericId);
 
-        // Clear UI elements
-        const cells = rowElement.querySelectorAll('input, select, textarea, .status-cell');
-        cells.forEach(cell => {
-            if (cell.classList.contains('status-cell')) {
-                cell.innerText = "...";
-            } else {
-                cell.value = "";
-                if (cell.tagName === 'SELECT') cell.setAttribute('data-selected', '');
-            }
-            applyCellColor(cell, "");
-        });
-
-        // Delete from Database
-        await _supabase.from('BackEndData').delete().eq('id', rowNumericId);
+            if (error) throw error;
+            console.log(`✅ Row ${rowNumericId} permanently deleted.`);
+        } catch (err) {
+            console.error("Delete error:", err.message);
+            // If delete fails, unlock it so it can try again
+            deletingRows.delete(rowNumericId);
+        }
     }
 }
 
@@ -1365,35 +1374,38 @@ async function loadData(isSilent = false) {
         const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
 
-        data.forEach(row => {
-            const wrapper = document.getElementById(`row-wrapper-${row.id}`);
-            if (wrapper) {
-                wrapper.style.display = 'flex';
-                wrapper.setAttribute('data-occupied', 'true');
-            }
+        if (data) {
+            data.forEach(row => {
+                // --- THE FIX: If we are currently deleting this row, SKIP IT ---
+                if (deletingRows.has(row.id)) return;
 
-            for (let col = 1; col <= 8; col++) {
-                const cellId = `${row.day_label}-r${row.id}-c${col}`;
-                const el = document.getElementById(cellId);
-                if (el) {
-                    // --- THE FIX: Do not overwrite the box currently being edited ---
-                    if (el === document.activeElement) continue;
-
-                    const content = row[`col${col}`] || "";
-                    if (col === 6) {
-                        el.setAttribute('data-selected', content);
-                    } else if (col === 5) {
-                        el.innerText = content; // Populates Span
-                    } else {
-                        el.value = content; // Populates Input/Textarea
-                    }
-                    applyCellColor(el, content);
+                const wrapper = document.getElementById(`row-wrapper-${row.id}`);
+                if (wrapper) {
+                    wrapper.style.display = 'flex';
+                    wrapper.setAttribute('data-occupied', 'true');
                 }
-            }
-        });
-        if (!isSilent) document.getElementById('saveIndicator').innerText = `Last saved at: ${getTimestamp()}`;
+
+                for (let col = 1; col <= 8; col++) {
+                    const cellId = `${row.day_label}-r${row.id}-c${col}`;
+                    const el = document.getElementById(cellId);
+                    if (el && el !== document.activeElement) {
+                        const content = row[`col${col}`] || "";
+                        if (col === 6) {
+                            el.setAttribute('data-selected', content);
+                        } else if (col === 5) {
+                            el.innerText = content;
+                        } else {
+                            el.value = content;
+                        }
+                        applyCellColor(el, content);
+                    }
+                }
+            });
+            return true;
+        }
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
+        return false;
     }
 }
 
