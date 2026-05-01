@@ -1063,66 +1063,39 @@ async function deleteFullRow(wrapperId, cellIds) {
 
 async function saveRow(rowNum, dayLabel, col6Override = null) {
     const syncKey = `${dayLabel}-${rowNum}`;
-    
-    // 1. SYNC GUARD: Prevents overlapping saves
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
 
     const status = document.getElementById('saveIndicator');
-    if (status) status.innerText = "Syncing with Cloud...";
 
-    // 2. DATA CAPTURE
-    const col6Element = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
-    const storedMultiValue = col6Element ? col6Element.getAttribute('data-selected') : "";
-    
-    // Logic: Use override if provided, otherwise the attribute
-    const finalCol6 = col6Override !== null ? col6Override : (storedMultiValue || "");
-
-    const rowData = {
-        id: rowNum,
-        day_label: dayLabel,
-        col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
-        col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
-        col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
-        col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
-        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || "",
-        col6: finalCol6,
-        col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
-        col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
-    };
+    // Capture and Save Logic...
+    // [Keep your existing rowData capture logic here]
 
     try {
-        // 3. CLOUD UPLOAD
         const { error } = await _supabase
             .from('BackEndData')
             .upsert(rowData, { onConflict: 'id' });
 
         if (error) throw error;
 
-        // 4. THE VISUAL REFRESH (The "Pop-In" Pattern)
-        // We select all 8 cells in this specific row
-for (let col = 1; col <= 8; col++) {
+        // Visual Refresh for the specific row
+        for (let col = 1; col <= 8; col++) {
             const cell = document.getElementById(`${dayLabel}-r${rowNum}-c${col}`);
             if (cell) {
-                // For Column 6, we pass the attribute string directly
-                // For others, we just let applyCellColor figure it out from the element
                 const valToPass = (col === 6) ? cell.getAttribute('data-selected') : cell.value;
                 applyCellColor(cell, valToPass);
             }
         }
 
-        if (status) status.innerText = "Saved";
+        // --- THE TIMESTAMP UPDATE ---
+        if (status) status.innerText = `Last saved at: ${getTimestamp()}`;
     } catch (err) {
         console.error("🔴 Sync Failure:", err.message);
         if (status) status.innerText = "Sync Error!";
     } finally {
-        // 5. RELEASE GUARD
-        setTimeout(() => {
-            activeSyncs.delete(syncKey);
-            if (status && (status.innerText === "Saved" || status.innerText === "Ready")) {
-                status.innerText = "";
-            }
-        }, 1200);
+        activeSyncs.delete(syncKey);
+        // Removed the setTimeout that clears the status, 
+        // so the user can always see when the last successful save was.
     }
 }
 
@@ -1288,15 +1261,19 @@ function autoCleanUI() {
 }
 
 // UPDATE YOUR LOAD LOGIC
-async function loadData(isSilent = false) {
+// Helper to get simple AM/PM time
+function getTimestamp() {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+async function loadData() {
+    console.log("📥 Syncing with Cloud: Fetching row data...");
     const status = document.getElementById('saveIndicator');
     
-    // Only show the message if it's not a silent background sync
-    if (!isSilent && status) {
-        status.innerText = "Syncing with Cloud...";
-    }
+    // Optional: Keep the "Syncing..." message while it's in progress
+    if (status) status.innerText = "Syncing...";
 
-    try {
+   try {
         const { data, error } = await _supabase.from('BackEndData').select('*');
         if (error) throw error;
 
@@ -1323,21 +1300,14 @@ async function loadData(isSilent = false) {
                 }
             });
             
-            // --- THE FIX: Update status before returning ---
-            if (!isSilent && status) status.innerText = "Saved";
+            // --- THE FIX: Update text BEFORE returning ---
+            if (status) status.innerText = `Last saved at: ${getTimestamp()}`;
             return true; 
         }
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
         if (status) status.innerText = "Sync Error!";
         return false;
-    } finally {
-        // Clear the message after 2 seconds if it says Saved
-        setTimeout(() => {
-            if (status && (status.innerText === "Saved")) {
-                status.innerText = "";
-            }
-        }, 2000);
     }
 }
 
