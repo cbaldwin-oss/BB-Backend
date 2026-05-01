@@ -652,6 +652,15 @@ setInterval(() => {
         loadData(true); 
     }
 }, 2000);
+
+// NEW: Google Sheets Asset Sync (Every 60 seconds)
+setInterval(() => {
+    const isEditing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
+    // Only sync if the user isn't actively typing/selecting
+    if (!isEditing) {
+        syncAllAssetLookups();
+    }
+}, 60000);
         // --- CONFIGURE THESE ---
         const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjbnhldGNvbWRybHh2bGFycW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NDIyMjksImV4cCI6MjA5MjAxODIyOX0.gP37sT5OrCOVRZXekMrBZHm5mtfnr6JrC2YGflWsDQU';
@@ -807,6 +816,26 @@ function applyCellColor(element, value) {
         element.style.backgroundColor = "#f8d7da";
         element.style.color = "#721c24";
         element.style.fontWeight = "bold";
+    }
+}
+
+async function syncAllAssetLookups() {
+    console.log("🔄 Background Asset Refresh: Checking Google Sheets...");
+    
+    // Get all rows that are currently displayed/occupied
+    const activeRows = document.querySelectorAll('.cell-row[data-occupied="true"]');
+    
+    for (const row of activeRows) {
+        // Extract the ID and Day Label from the row element
+        const wrapperId = row.id; // e.g., "row-wrapper-105"
+        const dayLabel = row.getAttribute('data-date');
+        const rowNum = parseInt(wrapperId.replace('row-wrapper-', ''));
+
+        if (rowNum && dayLabel) {
+            // Trigger the lookup for this specific row
+            // We use 'await' if you want them to run one by one (safer for Google quotas)
+            await lookupColumn5Value(rowNum, dayLabel);
+        }
     }
 }
 
@@ -1128,7 +1157,7 @@ async function lookupColumn5Value(rowNum, dayLabel) {
 
     if (!val3 || !val4 || !col5) return;
 
-    col5.innerText = "Loading...";
+    const currentText = col5.innerText;
 
     try {
         const url = `${GOOGLE_SCRIPT_URL}?action=lookup&col3=${encodeURIComponent(val3)}&col4=${encodeURIComponent(val4)}`;
@@ -1136,17 +1165,16 @@ async function lookupColumn5Value(rowNum, dayLabel) {
         const data = await response.json();
 
         if (data && data.result) {
-            col5.innerText = data.result;
-            // Apply color based on the new text and save to Supabase
-            applyCellColor(col5, data.result);
-            saveRow(rowNum, dayLabel);
-        } else {
-            col5.innerText = "No Match";
-            applyCellColor(col5, "No Match");
+            // --- THE OPTIMIZATION: Only update/save if the value has changed ---
+            if (data.result !== currentText) {
+                col5.innerText = data.result;
+                applyCellColor(col5, data.result);
+                saveRow(rowNum, dayLabel); 
+                console.log(`✅ Updated Asset Info for Row ${rowNum}`);
+            }
         }
-    } catch (error) {
-        console.error("VLOOKUP Error:", error);
-        col5.innerText = "Error";
+    } catch (e) {
+        console.error("VLOOKUP Timer Error:", e);
     }
 }
 
