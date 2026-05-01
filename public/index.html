@@ -540,24 +540,46 @@ position: sticky;
 .cell-row textarea:focus {
     background-color: #ffffff; /* Slightly lighter when active */
 }
-/* Styling for the read-only Column 5 status box */
 .status-cell {
     flex: 1;
     min-width: 0;
     padding: 8px;
     font-size: 13px;
-    font-family: inherit;
     line-height: 1.4;
-    border-right: 1px solid #f0f0f0;
-    background-color: #f1f1f1; /* Slightly grayer to show it's read-only */
-    color: #666;
     display: flex;
-    align-items: center;
-    min-height: 40px;
+    align-items: center; /* Centers text vertically */
+    justify-content: center; /* Optional: centers status text horizontally */
+    text-align: center;
+}
+/* Core styling for all cell types to create vertical grid lines */
+.cell-row select, 
+.cell-row textarea, 
+.cell-row .status-cell {
+    border: none !important; /* Remove default browser borders */
+    border-right: 1px solid #ccc !important; /* This creates the vertical line */
+    background-color: #f9f9f9;
     box-sizing: border-box;
-    white-space: normal;
-    word-wrap: break-word;
-    cursor: default; /* Shows it's not a text entry */
+}
+
+/* Remove the vertical line from the very last column (Col 8) 
+   so it doesn't clash with the delete button */
+.cell-row textarea:last-of-type,
+.cell-row > *:nth-last-child(2) {
+    border-right: none !important;
+}
+
+/* Ensure the row itself handles the vertical alignment of the lines */
+.cell-row {
+    display: flex;
+    align-items: stretch; /* This makes the vertical lines full-height */
+    border: 1px solid #ccc; /* Optional: adds a border around the whole row */
+    border-top: none; /* Prevents double borders between rows */
+    background-color: #fff;
+}
+
+/* Optional: Make the first row of each section have a top border */
+.day-section .cell-row:first-of-type {
+    border-top: 1px solid #ccc;
 }
 </style>
 </head>
