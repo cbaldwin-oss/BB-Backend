@@ -854,24 +854,27 @@ async function fetchDropdownOptions() {
 }
 
 // Helper to create stable, short integers for Supabase int4
-function generateNumericId(dayLabel, index) {
-    const days = { 
-        "Monday": 1000, "Tuesday": 2000, "Wednesday": 3000, 
-        "Thursday": 4000, "Friday": 5000, "Saturday": 6000, "Sunday": 7000 
-    };
-    // Example: Monday Row 5 becomes 1005. Tuesday Row 5 becomes 2005.
-    const base = days[dayLabel] || 0;
-    return base + index;
+// Creates a unique ID: YYYYMMDD + RowIndex (e.g., 2026-04-20 Row 5 becomes 2026042005)
+function generateNumericId(dateStr, index) {
+    // dateStr is "2026-04-20"
+    const numericDate = dateStr.replace(/-/g, ''); // result: "20260420"
+    
+    // We multiply by 100 to make room for 2-digit row numbers (00-99)
+    // 20260420 * 100 = 2026042000. Then we add the index.
+    return (parseInt(numericDate) * 100) + index;
 }
 
 function addRowsToContainer(container, dayLabel, anchorBtn = null) {
     const MAX_ROWS = 20; 
     for (let r = 0; r < MAX_ROWS; r++) {
+        // dayLabel here is the date (e.g., "2026-04-20")
         const rowNumericId = generateNumericId(dayLabel, r);
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
-        rowDiv.setAttribute('data-date', dayLabel); // <--- ENSURE THIS LINE EXISTS
+        rowDiv.setAttribute('data-date', dayLabel);
+        
+        // Rows 0-2 visible by default, others hidden until "Add 5 Rows" is clicked
         rowDiv.style.display = (r > 2) ? 'none' : 'flex';
 
         for (let col = 1; col <= 8; col++) {
@@ -879,7 +882,7 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
             let element;
 
             if (col === 5) {
-                // COLUMN 5: Read-Only Span
+                // COLUMN 5: Read-Only Status
                 element = document.createElement('span');
                 element.id = cellId;
                 element.className = 'status-cell';
@@ -914,12 +917,13 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                 element.onchange = () => { 
                     applyCellColor(element, element.value); 
                     saveRow(rowNumericId, dayLabel);
+                    // Automatic Asset Lookup for Column 5
                     if (col === 3 || col === 4) lookupColumn5Value(rowNumericId, dayLabel);
                 };
                 rowDiv.appendChild(element);
             } 
             else {
-                // COLUMN 8: Textarea (Auto-expanding)
+                // COLUMN 8: Expanding Textarea
                 element = document.createElement('textarea');
                 element.id = cellId;
                 element.placeholder = "...";
@@ -1144,31 +1148,24 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
 
-    const status = document.getElementById('saveIndicator');
-
-    // --- THE FIX: Explicitly define all 8 columns for the database ---
     const rowData = {
-        id: rowNum,
-        day_label: dayLabel,
+        id: rowNum,          // e.g., 2026042005
+        day_label: dayLabel, // e.g., "2026-04-20"
         col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
         col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
         col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
         col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
-        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.innerText || "", // Read from Span
+        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.innerText || "", // Column 5 is a Span
         col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
         col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
         col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
     };
 
     try {
-        const { error } = await _supabase
-            .from('BackEndData')
-            .upsert(rowData, { onConflict: 'id' });
-
-        if (error) throw error;
-        if (status) status.innerText = `Last saved at: ${getTimestamp()}`;
+        const { error } = await _supabase.from('BackEndData').upsert(rowData, { onConflict: 'id' });
+        if (!error) document.getElementById('saveIndicator').innerText = `Last saved at: ${getTimestamp()}`;
     } catch (err) {
-        console.error("🔴 Sync Failure:", err.message);
+        console.error("🔴 Save Error:", err);
     } finally {
         activeSyncs.delete(syncKey);
     }
