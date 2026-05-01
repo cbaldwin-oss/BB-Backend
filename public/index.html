@@ -866,7 +866,7 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
             } else {
                 element = document.createElement('input');
                 element.id = cellId;
-                element.placeholder = "Notes";
+                element.placeholder = "...";
                 element.onblur = () => { applyCellColor(element, element.value); saveRow(rowNumericId, dayLabel); };
                 rowDiv.appendChild(element);
             }
