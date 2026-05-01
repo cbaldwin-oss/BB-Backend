@@ -540,6 +540,25 @@ position: sticky;
 .cell-row textarea:focus {
     background-color: #ffffff; /* Slightly lighter when active */
 }
+/* Styling for the read-only Column 5 status box */
+.status-cell {
+    flex: 1;
+    min-width: 0;
+    padding: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    line-height: 1.4;
+    border-right: 1px solid #f0f0f0;
+    background-color: #f1f1f1; /* Slightly grayer to show it's read-only */
+    color: #666;
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+    box-sizing: border-box;
+    white-space: normal;
+    word-wrap: break-word;
+    cursor: default; /* Shows it's not a text entry */
+}
 </style>
 </head>
 <body>
@@ -872,28 +891,27 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
 
                 element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
                 rowDiv.appendChild(element); // Append directly to rowDiv
-            } else if ([1, 2, 3, 4, 7].includes(col)) {
-                element = document.createElement('select');
-                element.id = cellId;
-                const def = document.createElement('option');
-                def.value = ""; def.text = "Select...";
-                element.appendChild(def);
-
-                const opts = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
-                opts.forEach(t => {
-                    const o = document.createElement('option');
-                    o.value = t; o.text = t;
-                    element.appendChild(o);
-                });
-                element.onchange = () => { 
-    applyCellColor(element, element.value); 
-    saveRow(rowNumericId, dayLabel);
-    
-    // TRIGGER THE VLOOKUP
-    if (col === 3 || col === 4) {
-        lookupColumn5Value(rowNumericId, dayLabel);
+            } else if (col === 5) {
+    element = document.createElement('span');
+    element.id = cellId;
+    element.className = 'status-cell';
+    element.innerText = "..."; // Initial placeholder
+    rowDiv.appendChild(element);
+} else if ([1, 2, 3, 4, 6, 7].includes(col)) {
+    // ... (Keep existing select logic)
+    element.onchange = () => {
+        if (col === 6) {
+            updateMultiValue(rowNumericId, dayLabel, element.value);
+        } else {
+            applyCellColor(element, element.value);
+            saveRow(rowNumericId, dayLabel);
+            
+            // --- THE FIX: Trigger lookup if Col 3 or 4 changes ---
+            if (col === 3 || col === 4) {
+                lookupColumn5Value(rowNumericId, dayLabel);
+            }
+        }
     }
-};
                 rowDiv.appendChild(element);
             } else {
     // CHANGE: Use textarea instead of input for Column 5 & 8
@@ -1084,16 +1102,15 @@ async function deleteFullRow(wrapperId) {
             rowElement.removeAttribute('data-occupied');
             
             // Clear all cells inside that row
-            const cells = rowElement.querySelectorAll('input, select, textarea');
-            cells.forEach(cell => {
-                if (cell.tagName === 'SELECT') {
-                    cell.value = "";
-                    cell.setAttribute('data-selected', '');
-                } else {
-                    cell.value = "";
-                }
-                applyCellColor(cell, "");
-            });
+const cells = rowElement.querySelectorAll('input, select, textarea, .status-cell');
+cells.forEach(cell => {
+    if (cell.classList.contains('status-cell')) {
+        cell.innerText = "...";
+    } else {c
+        cell.value = "";
+    }
+    applyCellColor(cell, "");
+});
         }
 
         // 2. DATABASE DELETE
@@ -1118,10 +1135,11 @@ async function deleteFullRow(wrapperId) {
 async function lookupColumn5Value(rowNum, dayLabel) {
     const val3 = document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value;
     const val4 = document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value;
-    const span5 = document.getElementById(`label-${dayLabel}-r${rowNum}-c5`);
-    const input5 = document.getElementById(`${dayLabel}-r${rowNum}-c5`);
+    const col5 = document.getElementById(`${dayLabel}-r${rowNum}-c5`);
 
-    if (!val3 || !val4 || !span5) return;
+    if (!val3 || !val4 || !col5) return;
+
+    col5.innerText = "Loading...";
 
     try {
         const url = `${GOOGLE_SCRIPT_URL}?action=lookup&col3=${encodeURIComponent(val3)}&col4=${encodeURIComponent(val4)}`;
@@ -1129,13 +1147,18 @@ async function lookupColumn5Value(rowNum, dayLabel) {
         const data = await response.json();
 
         if (data && data.result) {
-            span5.innerText = data.result;
-            if (input5) input5.value = data.result; // Store for Supabase
-            
-            applyCellColor(span5, data.result);
+            col5.innerText = data.result;
+            // Apply color based on the new text and save to Supabase
+            applyCellColor(col5, data.result);
             saveRow(rowNum, dayLabel);
+        } else {
+            col5.innerText = "No Match";
+            applyCellColor(col5, "No Match");
         }
-    } catch (e) { console.error("Lookup failed", e); }
+    } catch (error) {
+        console.error("VLOOKUP Error:", error);
+        col5.innerText = "Error";
+    }
 }
 
 async function saveRow(rowNum, dayLabel, col6Override = null) {
@@ -1145,20 +1168,19 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
 
     const status = document.getElementById('saveIndicator');
 
-    // --- THE FIX: Explicitly define rowData for Supabase ---
-    const rowData = {
-        id: rowNum,
-        day_label: dayLabel,
-        col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
-        col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
-        col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
-        col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
-        col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.value || 
-      document.getElementById(`label-${dayLabel}-r${rowNum}-c5`)?.innerText || "",
-        col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
-        col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
-        col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
-    };
+const rowData = {
+    id: rowNum,
+    day_label: dayLabel,
+    col1: document.getElementById(`${dayLabel}-r${rowNum}-c1`)?.value || "",
+    col2: document.getElementById(`${dayLabel}-r${rowNum}-c2`)?.value || "",
+    col3: document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value || "",
+    col4: document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value || "",
+    // --- THE FIX: Read innerText for Col 5 ---
+    col5: document.getElementById(`${dayLabel}-r${rowNum}-c5`)?.innerText || "", 
+    col6: col6Override !== null ? col6Override : (document.getElementById(`${dayLabel}-r${rowNum}-c6`)?.getAttribute('data-selected') || ""),
+    col7: document.getElementById(`${dayLabel}-r${rowNum}-c7`)?.value || "",
+    col8: document.getElementById(`${dayLabel}-r${rowNum}-c8`)?.value || ""
+};
 
     try {
         const { error } = await _supabase
@@ -1365,12 +1387,17 @@ async function loadData(isSilent = false) {
                         // Focus protection
                         if (el === document.activeElement) continue;
 
-                        const content = row[`col${col}`] || "";
-                        if (col === 6) {
-                            el.setAttribute('data-selected', content);
-                        } else {
-                            el.value = content;
-                        }
+// Inside the column loop
+const content = row[`col${col}`] || "";
+if (col === 5) {
+    el.innerText = content; // Set innerText for span
+    applyCellColor(el, content);
+} else if (col === 6) {
+    // ... existing Col 6 logic
+} else {
+    el.value = content;
+    applyCellColor(el, content);
+}
                         
                         // Recalculate color and height (crucial for wrapping textareas)
                         applyCellColor(el, content);
