@@ -500,6 +500,53 @@ position: sticky;
     padding: 8px 4px;
     display: block;         /* Allows height to be controlled more easily */
 }
+/* Allow rows and cells to grow based on content */
+.cell-row {
+    height: auto !important;
+    min-height: 40px;
+    align-items: stretch;
+}
+
+/* Base style for all expanding cells */
+.cell-row textarea, 
+.select-wrapper span {
+    width: 100%;
+    padding: 8px;
+    font-size: 13px;
+    border: none;
+    border-right: 1px solid #f0f0f0;
+    background-color: #f9f9f9;
+    white-space: normal;
+    word-wrap: break-word;
+    display: block;
+    min-height: 38px;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+/* Textarea specific (Cols 5 & 8) */
+.cell-row textarea {
+    flex: 1;
+    resize: none; 
+    overflow: hidden;
+}
+.cell-row textarea:focus { background-color: #fff; outline: none; }
+
+/* Dropdown Wrapper (Cols 1-4, 6, 7) */
+.select-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+}
+
+.select-wrapper select {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0; /* Invisible but clickable */
+    cursor: pointer;
+    z-index: 2;
+}
 </style>
 </head>
 <body>
@@ -647,47 +694,42 @@ async function startApp() {
 window.onload = startApp;
 
 function refreshDropdowns() {
-    console.log("🔄 Syncing dropdown options...");
-    const selects = document.querySelectorAll('select');
-    
-    selects.forEach(select => {
-        const parts = select.id.split('-c');
-        if (parts.length < 2) return;
-        
+    document.querySelectorAll('select').forEach(select => {
         const cellId = select.id;
+        const parts = cellId.split('-c');
+        if (parts.length < 2) return;
         const colNum = parseInt(parts[1]);
-        const colKey = `col${colNum}`;
-        const options = window.dropdownData[colKey] || [];
+        const options = window.dropdownData[`col${colNum}`] || [];
         
         const savedValue = select.value;
         const savedMultiText = select.getAttribute('data-selected');
+        const span = document.getElementById(`label-${cellId}`);
 
-        select.innerHTML = '';
-
-        if (colNum === 6) {
-            // --- THE FIX: Handle Column 6 text inside the select ---
-            const def = document.createElement('option');
-            def.value = ""; 
-            // Set the placeholder text directly to the first option
-            def.text = (savedMultiText && savedMultiText !== "") ? `Selected: ${savedMultiText}` : "+ Add Multi";
-            select.appendChild(def);
-        } else {
-            const def = document.createElement('option');
-            def.value = ""; def.text = "Select...";
-            select.appendChild(def);
-        }
-
+        // Rebuild options
+        select.innerHTML = '<option value=""></option>';
         options.forEach(text => {
             const opt = document.createElement('option');
             opt.value = text; opt.text = text;
             select.appendChild(opt);
         });
-
         select.value = savedValue;
-        
-        // Final coloring pass to ensure the single cell looks correct
-        const colorVal = (colNum === 6) ? savedMultiText : select.value;
-        applyCellColor(select, colorVal);
+
+        // Update the visible label span
+        if (span) {
+            if (colNum === 6) {
+                span.innerText = savedMultiText ? `Selected: ${savedMultiText}` : "+ Add Multi";
+                applyCellColor(select, savedMultiText);
+            } else {
+                span.innerText = savedValue || "Select...";
+                applyCellColor(select, savedValue);
+            }
+        }
+    });
+
+    // Final pass: Trigger resize for all textareas after cloud data is loaded
+    document.querySelectorAll('textarea').forEach(tx => {
+        tx.style.height = 'auto';
+        tx.style.height = tx.scrollHeight + 'px';
     });
 }
 
@@ -814,68 +856,72 @@ function generateNumericId(dayLabel, index) {
 
 function addRowsToContainer(container, dayLabel, anchorBtn = null) {
     const MAX_ROWS = 20; 
-    
     for (let r = 0; r < MAX_ROWS; r++) {
         const rowNumericId = generateNumericId(dayLabel, r);
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
-        rowDiv.setAttribute('data-date', dayLabel);
-
-        if (r > 2) rowDiv.style.display = 'none';
-        else rowDiv.style.display = 'flex';
+        rowDiv.style.display = (r > 2) ? 'none' : 'flex';
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
-            let element;
-
-            if (col === 6) {
-                // --- THE FIX: Standardize Column 6 to a single select ---
-                element = document.createElement('select');
-                element.id = cellId;
+            
+            if ([1, 2, 3, 4, 6, 7].includes(col)) {
+                // --- WRAPPING DROPDOWN STRUCTURE ---
+                const wrapper = document.createElement('div');
+                wrapper.className = 'select-wrapper';
                 
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = "";
-                defaultOpt.text = "+ Add Multi"; // Placeholder text inside the select
-                element.appendChild(defaultOpt);
+                const span = document.createElement('span');
+                span.id = `label-${cellId}`;
+                span.innerText = (col === 6) ? "+ Add Multi" : "Select...";
+                wrapper.appendChild(span);
 
+                const select = document.createElement('select');
+                select.id = cellId;
+                select.innerHTML = '<option value=""></option>';
                 const options = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
                 options.forEach(text => {
                     const opt = document.createElement('option');
                     opt.value = text; opt.text = text;
-                    element.appendChild(opt);
+                    select.appendChild(opt);
                 });
 
-                element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
-                rowDiv.appendChild(element); // Append directly to rowDiv
-            } else if ([1, 2, 3, 4, 7].includes(col)) {
-                element = document.createElement('select');
-                element.id = cellId;
-                const def = document.createElement('option');
-                def.value = ""; def.text = "Select...";
-                element.appendChild(def);
+                select.onchange = () => {
+                    if (col === 6) {
+                        updateMultiValue(rowNumericId, dayLabel, select.value);
+                    } else {
+                        span.innerText = select.value || "Select...";
+                        applyCellColor(select, select.value);
+                        saveRow(rowNumericId, dayLabel);
+                    }
+                };
+                wrapper.appendChild(select);
+                rowDiv.appendChild(wrapper);
 
-                const opts = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
-                opts.forEach(t => {
-                    const o = document.createElement('option');
-                    o.value = t; o.text = t;
-                    element.appendChild(o);
-                });
-                element.onchange = () => { applyCellColor(element, element.value); saveRow(rowNumericId, dayLabel); };
-                rowDiv.appendChild(element);
             } else {
-                element = document.createElement('input');
-                element.id = cellId;
-                element.placeholder = "...";
-                element.onblur = () => { applyCellColor(element, element.value); saveRow(rowNumericId, dayLabel); };
-                rowDiv.appendChild(element);
+                // --- AUTO-EXPANDING TEXTAREA STRUCTURE ---
+                const textarea = document.createElement('textarea');
+                textarea.id = cellId;
+                textarea.placeholder = "...";
+                
+                // Auto-resize logic as user types
+                textarea.oninput = () => {
+                    textarea.style.height = 'auto';
+                    textarea.style.height = textarea.scrollHeight + 'px';
+                };
+
+                textarea.onblur = () => {
+                    applyCellColor(textarea, textarea.value);
+                    saveRow(rowNumericId, dayLabel);
+                };
+                rowDiv.appendChild(textarea);
             }
         }
-        
+        // Delete button and append...
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn';
         delBtn.innerHTML = '×'; 
-        delBtn.onclick = () => deleteFullRow(rowDiv.id, []);
+        delBtn.onclick = () => deleteFullRow(rowDiv.id, []); 
         rowDiv.appendChild(delBtn);
         container.appendChild(rowDiv);
     }
