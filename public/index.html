@@ -509,6 +509,37 @@ position: sticky;
     padding: 8px 4px;
     display: block;         /* Allows height to be controlled more easily */
 }
+/* Styling for Textareas to match Column 6 labels */
+.cell-row textarea {
+    flex: 1;
+    min-width: 0;
+    padding: 8px; /* Match the 8px padding of Col 6 */
+    font-size: 13px;
+    font-family: inherit;
+    line-height: 1.4;
+    
+    /* Remove default styling */
+    border: none !important;
+    border-right: 1px solid #f0f0f0 !important; /* Grid line */
+    background-color: #f9f9f9; /* Match Col 6 default background */
+    outline: none; /* No blue glow when clicking */
+    resize: none; /* No resize handle */
+    
+    /* Expansion and Wrapping */
+    overflow: hidden; 
+    white-space: pre-wrap; 
+    word-wrap: break-word;
+    
+    box-sizing: border-box;
+    display: block;
+    min-height: 40px;
+    transition: background-color 0.2s ease;
+}
+
+/* Ensure the text box stays flat when clicked */
+.cell-row textarea:focus {
+    background-color: #ffffff; /* Slightly lighter when active */
+}
 </style>
 </head>
 <body>
