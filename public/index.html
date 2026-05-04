@@ -731,6 +731,9 @@ async function startApp() {
         // before we decide which ones are empty and should be hidden.
         await new Promise(resolve => setTimeout(resolve, 1000));
 
+        applyViewFilter('view2'); // Sets the 3-day look ahead filter
+        collapseEverything();    // Closes all accordions
+
     } catch (e) {
         console.error("❌ Launch error:", e);
     } finally {
