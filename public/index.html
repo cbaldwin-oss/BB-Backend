@@ -751,6 +751,7 @@ async function startApp() {
         if (view2Btn) {
             view2Btn.classList.add('active');
         }
+        syncAllAssetLookups(); // Initial asset lookup sync after data load
 
     } catch (e) {
         console.error("❌ Launch error:", e);
