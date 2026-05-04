@@ -695,23 +695,28 @@ position: sticky;
         <p class="loading-text">Refueling QCx Rocket...</p>
     </div>
 
-    <div id="auth-prompt" style="display: none; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); color: #333; max-width: 400px; margin: 0 20px;">
-        <h2 style="margin-top: 0; color: #2e7d32; font-size: 28px;">Access Required</h2>
-        <p style="margin-bottom: 25px; color: #666;">Enter your email to access the LaunchPad schedule.</p>
-        
-        <input type="email" id="user-email-input" placeholder="email@example.com" 
-               style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 15px; box-sizing: border-box; font-size: 16px; outline: none;">
-        
-        <button id="verify-btn" onclick="handleVerification()" 
-                style="background: #2e7d32; color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px; transition: background 0.2s;">
-            Verify & Enter
-        </button>
-        
-        <p id="auth-error" style="color: #d32f2f; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
-        <p id="auth-success" style="color: #2e7d32; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;">
-            Success! Check your email for the magic link to log in.
-        </p>
+<div id="auth-prompt" style="display: none; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); color: #333; max-width: 400px; margin: 0 20px;">
+    <h2 id="auth-title" style="margin-top: 0; color: #01579b; font-size: 26px;">Sign In</h2>
+    <p id="auth-subtitle" style="margin-bottom: 25px; color: #666;">Enter your credentials to access LaunchPad.</p>
+    
+    <input type="email" id="user-email-input" placeholder="Email Address" 
+           style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 10px; box-sizing: border-box; font-size: 16px;">
+    
+    <input type="password" id="user-pin-input" placeholder="Enter PIN (min. 6 digits)" 
+           style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; text-align: center; letter-spacing: 4px;">
+    
+    <button id="auth-btn" onclick="handleAuthAction()" 
+            style="background: #01579b; color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;">
+        Login
+    </button>
+    
+    <div style="margin-top: 20px; font-size: 14px;">
+        <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: #01579b; text-decoration: none;">First time? Create your PIN</a>
     </div>
+
+    <p id="auth-error" style="color: #d32f2f; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
+    <p id="auth-success" style="color: #2e7d32; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
+</div>
 </div>
 </div>
 
@@ -886,27 +891,37 @@ async function completeAppLaunch() {
 }
 
 async function startApp() {
-    console.log("🚀 Launching App...");
     createSections(); 
-
     const spinnerSection = document.getElementById('loading-spinner-section');
     const authPrompt = document.getElementById('auth-prompt');
+    const loader = document.getElementById('loading-overlay');
 
-    // Check if we already verified this user before
-    const savedEmail = localStorage.getItem('launchpad_email');
+    try {
+        const { data: { user } } = await _supabase.auth.getUser();
 
-    if (savedEmail) {
-        const isStillAuth = await verifyPermission(savedEmail);
-        if (isStillAuth) {
-            window.isAuthorized = true;
-            await completeAppLaunch();
-            return;
+        if (user) {
+            const isAuth = await verifyPermission(user.email);
+            if (isAuth) {
+                window.isAuthorized = true;
+                await fetchDropdownOptions();
+                refreshDropdowns();
+                await loadData();
+                initRealtimeSync();
+
+                applyViewFilter('view2');
+                collapseEverything();
+
+                loader.classList.add('hidden');
+                setTimeout(() => { loader.style.display = 'none'; autoCleanUI(); }, 800);
+                return;
+            }
         }
+        // No valid session: Show login
+        spinnerSection.style.display = 'none';
+        authPrompt.style.display = 'block';
+    } catch (e) {
+        console.error(e);
     }
-
-    // If no saved email or email removed from list, show prompt
-    spinnerSection.style.display = 'none';
-    authPrompt.style.display = 'block';
 }
 
 function logout() {
@@ -1241,6 +1256,74 @@ addRowsToContainer(rowsDiv, dateId, addBtn);
         weekDiv.appendChild(weekHeader);
         weekDiv.appendChild(weekContent);
         contentArea.appendChild(weekDiv);
+    }
+}
+
+let isSignUpMode = false;
+
+function toggleAuthMode() {
+    isSignUpMode = !isSignUpMode;
+    const title = document.getElementById('auth-title');
+    const subtitle = document.getElementById('auth-subtitle');
+    const btn = document.getElementById('auth-btn');
+    const toggleLink = document.getElementById('auth-toggle-link');
+    
+    if (isSignUpMode) {
+        title.innerText = "Create PIN";
+        subtitle.innerText = "Set a 6-digit PIN for your email.";
+        btn.innerText = "Register & Send Verification";
+        toggleLink.innerText = "Already have a PIN? Login";
+    } else {
+        title.innerText = "Sign In";
+        subtitle.innerText = "Enter your credentials to access LaunchPad.";
+        btn.innerText = "Login";
+        toggleLink.innerText = "First time? Create your PIN";
+    }
+}
+
+async function handleAuthAction() {
+    const email = document.getElementById('user-email-input').value.trim().toLowerCase();
+    const pin = document.getElementById('user-pin-input').value.trim();
+    const errorEl = document.getElementById('auth-error');
+    const successEl = document.getElementById('auth-success');
+    const btn = document.getElementById('auth-btn');
+
+    if (!email || !pin) return;
+    if (pin.length < 6) {
+        errorEl.innerText = "Security Note: PIN must be at least 6 digits.";
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    errorEl.style.display = 'none';
+
+    // Step 1: Whitelist Check
+    const isApproved = await verifyPermission(email);
+    if (!isApproved) {
+        errorEl.innerText = "Access Denied: This email is not on the approved list.";
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        return;
+    }
+
+    try {
+        if (isSignUpMode) {
+            // REGISTRATION: Create account and send verification link
+            const { error } = await _supabase.auth.signUp({ email, password: pin });
+            if (error) throw error;
+            successEl.innerText = "Registration successful! Check your email to confirm and activate your PIN.";
+            successEl.style.display = 'block';
+        } else {
+            // LOGIN: Immediate entry with PIN
+            const { error } = await _supabase.auth.signInWithPassword({ email, password: pin });
+            if (error) throw error;
+            location.reload(); // Reload to trigger startApp with active session
+        }
+    } catch (err) {
+        errorEl.innerText = err.message;
+        errorEl.style.display = 'block';
+        btn.disabled = false;
     }
 }
 
