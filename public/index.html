@@ -747,41 +747,37 @@ function handleIncomingChange(row) {
                 if (el.options && el.options[0]) {
                     el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
                 }
-            } else if (col === 5) {
-                el.innerText = content;
-            } else {
-                el.value = content;
-            }
-            
-            // Re-run the color/size logic for the new data
-            applyCellColor(el, content);
+} else if (col === 5) {
+    el.innerText = content;
+} else {
+    // --- THE FIX: Ensure Realtime updates don't break Selects ---
+    if (el.tagName === 'SELECT' && content !== "") {
+        const exists = Array.from(el.options).some(opt => opt.value === content);
+        if (!exists) {
+            el.add(new Option(content, content));
+        }
+    }
+    el.value = content;
+}
+applyCellColor(el, content);
         }
     }
 }
 
         // Change your window.onload or initial call to this:
 async function startApp() {
-    console.log("🚀 Launching App...");
+        console.log("🚀 Launching App...");
     const loader = document.getElementById('loading-overlay');
-    
-    // ADJUSTABLE BUFFER (ms): Gives the browser time to paint colors
-    // Increase this if you still see a split-second "pop" of data
-    const PAINT_BUFFER = 1000; 
-
-    // 1. Build the HTML grid structure immediately
     createSections(); 
-
-try {
-        await fetchDropdownOptions(); // Load the options from Supabase
+    try {
+        await fetchDropdownOptions(); 
         
-        // --- CRITICAL: Refresh the dropdown options in the DOM BEFORE loading values ---
+        // Populate dropdowns once
         refreshDropdowns(); 
         
         console.log("⏳ Syncing cloud data...");
-        await loadData(); // Now inject the saved values from Supabase
-        
-        // Re-run refresh one last time to fix labels (like Col 6)
-        refreshDropdowns();
+        // Load data into populated dropdowns
+        await loadData(); 
 
         initRealtimeSync();
         applyViewFilter('view2');
@@ -822,35 +818,34 @@ function refreshDropdowns() {
         const colNum = parseInt(parts[1]);
         const options = window.dropdownData[`col${colNum}`] || [];
         
-        // Preserve the "Multi" data
+        // --- THE FIX: Save the current value before wiping ---
+        const currentValue = select.value;
         const savedMultiText = select.getAttribute('data-selected') || "";
 
-        // Rebuild Options
         select.innerHTML = "";
         
-        // Create the Label Option (Index 0)
         const labelOpt = document.createElement('option');
         labelOpt.value = "";
-        if (colNum === 6) {
-            labelOpt.text = savedMultiText ? `Selected: ${savedMultiText}` : "+ Add Multi";
-        } else {
-            labelOpt.text = "Select...";
-        }
+        labelOpt.text = (colNum === 6) ? (savedMultiText ? `Selected: ${savedMultiText}` : "+ Add Multi") : "Select...";
         select.appendChild(labelOpt);
 
-        // Add Data Options
+        // Add standard options from the database
         options.forEach(text => {
-            const opt = document.createElement('option');
-            opt.value = text; 
-            opt.text = text;
+            const opt = new Option(text, text);
             select.appendChild(opt);
         });
 
-        // Trigger visual refresh
+        // --- THE FIX: If the old value isn't in the new list, put it back ---
+        if (currentValue && ![...select.options].some(o => o.value === currentValue)) {
+            select.add(new Option(currentValue, currentValue));
+        }
+        
+        // Restore the selection
+        if (colNum !== 6) select.value = currentValue;
+
         applyCellColor(select, (colNum === 6 ? savedMultiText : select.value));
     });
 
-    // Handle Textarea resizing
     document.querySelectorAll('textarea').forEach(tx => {
         tx.style.height = 'auto';
         tx.style.height = tx.scrollHeight + 'px';
