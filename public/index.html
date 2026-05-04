@@ -658,12 +658,29 @@ position: sticky;
 <div id="main-content-area">
     </div>
 
+
 <div id="loading-overlay">
-    <div class="loader-content">
-        <div class="ship-circle">
-            <span class="rocket">🛠️🚀</span>
-        </div>
-        <p class="loading-text">Refueling QCx Rocket...</p>
+    <div id="loading-spinner-section">
+        <div class="spinner"></div>
+        <p id="loading-status-text">Initializing Schedule...</p>
+    </div>
+
+    <div id="auth-prompt" style="display: none; text-align: center; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); color: #333; max-width: 400px;">
+        <h2 style="margin-top: 0; color: #01579b;">Access Verification</h2>
+        <p>Please enter your email address to access the schedule.</p>
+        
+        <input type="email" id="user-email-input" placeholder="email@example.com" 
+               style="padding: 12px; width: 100%; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 15px; box-sizing: border-box; font-size: 16px;">
+        
+        <button id="verify-btn" onclick="handleVerification()" 
+                style="background: #01579b; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;">
+            Verify Email
+        </button>
+        
+        <p id="auth-error" style="color: #b71c1c; margin-top: 15px; font-size: 14px; display: none;"></p>
+        <p id="auth-success" style="color: #1b5e20; margin-top: 15px; font-size: 14px; display: none;">
+            Check your email for the magic login link!
+        </p>
     </div>
 </div>
 
@@ -696,6 +713,92 @@ setInterval(() => {
         // 1. Initialize Supabase
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function handleVerification() {
+    const emailInput = document.getElementById('user-email-input');
+    const errorEl = document.getElementById('auth-error');
+    const successEl = document.getElementById('auth-success');
+    const btn = document.getElementById('verify-btn');
+    
+    const email = emailInput.value.trim().toLowerCase();
+    if (!email) return;
+
+    btn.disabled = true;
+    btn.innerText = "Sending Link...";
+    errorEl.style.display = 'none';
+
+    // Step A: Send Supabase Magic Link
+    const { error } = await _supabase.auth.signInWithOtp({ 
+        email: email,
+        options: { emailRedirectTo: window.location.href } 
+    });
+
+    if (error) {
+        errorEl.innerText = "Error: " + error.message;
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.innerText = "Verify Email";
+    } else {
+        successEl.style.display = 'block';
+        btn.innerText = "Link Sent!";
+    }
+}
+
+// 2. Helper to verify if the user is in the authorized_editors table
+async function verifyPermission(email) {
+    try {
+        const { data, error } = await _supabase
+            .from('authorized_editors')
+            .select('email')
+            .eq('email', email)
+            .single();
+        return !!data;
+    } catch (e) { return false; }
+}
+
+        // 1. Send a Magic Link (No password needed)
+async function loginWithMagicLink() {
+    const email = document.getElementById('login-email').value;
+    const { error } = await _supabase.auth.signInWithOtp({ email });
+    if (error) alert(error.message);
+    else alert("Check your email for the login link!");
+}
+
+// 2. Check login status on page load
+async function checkUser() {
+    const { data: { user } } = await _supabase.auth.getUser();
+    const status = document.getElementById('user-status');
+    
+    if (user) {
+        status.innerText = `Logged in as: ${user.email}`;
+        window.isAuthorized = await verifyPermission(user.email);
+        if (!window.isAuthorized) {
+            status.innerText += " (View Only Mode)";
+            lockUI();
+        }
+    } else {
+        lockUI();
+    }
+}
+
+// 3. Verify if they are in our special table
+async function verifyPermission(email) {
+    const { data, error } = await _supabase
+        .from('authorized_editors')
+        .select('email')
+        .eq('email', email)
+        .single();
+    return !!data;
+}
+
+// 4. Disable all inputs if not authorized
+function lockUI() {
+    document.querySelectorAll('input, select, textarea').forEach(el => {
+        el.disabled = true;
+    });
+    // Hide delete buttons
+    document.querySelectorAll('.delete-btn').forEach(btn => btn.style.display = 'none');
+}
 
 function initRealtimeSync() {
     console.log("📡 Realtime Sync Active");
@@ -766,46 +869,54 @@ applyCellColor(el, content);
 }
 
         // Change your window.onload or initial call to this:
+// 3. Modified startApp logic
 async function startApp() {
-        console.log("🚀 Launching App...");
-    const loader = document.getElementById('loading-overlay');
     createSections(); 
-    try {
-        await fetchDropdownOptions(); 
-        
-        // Populate dropdowns once
-        refreshDropdowns(); 
-        
-        console.log("⏳ Syncing cloud data...");
-        // Load data into populated dropdowns
-        await loadData(); 
+    const spinnerSection = document.getElementById('loading-spinner-section');
+    const authPrompt = document.getElementById('auth-prompt');
+    const loader = document.getElementById('loading-overlay');
 
-        initRealtimeSync();
-        applyViewFilter('view2');
-        collapseEverything();
-        // --- HIGHLIGHT THE VIEW 2 BUTTON ---
-        // Remove 'active' class from all buttons
-        document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
-        
-        // Find the "3 Day Look Ahead" button and add 'active'
-        // We look for the button that calls applyViewFilter('view2')
-        const view2Btn = document.querySelector('button[onclick*="view2"]');
-        if (view2Btn) {
-            view2Btn.classList.add('active');
+    try {
+        // Step 1: Check if a user session already exists
+        const { data: { user } } = await _supabase.auth.getUser();
+
+        if (user) {
+            // Step 2: Check if this logged-in email is authorized
+            const isAuth = await verifyPermission(user.email);
+            
+            if (isAuth) {
+                window.isAuthorized = true; // Global permission flag
+                
+                // Proceed to load data
+                await fetchDropdownOptions();
+                refreshDropdowns();
+                await loadData();
+                initRealtimeSync();
+
+                applyViewFilter('view2');
+                collapseEverything();
+
+                // Finish loading and reveal app
+                loader.classList.add('hidden');
+                setTimeout(() => { loader.style.display = 'none'; autoCleanUI(); }, 800);
+            } else {
+                // User is logged in but NOT authorized
+                spinnerSection.style.display = 'none';
+                authPrompt.style.display = 'block';
+                document.getElementById('auth-error').innerText = "Access Denied: Your email is not on the approved list.";
+                document.getElementById('auth-error').style.display = 'block';
+            }
+        } else {
+            // No session: Show the login prompt
+            spinnerSection.style.display = 'none';
+            authPrompt.style.display = 'block';
         }
 
     } catch (e) {
-        console.error("❌ Launch error:", e);
-    } finally {
-        // 6. REVEAL: Only hide the loader after everything above is done
-        if (loader) {
-            loader.classList.add('hidden');
-            setTimeout(() => {
-                loader.style.display = 'none';
-             autoCleanUI();
-            }, 800); 
-        }
-        console.log("✅ Launch Successful: Grid is fully painted.");
+        console.error("Launch error:", e);
+        spinnerSection.style.display = 'none';
+        authPrompt.style.display = 'block';
+        document.getElementById('auth-error').innerText = "Failed to initialize. Please refresh.";
     }
 }
 
@@ -1265,6 +1376,10 @@ async function lookupColumn5Value(rowNum, dayLabel, isBackground = false) {
 }
 
 async function saveRow(rowNum, dayLabel, col6Override = null) {
+    if (!window.isAuthorized) {
+        console.warn("🚫 Edit blocked: You are not an authorized editor.");
+        return;
+    }
     const syncKey = `${dayLabel}-${rowNum}`;
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
