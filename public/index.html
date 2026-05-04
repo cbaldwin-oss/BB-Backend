@@ -1210,7 +1210,7 @@ async function lookupColumn5Value(rowNum, dayLabel, isBackground = false) {
                 await saveRow(rowNum, dayLabel); 
             }
         } else if (!isBackground) {
-            col5.innerText = "";
+            col5.innerText = "NA";
         }
     } catch (e) {
         console.error("VLOOKUP Pull Error:", e);
