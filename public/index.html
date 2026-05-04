@@ -625,6 +625,7 @@ position: sticky;
 .status-container {
     display: flex;
     align-items: center;
+    gap: 25px; /* Adjust this number to increase/decrease the space */
 }
 </style>
 </head>
@@ -638,8 +639,8 @@ position: sticky;
         <span>LaunchPad</span>
     </div>
     <div class="header-right">
-        <button class="view-btn active" onclick="switchView('view1', this)">Overall Schedule</button>
-        <button class="view-btn" onclick="switchView('view2', this)">3 Day Look Ahead</button>
+        <button class="view-btn" onclick="switchView('view1', this)">Overall Schedule</button>
+        <button class="view-btn active" onclick="switchView('view2', this)">3 Day Look Ahead</button>
         <button class="view-btn" onclick="switchView('view3', this)">1 Week Look Ahead</button>
     </div>
 </div>
