@@ -777,6 +777,7 @@ try {
         // --- CRITICAL: Refresh the dropdown options in the DOM BEFORE loading values ---
         refreshDropdowns(); 
         
+        console.log("⏳ Syncing cloud data...");
         await loadData(); // Now inject the saved values from Supabase
         
         // Re-run refresh one last time to fix labels (like Col 6)
@@ -961,11 +962,10 @@ async function fetchDropdownOptions() {
 // Helper to create stable, short integers for Supabase int4
 // Creates a unique ID: YYYYMMDD + RowIndex (e.g., 2026-04-20 Row 5 becomes 2026042005)
 function generateNumericId(dateStr, index) {
-    // dateStr is "2026-04-20"
-    const numericDate = dateStr.replace(/-/g, ''); // result: "20260420"
+    // Ensure dateStr is actually a string (e.g., "2026-04-20")
+    if (!dateStr || typeof dateStr !== 'string') return index; 
     
-    // We multiply by 100 to make room for 2-digit row numbers (00-99)
-    // 20260420 * 100 = 2026042000. Then we add the index.
+    const numericDate = dateStr.replace(/-/g, ''); 
     return (parseInt(numericDate) * 100) + index;
 }
 
@@ -1490,20 +1490,22 @@ async function loadData(isSilent = false) {
     if (col === 6) {
         el.setAttribute('data-selected', content);
     } else if (col === 5) {
-        el.innerText = content;
-    } else {
-        // --- THE FIX: Ensure the value exists before assigning ---
-        // For selects (Cols 1-4, 7), we must ensure the option is present
-        if (el.tagName === 'SELECT') {
-            // If the option doesn't exist yet, create it temporarily so the data isn't lost
-            if (content && ![...el.options].some(opt => opt.value === content)) {
-                const tempOpt = new Option(content, content);
-                el.add(tempOpt);
-            }
+    el.innerText = content;
+} else {
+    // --- THE FIX FOR COLS 1-4, 7 ---
+    if (el.tagName === 'SELECT' && content !== "") {
+        // Check if the option already exists in the dropdown
+        const exists = Array.from(el.options).some(opt => opt.value === content);
+        
+        // If the option is missing (because dropdownData hasn't finished), create it
+        if (!exists) {
+            const newOpt = new Option(content, content);
+            el.add(newOpt);
         }
-        el.value = content; 
     }
-    applyCellColor(el, content);
+    el.value = content; // Now the value will "stick"
+}
+applyCellColor(el, content);
 }
                 }
             });
