@@ -684,16 +684,6 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 <script>
 
-        
-// This runs every 10 seconds without any flickering
-setInterval(() => {
-    const isEditing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
-    if (!isEditing) {
-        loadData(true); // Silent background sync
-         // Periodic Google Sheets refresh
-    }
-}, 2000);
-
 setInterval(() => {
         syncAllAssetLookups(); // Silent background sync
          // Periodic Google Sheets refresh
@@ -707,6 +697,67 @@ setInterval(() => {
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+function initRealtimeSync() {
+    console.log("📡 Realtime Sync Active");
+
+    const channel = _supabase
+        .channel('table-db-changes')
+        .on(
+            'postgres_changes',
+            {
+                event: '*', // Listen for INSERT, UPDATE, and DELETE
+                schema: 'public',
+                table: 'BackEndData'
+            },
+            (payload) => {
+                const { eventType, new: newRow, old: oldRow } = payload;
+
+                if (eventType === 'UPDATE' || eventType === 'INSERT') {
+                    handleIncomingChange(newRow);
+                } else if (eventType === 'DELETE') {
+                    const wrapper = document.getElementById(`row-wrapper-${oldRow.id}`);
+                    if (wrapper) wrapper.style.display = 'none';
+                }
+            }
+        )
+        .subscribe();
+}
+
+function handleIncomingChange(row) {
+    // 1. Identify the row wrapper
+    const wrapper = document.getElementById(`row-wrapper-${row.id}`);
+    if (wrapper) {
+        wrapper.style.display = 'flex';
+        wrapper.setAttribute('data-occupied', 'true');
+    }
+
+    // 2. Loop through columns and update values
+    for (let col = 1; col <= 8; col++) {
+        const cellId = `${row.day_label}-r${row.id}-c${col}`;
+        const el = document.getElementById(cellId);
+        
+        if (el) {
+            // PROTECTION: Don't overwrite if YOU are currently typing in this box
+            if (el === document.activeElement) continue;
+
+            const content = row[`col${col}`] || "";
+            
+            if (col === 6) {
+                el.setAttribute('data-selected', content);
+                if (el.options && el.options[0]) {
+                    el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
+                }
+            } else if (col === 5) {
+                el.innerText = content;
+            } else {
+                el.value = content;
+            }
+            
+            // Re-run the color/size logic for the new data
+            applyCellColor(el, content);
+        }
+    }
+}
 
         // Change your window.onload or initial call to this:
 async function startApp() {
@@ -735,6 +786,8 @@ async function startApp() {
         // Give the UI 1 full second to "paint" the data into the boxes
         // before we decide which ones are empty and should be hidden.
         await new Promise(resolve => setTimeout(resolve, 1000));
+
+        initRealtimeSync();
 
         applyViewFilter('view2'); // Sets the 3-day look ahead filter
         collapseEverything();    // Closes all accordions
