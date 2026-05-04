@@ -700,7 +700,7 @@ setInterval(() => {
         syncAllAssetLookups(); // Silent background sync
          // Periodic Google Sheets refresh
     }
-}, 300000);
+}, 2000);
 
         // --- CONFIGURE THESE ---
         const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
@@ -862,20 +862,19 @@ function applyCellColor(element, value) {
 }
 
 async function syncAllAssetLookups() {
-    console.log("🔄 Background Asset Refresh: Checking Google Sheets...");
+    console.log("🔄 Background Asset Refresh: Syncing occupied line items...");
     
-    // Get all rows that are currently displayed/occupied
+    // THE FIX: Only target rows that have been marked as 'occupied' with data
     const activeRows = document.querySelectorAll('.cell-row[data-occupied="true"]');
     
     for (const row of activeRows) {
-        // Extract the ID and Day Label from the row element
-        const wrapperId = row.id; // e.g., "row-wrapper-105"
+        const wrapperId = row.id; 
         const dayLabel = row.getAttribute('data-date');
         const rowNum = parseInt(wrapperId.replace('row-wrapper-', ''));
 
         if (rowNum && dayLabel) {
-            // Trigger the lookup for this specific row
-            // We use 'await' if you want them to run one by one (safer for Google quotas)
+            // This replicates the onchange logic for Columns 3 and 4 
+            // by triggering the Google Sheets VLOOKUP
             await lookupColumn5Value(rowNum, dayLabel);
         }
     }
@@ -1232,6 +1231,11 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
     const syncKey = `${dayLabel}-${rowNum}`;
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
+
+    const wrapper = document.getElementById(`row-wrapper-${rowNum}`);
+    if (wrapper) {
+        wrapper.setAttribute('data-occupied', 'true');
+    }
 
     const rowData = {
         id: rowNum,          // e.g., 2026042005
