@@ -690,7 +690,7 @@ setInterval(() => {
     const isEditing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
     if (!isEditing) {
         loadData(true); // Silent background sync
-        syncAllAssetLookups(); // Periodic Google Sheets refresh
+         // Periodic Google Sheets refresh
     }
 }, 2000);
 
