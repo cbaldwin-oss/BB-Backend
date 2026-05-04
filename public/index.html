@@ -948,19 +948,30 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                 element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
                 rowDiv.appendChild(element);
             } 
-            else if ([1, 2, 3, 4, 7].includes(col)) {
-                element = document.createElement('select');
-                element.id = cellId;
-                element.innerHTML = '<option value="">Select...</option>';
-                const opts = (window.dropdownData?.[`col${col}`]) || [];
-                opts.forEach(t => { element.appendChild(new Option(t, t)); });
-                element.onchange = () => { 
-                    applyCellColor(element, element.value); 
-                    saveRow(rowNumericId, dayLabel);
-                    if (col === 3 || col === 4) lookupColumn5Value(rowNumericId, dayLabel);
-                };
-                rowDiv.appendChild(element);
-            } 
+            // Locate this block in your addRowsToContainer function
+else if ([1, 2, 3, 4, 7].includes(col)) {
+    element = document.createElement('select');
+    element.id = cellId;
+    element.innerHTML = '<option value="">Select...</option>';
+    const opts = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
+    opts.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t; o.text = t;
+        element.appendChild(o);
+    });
+
+    element.onchange = () => { 
+        applyCellColor(element, element.value); 
+        saveRow(rowNumericId, dayLabel);
+
+        // --- THE FIX: Trigger lookup immediately for quicker data pull ---
+        if (col === 3 || col === 4) {
+            console.log(`⚡ Instant Lookup Triggered for Row ${rowNumericId}`);
+            lookupColumn5Value(rowNumericId, dayLabel);
+        }
+    };
+    rowDiv.appendChild(element);
+}
             else {
                 element = document.createElement('textarea');
                 element.id = cellId;
@@ -1171,21 +1182,40 @@ async function lookupColumn5Value(rowNum, dayLabel) {
     const val4 = document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value;
     const col5 = document.getElementById(`${dayLabel}-r${rowNum}-c5`);
 
-    if (!val3 || !val4 || !col5) return;
+    // 1. Accuracy Check: Only run if both columns have a selection
+    if (!val3 || val3 === "" || !val4 || val4 === "" || !col5) {
+        if (col5) col5.innerText = "..."; // Reset if a value is cleared
+        return;
+    }
+
     const currentText = col5.innerText;
 
     try {
+        // Visual indicator that the pull is happening
+        col5.innerText = "⏳ Checking...";
+
         const url = `${GOOGLE_SCRIPT_URL}?action=lookup&col3=${encodeURIComponent(val3)}&col4=${encodeURIComponent(val4)}`;
+        
+        // Use a shorter timeout or check if the request is successful
         const response = await fetch(url);
         const data = await response.json();
 
-        if (data && data.result && data.result !== currentText) {
-            col5.innerText = data.result;
-            applyCellColor(col5, data.result);
-            saveRow(rowNum, dayLabel); // Only save if value changed
+        if (data && data.result) {
+            // 2. Speed/Efficiency: Only save to Supabase if the result actually changed
+            if (data.result !== currentText) {
+                col5.innerText = data.result;
+                applyCellColor(col5, data.result);
+                
+                // Immediately commit this back to Supabase
+                await saveRow(rowNum, dayLabel); 
+                console.log(`✅ Asset Info Sync complete for Row ${rowNum}`);
+            }
+        } else {
+            col5.innerText = "No Match";
         }
     } catch (e) {
-        console.error("VLOOKUP Error:", e);
+        console.error("VLOOKUP Pull Error:", e);
+        col5.innerText = "Error";
     }
 }
 
