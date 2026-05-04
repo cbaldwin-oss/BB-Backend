@@ -749,6 +749,7 @@ function toggleAuthMode(mode) {
 }
 
 // Master function for the main button
+// Add 'update' as a possible mode
 async function handleAuthAction() {
     const email = document.getElementById('user-email-input').value.trim();
     const password = document.getElementById('user-password-input').value;
@@ -756,10 +757,7 @@ async function handleAuthAction() {
     const successEl = document.getElementById('auth-success');
     const btn = document.getElementById('auth-main-btn');
 
-    errorEl.style.display = 'none';
-    successEl.style.display = 'none';
-
-    if (!email) return;
+    if (!email || (authMode !== 'reset' && !password)) return;
 
     btn.disabled = true;
 
@@ -767,22 +765,29 @@ async function handleAuthAction() {
         if (authMode === 'login') {
             const { error } = await _supabase.auth.signInWithPassword({ email, password });
             if (error) throw error;
-            location.reload(); // Refresh to trigger startApp with new session
+            location.reload(); 
         } 
         else if (authMode === 'signup') {
             const { error } = await _supabase.auth.signUp({ email, password });
             if (error) throw error;
-            successEl.innerText = "Account created! You can now login.";
+            successEl.innerText = "Check your email for a confirmation link!";
             successEl.style.display = 'block';
-            toggleAuthMode('login');
         } 
         else if (authMode === 'reset') {
             const { error } = await _supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: window.location.href // Returns user here to update password
+                redirectTo: window.location.href 
             });
             if (error) throw error;
-            successEl.innerText = "Reset link sent to your email!";
+            successEl.innerText = "Reset link sent! Please check your inbox.";
             successEl.style.display = 'block';
+        }
+        // --- NEW: Handle Password Updates ---
+        else if (authMode === 'update') {
+            const { error } = await _supabase.auth.updateUser({ password: password });
+            if (error) throw error;
+            successEl.innerText = "Password updated successfully! Logging in...";
+            successEl.style.display = 'block';
+            setTimeout(() => location.reload(), 2000);
         }
     } catch (err) {
         errorEl.innerText = err.message;
@@ -825,13 +830,21 @@ async function handleAuthAction() {
 // 2. Helper to verify if the user is in the authorized_editors table
 async function verifyPermission(email) {
     try {
+        // Use .ilike for case-insensitive matching
         const { data, error } = await _supabase
             .from('authorized_editors')
             .select('email')
-            .eq('email', email)
+            .ilike('email', email.toLowerCase())
             .single();
+            
+        if (error) {
+            console.error("Permission Check Error:", error.message);
+            return false;
+        }
         return !!data;
-    } catch (e) { return false; }
+    } catch (e) { 
+        return false; 
+    }
 }
 
         // 1. Send a Magic Link (No password needed)
@@ -952,17 +965,15 @@ async function startApp() {
     createSections(); 
     const spinnerSection = document.getElementById('loading-spinner-section');
     const authPrompt = document.getElementById('auth-prompt');
-    const loader = document.getElementById('loading-overlay');
 
-    // 1. Check if user is coming back from a "Reset Password" link
-    // Supabase appends a specific type of hash for resets
-    if (window.location.hash.includes('type=recovery')) {
+    // Detect if returning from a Reset Password link
+    if (window.location.hash.includes('type=recovery') || window.location.href.includes('type=recovery')) {
         spinnerSection.style.display = 'none';
         authPrompt.style.display = 'block';
-        toggleAuthMode('signup'); // Reuse signup UI to let them set new password
-        document.getElementById('auth-title').innerText = "Update Password";
+        toggleAuthMode('update'); // Set mode to update
+        document.getElementById('auth-title').innerText = "Set New Password";
         document.getElementById('auth-main-btn').innerText = "Update Password";
-        return; // Stop initialization until they set the password
+        return; 
     }
 
     try {
