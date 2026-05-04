@@ -771,26 +771,20 @@ async function startApp() {
     // 1. Build the HTML grid structure immediately
     createSections(); 
 
-    try {
-        // 2. FETCH DROPDOWNS FIRST (Trade Partners, Assets, etc.)
-        await fetchDropdownOptions();
+try {
+        await fetchDropdownOptions(); // Load the options from Supabase
         
-        // 3. FETCH SAVED DATA: This is the "Hard Stop"
-        // The script pauses here until every cell is populated
-        console.log("⏳ Syncing cloud data before reveal...");
-        await loadData();
+        // --- CRITICAL: Refresh the dropdown options in the DOM BEFORE loading values ---
+        refreshDropdowns(); 
         
-        // 4. REFRESH UI: Final labels and multi-select text
+        await loadData(); // Now inject the saved values from Supabase
+        
+        // Re-run refresh one last time to fix labels (like Col 6)
         refreshDropdowns();
 
-        // Give the UI 1 full second to "paint" the data into the boxes
-        // before we decide which ones are empty and should be hidden.
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
         initRealtimeSync();
-
-        applyViewFilter('view2'); // Sets the 3-day look ahead filter
-        collapseEverything();    // Closes all accordions
+        applyViewFilter('view2');
+        collapseEverything();
         // --- HIGHLIGHT THE VIEW 2 BUTTON ---
         // Remove 'active' class from all buttons
         document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
