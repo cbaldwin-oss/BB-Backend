@@ -733,6 +733,16 @@ async function startApp() {
 
         applyViewFilter('view2'); // Sets the 3-day look ahead filter
         collapseEverything();    // Closes all accordions
+        // --- HIGHLIGHT THE VIEW 2 BUTTON ---
+        // Remove 'active' class from all buttons
+        document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+        
+        // Find the "3 Day Look Ahead" button and add 'active'
+        // We look for the button that calls applyViewFilter('view2')
+        const view2Btn = document.querySelector('button[onclick*="view2"]');
+        if (view2Btn) {
+            view2Btn.classList.add('active');
+        }
 
     } catch (e) {
         console.error("❌ Launch error:", e);
