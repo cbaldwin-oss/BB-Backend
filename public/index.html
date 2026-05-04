@@ -1491,16 +1491,26 @@ async function loadData(isSilent = false) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
                     const el = document.getElementById(cellId);
                     if (el && el !== document.activeElement) {
-                        const content = row[`col${col}`] || "";
-                        if (col === 6) {
-                            el.setAttribute('data-selected', content);
-                        } else if (col === 5) {
-                            el.innerText = content;
-                        } else {
-                            el.value = content;
-                        }
-                        applyCellColor(el, content);
-                    }
+    const content = row[`col${col}`] || "";
+
+    if (col === 6) {
+        el.setAttribute('data-selected', content);
+    } else if (col === 5) {
+        el.innerText = content;
+    } else {
+        // --- THE FIX: Ensure the value exists before assigning ---
+        // For selects (Cols 1-4, 7), we must ensure the option is present
+        if (el.tagName === 'SELECT') {
+            // If the option doesn't exist yet, create it temporarily so the data isn't lost
+            if (content && ![...el.options].some(opt => opt.value === content)) {
+                const tempOpt = new Option(content, content);
+                el.add(tempOpt);
+            }
+        }
+        el.value = content; 
+    }
+    applyCellColor(el, content);
+}
                 }
             });
             return true;
