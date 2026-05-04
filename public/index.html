@@ -748,7 +748,6 @@ async function startApp() {
         if (view2Btn) {
             view2Btn.classList.add('active');
         }
-        syncAllAssetLookups(); // Initial asset lookup sync after data load
 
     } catch (e) {
         console.error("❌ Launch error:", e);
@@ -853,7 +852,7 @@ function applyCellColor(element, value) {
         element.style.backgroundColor = "#c8e6c9"; element.style.color = "#1b5e20";
     } else if (lowerVal.includes("med") || lowerVal.includes("hold") || lowerVal.includes(" 2")) {
         element.style.backgroundColor = "#fff9c4"; element.style.color = "#f57f17";
-    } else if (lowerVal.includes("open") || lowerVal.includes("fail") || lowerVal.includes("inccomplete")) {
+    } else if (lowerVal.includes("open") || lowerVal.includes("fail") || lowerVal.includes("incomplete")) {
         element.style.backgroundColor = "#ffcdd2"; element.style.color = "#b71c1c";
     }
 }
