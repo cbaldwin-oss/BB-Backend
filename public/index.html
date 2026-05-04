@@ -742,11 +742,12 @@ function handleIncomingChange(row) {
 
             const content = row[`col${col}`] || "";
             
-            if (col === 6) {
-                el.setAttribute('data-selected', content);
-                if (el.options && el.options[0]) {
-                    el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
-                }
+if (col === 6) {
+    el.setAttribute('data-selected', content);
+    // Refresh the visible label instantly
+    if (el.options && el.options[0]) {
+        el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
+    }
 } else if (col === 5) {
     el.innerText = content;
 } else {
@@ -860,37 +861,40 @@ function applyCellColor(element, value) {
     const cleanVal = val.toString().trim();
     const lowerVal = cleanVal.toLowerCase();
 
-    // --- EXPANSION LOGIC FOR COLS 5, 6, 7, 8 ---
+    // --- THE FIX: Update Column 6 Display Label ---
+    if (element.id && element.id.endsWith("-c6") && element.tagName === "SELECT") {
+        if (element.options && element.options[0]) {
+            // Set the first option text to the selected values
+            element.options[0].text = cleanVal ? `Selected: ${cleanVal}` : "+ Add Multi";
+            // Ensure the dropdown stays on this 'label' option
+            element.selectedIndex = 0;
+        }
+    }
+
+    // --- Expansion Logic (Existing) ---
     const charCount = cleanVal.length;
-    // We target cols 5, 6, 7, 8 specifically for wrapping
     const isWrappingCol = element.id && (
-        element.id.includes("-c5") || 
-        element.id.includes("-c6") || 
-        element.id.includes("-c7") || 
-        element.id.includes("-c8")
+        element.id.includes("-c5") || element.id.includes("-c6") || 
+        element.id.includes("-c7") || element.id.includes("-c8")
     );
 
     if (isWrappingCol && charCount > 25) {
-        // Roughly 22 chars fit per line in your grid width
         const estimatedLines = Math.ceil(charCount / 22); 
-        const newHeight = (estimatedLines * 18) + 12; // 18px per line + padding
-        element.style.height = newHeight + "px";
+        element.style.height = (estimatedLines * 18) + 12 + "px";
     } else {
-        element.style.height = "40px"; // Default height
+        element.style.height = "40px";
     }
 
-    // --- COLOR LOGIC (Existing) ---
+    // --- Color Logic (Existing) ---
     if (cleanVal === "" || lowerVal === "select..." || lowerVal === "...") {
         element.style.backgroundColor = "#f9f9f9";
         element.style.color = "#666";
         return;
     }
 
-    // Default "Filled" Blue
     element.style.backgroundColor = "#e1f5fe";
     element.style.color = "#01579b";
 
-    // Priority Colors
     if (lowerVal.includes("high") || lowerVal.includes("pass") || lowerVal.includes(" 4")) {
         element.style.backgroundColor = "#c8e6c9"; element.style.color = "#1b5e20";
     } else if (lowerVal.includes("med") || lowerVal.includes("hold") || lowerVal.includes(" 2")) {
@@ -1483,7 +1487,12 @@ async function loadData(isSilent = false) {
     const content = row[`col${col}`] || "";
 
     if (col === 6) {
-        el.setAttribute('data-selected', content);
+    el.setAttribute('data-selected', content);
+    
+    // Explicitly update the label for immediate visibility on load
+    if (el.options && el.options[0]) {
+        el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
+    }
     } else if (col === 5) {
     el.innerText = content;
 } else {
