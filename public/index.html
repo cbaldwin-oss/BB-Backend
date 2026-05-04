@@ -757,41 +757,37 @@ async function handleAuthAction() {
     const successEl = document.getElementById('auth-success');
     const btn = document.getElementById('auth-main-btn');
 
-    if (!email || (authMode !== 'reset' && !password)) return;
+    if (!email) return;
 
     btn.disabled = true;
+    errorEl.style.display = 'none';
 
     try {
         if (authMode === 'login') {
-            const { error } = await _supabase.auth.signInWithPassword({ email, password });
-            if (error) throw error;
+            const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+            
+            if (error) {
+                // THE FIX: Provide specific feedback
+                if (error.message.includes("Email not confirmed")) {
+                    throw new Error("Please check your inbox and click the confirmation link before logging in.");
+                }
+                throw error;
+            }
+            
             location.reload(); 
         } 
         else if (authMode === 'signup') {
-            const { error } = await _supabase.auth.signUp({ email, password });
+            const { data, error } = await _supabase.auth.signUp({ email, password });
             if (error) throw error;
-            successEl.innerText = "Check your email for a confirmation link!";
-            successEl.style.display = 'block';
-        } 
-        else if (authMode === 'reset') {
-            const { error } = await _supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: window.location.href 
-            });
-            if (error) throw error;
-            successEl.innerText = "Reset link sent! Please check your inbox.";
+            
+            successEl.innerText = "Account created! Please check your email to confirm your account.";
             successEl.style.display = 'block';
         }
-        // --- NEW: Handle Password Updates ---
-        else if (authMode === 'update') {
-            const { error } = await _supabase.auth.updateUser({ password: password });
-            if (error) throw error;
-            successEl.innerText = "Password updated successfully! Logging in...";
-            successEl.style.display = 'block';
-            setTimeout(() => location.reload(), 2000);
-        }
+        // ... (rest of your logic)
     } catch (err) {
-        errorEl.innerText = err.message;
+        errorEl.innerText = err.message; // This will now show "Email not confirmed" or "Invalid login credentials"
         errorEl.style.display = 'block';
+        console.error("Auth Error:", err);
     } finally {
         btn.disabled = false;
     }
