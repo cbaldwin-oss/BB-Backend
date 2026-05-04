@@ -694,6 +694,14 @@ setInterval(() => {
     }
 }, 2000);
 
+setInterval(() => {
+    const isEditing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
+    if (!isEditing) {
+        syncAllAssetLookups(); // Silent background sync
+         // Periodic Google Sheets refresh
+    }
+}, 300000);
+
         // --- CONFIGURE THESE ---
         const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjbnhldGNvbWRybHh2bGFycW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NDIyMjksImV4cCI6MjA5MjAxODIyOX0.gP37sT5OrCOVRZXekMrBZHm5mtfnr6JrC2YGflWsDQU';
