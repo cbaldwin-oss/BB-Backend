@@ -695,11 +695,8 @@ setInterval(() => {
 }, 2000);
 
 setInterval(() => {
-    const isEditing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
-    if (!isEditing) {
         syncAllAssetLookups(); // Silent background sync
          // Periodic Google Sheets refresh
-    }
 }, 2000);
 
         // --- CONFIGURE THESE ---
