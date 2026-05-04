@@ -658,35 +658,13 @@ position: sticky;
 <div id="main-content-area">
     </div>
 
-
 <div id="loading-overlay">
-    <div id="loading-spinner-section">
-        <div class="spinner"></div>
-        <p id="loading-status-text">Initializing Schedule...</p>
+    <div class="loader-content">
+        <div class="ship-circle">
+            <span class="rocket">🛠️🚀</span>
+        </div>
+        <p class="loading-text">Refueling QCx Rocket...</p>
     </div>
-
-<div id="auth-prompt" style="display: none; text-align: center; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); color: #333; max-width: 400px; margin: 0 auto;">
-    <h2 id="auth-title" style="margin-top: 0; color: #01579b;">Sign In</h2>
-    
-    <input type="email" id="user-email-input" placeholder="Email" 
-           style="padding: 12px; width: 100%; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 10px; box-sizing: border-box; font-size: 16px;">
-    
-    <input type="password" id="user-password-input" placeholder="Password" 
-           style="padding: 12px; width: 100%; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 15px; box-sizing: border-box; font-size: 16px;">
-    
-    <button id="auth-main-btn" onclick="handleAuthAction()" 
-            style="background: #01579b; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;">
-        Login
-    </button>
-    
-    <div style="margin-top: 15px; display: flex; justify-content: space-between; font-size: 13px;">
-        <a href="javascript:void(0)" onclick="toggleAuthMode('signup')" id="toggle-signup" style="color: #01579b;">Create Account</a>
-        <a href="javascript:void(0)" onclick="toggleAuthMode('reset')" id="toggle-reset" style="color: #666;">Forgot Password?</a>
-    </div>
-
-    <p id="auth-error" style="color: #b71c1c; margin-top: 15px; font-size: 14px; display: none;"></p>
-    <p id="auth-success" style="color: #1b5e20; margin-top: 15px; font-size: 14px; display: none;"></p>
-</div>
 </div>
 
 <script>
@@ -718,174 +696,6 @@ setInterval(() => {
         // 1. Initialize Supabase
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        let authMode = 'login'; // 'login', 'signup', or 'reset'
-
-// Toggle UI between Login, Signup, and Reset
-function toggleAuthMode(mode) {
-    authMode = mode;
-    const title = document.getElementById('auth-title');
-    const passInput = document.getElementById('user-password-input');
-    const mainBtn = document.getElementById('auth-main-btn');
-    const errorEl = document.getElementById('auth-error');
-    const successEl = document.getElementById('auth-success');
-
-    errorEl.style.display = 'none';
-    successEl.style.display = 'none';
-
-    if (mode === 'login') {
-        title.innerText = "Sign In";
-        mainBtn.innerText = "Login";
-        passInput.style.display = "block";
-    } else if (mode === 'signup') {
-        title.innerText = "Set Password";
-        mainBtn.innerText = "Create Account";
-        passInput.style.display = "block";
-    } else if (mode === 'reset') {
-        title.innerText = "Reset Password";
-        mainBtn.innerText = "Send Reset Link";
-        passInput.style.display = "none"; // Hide password for reset request
-    }
-}
-
-// Master function for the main button
-// Add 'update' as a possible mode
-async function handleAuthAction() {
-    const email = document.getElementById('user-email-input').value.trim();
-    const password = document.getElementById('user-password-input').value;
-    const errorEl = document.getElementById('auth-error');
-    const successEl = document.getElementById('auth-success');
-    const btn = document.getElementById('auth-main-btn');
-
-    if (!email) return;
-
-    btn.disabled = true;
-    errorEl.style.display = 'none';
-
-    try {
-        if (authMode === 'login') {
-            const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
-            
-            if (error) {
-                // THE FIX: Provide specific feedback
-                if (error.message.includes("Email not confirmed")) {
-                    throw new Error("Please check your inbox and click the confirmation link before logging in.");
-                }
-                throw error;
-            }
-            
-            location.reload(); 
-        } 
-        else if (authMode === 'signup') {
-            const { data, error } = await _supabase.auth.signUp({ email, password });
-            if (error) throw error;
-            
-            successEl.innerText = "Account created! Please check your email to confirm your account.";
-            successEl.style.display = 'block';
-        }
-        // ... (rest of your logic)
-    } catch (err) {
-        errorEl.innerText = err.message; // This will now show "Email not confirmed" or "Invalid login credentials"
-        errorEl.style.display = 'block';
-        console.error("Auth Error:", err);
-    } finally {
-        btn.disabled = false;
-    }
-}
-
-        async function handleVerification() {
-    const emailInput = document.getElementById('user-email-input');
-    const errorEl = document.getElementById('auth-error');
-    const successEl = document.getElementById('auth-success');
-    const btn = document.getElementById('verify-btn');
-    
-    const email = emailInput.value.trim().toLowerCase();
-    if (!email) return;
-
-    btn.disabled = true;
-    btn.innerText = "Sending Link...";
-    errorEl.style.display = 'none';
-
-    // Step A: Send Supabase Magic Link
-    const { error } = await _supabase.auth.signInWithOtp({ 
-        email: email,
-        options: { emailRedirectTo: window.location.href } 
-    });
-
-    if (error) {
-        errorEl.innerText = "Error: " + error.message;
-        errorEl.style.display = 'block';
-        btn.disabled = false;
-        btn.innerText = "Verify Email";
-    } else {
-        successEl.style.display = 'block';
-        btn.innerText = "Link Sent!";
-    }
-}
-
-// 2. Helper to verify if the user is in the authorized_editors table
-async function verifyPermission(email) {
-    try {
-        // Use .ilike for case-insensitive matching
-        const { data, error } = await _supabase
-            .from('authorized_editors')
-            .select('email')
-            .ilike('email', email.toLowerCase())
-            .single();
-            
-        if (error) {
-            console.error("Permission Check Error:", error.message);
-            return false;
-        }
-        return !!data;
-    } catch (e) { 
-        return false; 
-    }
-}
-
-        // 1. Send a Magic Link (No password needed)
-async function loginWithMagicLink() {
-    const email = document.getElementById('login-email').value;
-    const { error } = await _supabase.auth.signInWithOtp({ email });
-    if (error) alert(error.message);
-    else alert("Check your email for the login link!");
-}
-
-// 2. Check login status on page load
-async function checkUser() {
-    const { data: { user } } = await _supabase.auth.getUser();
-    const status = document.getElementById('user-status');
-    
-    if (user) {
-        status.innerText = `Logged in as: ${user.email}`;
-        window.isAuthorized = await verifyPermission(user.email);
-        if (!window.isAuthorized) {
-            status.innerText += " (View Only Mode)";
-            lockUI();
-        }
-    } else {
-        lockUI();
-    }
-}
-
-// 3. Verify if they are in our special table
-async function verifyPermission(email) {
-    const { data, error } = await _supabase
-        .from('authorized_editors')
-        .select('email')
-        .eq('email', email)
-        .single();
-    return !!data;
-}
-
-// 4. Disable all inputs if not authorized
-function lockUI() {
-    document.querySelectorAll('input, select, textarea').forEach(el => {
-        el.disabled = true;
-    });
-    // Hide delete buttons
-    document.querySelectorAll('.delete-btn').forEach(btn => btn.style.display = 'none');
-}
 
 function initRealtimeSync() {
     console.log("📡 Realtime Sync Active");
@@ -956,60 +766,47 @@ applyCellColor(el, content);
 }
 
         // Change your window.onload or initial call to this:
-// 3. Modified startApp logic
 async function startApp() {
+        console.log("🚀 Launching App...");
+    const loader = document.getElementById('loading-overlay');
     createSections(); 
-    const spinnerSection = document.getElementById('loading-spinner-section');
-    const authPrompt = document.getElementById('auth-prompt');
-
-    // Detect if returning from a Reset Password link
-    if (window.location.hash.includes('type=recovery') || window.location.href.includes('type=recovery')) {
-        spinnerSection.style.display = 'none';
-        authPrompt.style.display = 'block';
-        toggleAuthMode('update'); // Set mode to update
-        document.getElementById('auth-title').innerText = "Set New Password";
-        document.getElementById('auth-main-btn').innerText = "Update Password";
-        return; 
-    }
-
     try {
-        const { data: { user } } = await _supabase.auth.getUser();
+        await fetchDropdownOptions(); 
+        
+        // Populate dropdowns once
+        refreshDropdowns(); 
+        
+        console.log("⏳ Syncing cloud data...");
+        // Load data into populated dropdowns
+        await loadData(); 
 
-        if (user) {
-            // Check authorized_editors table (Same logic as before)
-            const isAuth = await verifyPermission(user.email);
-            
-            if (isAuth) {
-                window.isAuthorized = true;
-                await fetchDropdownOptions();
-                refreshDropdowns();
-                await loadData();
-                initRealtimeSync();
-
-                applyViewFilter('view2');
-                collapseEverything();
-
-                loader.classList.add('hidden');
-                setTimeout(() => { loader.style.display = 'none'; autoCleanUI(); }, 800);
-            } else {
-                showAuthError("Access Denied: Email not on approved list.");
-            }
-        } else {
-            // Show login screen
-            spinnerSection.style.display = 'none';
-            authPrompt.style.display = 'block';
+        initRealtimeSync();
+        applyViewFilter('view2');
+        collapseEverything();
+        // --- HIGHLIGHT THE VIEW 2 BUTTON ---
+        // Remove 'active' class from all buttons
+        document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+        
+        // Find the "3 Day Look Ahead" button and add 'active'
+        // We look for the button that calls applyViewFilter('view2')
+        const view2Btn = document.querySelector('button[onclick*="view2"]');
+        if (view2Btn) {
+            view2Btn.classList.add('active');
         }
-    } catch (e) {
-        showAuthError("Failed to initialize.");
-    }
-}
 
-function showAuthError(msg) {
-    document.getElementById('loading-spinner-section').style.display = 'none';
-    document.getElementById('auth-prompt').style.display = 'block';
-    const err = document.getElementById('auth-error');
-    err.innerText = msg;
-    err.style.display = 'block';
+    } catch (e) {
+        console.error("❌ Launch error:", e);
+    } finally {
+        // 6. REVEAL: Only hide the loader after everything above is done
+        if (loader) {
+            loader.classList.add('hidden');
+            setTimeout(() => {
+                loader.style.display = 'none';
+             autoCleanUI();
+            }, 800); 
+        }
+        console.log("✅ Launch Successful: Grid is fully painted.");
+    }
 }
 
 window.onload = startApp;
@@ -1098,7 +895,7 @@ function applyCellColor(element, value) {
     element.style.backgroundColor = "#e1f5fe";
     element.style.color = "#01579b";
 
-    if (lowerVal.includes("high") || lowerVal.includes("pass") || lowerVal.includes(" 4") || lowerVal.includes("NA")) {
+    if (lowerVal.includes("high") || lowerVal.includes("pass") || lowerVal.includes(" 4")) {
         element.style.backgroundColor = "#c8e6c9"; element.style.color = "#1b5e20";
     } else if (lowerVal.includes("med") || lowerVal.includes("hold") || lowerVal.includes(" 2")) {
         element.style.backgroundColor = "#fff9c4"; element.style.color = "#f57f17";
@@ -1468,10 +1265,6 @@ async function lookupColumn5Value(rowNum, dayLabel, isBackground = false) {
 }
 
 async function saveRow(rowNum, dayLabel, col6Override = null) {
-    if (!window.isAuthorized) {
-        console.warn("🚫 Edit blocked: You are not an authorized editor.");
-        return;
-    }
     const syncKey = `${dayLabel}-${rowNum}`;
     if (activeSyncs.has(syncKey)) return;
     activeSyncs.add(syncKey);
