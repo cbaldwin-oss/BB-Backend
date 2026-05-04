@@ -875,7 +875,7 @@ async function syncAllAssetLookups() {
         if (rowNum && dayLabel) {
             // This replicates the onchange logic for Columns 3 and 4 
             // by triggering the Google Sheets VLOOKUP
-            await lookupColumn5Value(rowNum, dayLabel);
+           await lookupColumn5Value(rowNum, dayLabel, true);
         }
     }
 }
@@ -975,7 +975,7 @@ else if ([1, 2, 3, 4, 7].includes(col)) {
         // --- THE FIX: Trigger lookup immediately for quicker data pull ---
         if (col === 3 || col === 4) {
             console.log(`⚡ Instant Lookup Triggered for Row ${rowNumericId}`);
-            lookupColumn5Value(rowNumericId, dayLabel);
+            lookupColumn5Value(rowNumericId, dayLabel, false);
         }
     };
     rowDiv.appendChild(element);
@@ -1185,45 +1185,40 @@ async function deleteFullRow(wrapperId) {
     }
 }
 
-async function lookupColumn5Value(rowNum, dayLabel) {
+async function lookupColumn5Value(rowNum, dayLabel, isBackground = false) {
     const val3 = document.getElementById(`${dayLabel}-r${rowNum}-c3`)?.value;
     const val4 = document.getElementById(`${dayLabel}-r${rowNum}-c4`)?.value;
     const col5 = document.getElementById(`${dayLabel}-r${rowNum}-c5`);
 
-    // 1. Accuracy Check: Only run if both columns have a selection
     if (!val3 || val3 === "" || !val4 || val4 === "" || !col5) {
-        if (col5) col5.innerText = "..."; // Reset if a value is cleared
+        if (col5) col5.innerText = "..."; 
         return;
     }
 
     const currentText = col5.innerText;
 
     try {
-        // Visual indicator that the pull is happening
-        col5.innerText = "⏳ Checking...";
+        // --- THE FIX: Only show indicator if NOT a background sync ---
+        if (!isBackground) {
+            col5.innerText = "⏳ Checking...";
+        }
 
         const url = `${GOOGLE_SCRIPT_URL}?action=lookup&col3=${encodeURIComponent(val3)}&col4=${encodeURIComponent(val4)}`;
-        
-        // Use a shorter timeout or check if the request is successful
         const response = await fetch(url);
         const data = await response.json();
 
         if (data && data.result) {
-            // 2. Speed/Efficiency: Only save to Supabase if the result actually changed
             if (data.result !== currentText) {
                 col5.innerText = data.result;
                 applyCellColor(col5, data.result);
-                
-                // Immediately commit this back to Supabase
                 await saveRow(rowNum, dayLabel); 
-                console.log(`✅ Asset Info Sync complete for Row ${rowNum}`);
             }
-        } else {
+        } else if (!isBackground) {
             col5.innerText = "No Match";
         }
     } catch (e) {
         console.error("VLOOKUP Pull Error:", e);
-        col5.innerText = "Error";
+        if (!isBackground) col5.innerText = "Error";
     }
 }
 
