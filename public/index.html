@@ -770,20 +770,21 @@ async function handleRequestAccess() {
     successEl.style.display = 'block';
 
     try {
-        // We use your existing Google Script URL to relay the email
         const url = `${GOOGLE_SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(email)}&admin=${encodeURIComponent(ADMIN_EMAIL)}`;
         
         const response = await fetch(url);
         const data = await response.json();
 
+        // THE FIX: If it fails, show the error message sent by the Google Script
         if (data.success) {
             successEl.innerText = "Request sent! The admin will be notified.";
         } else {
-            throw new Error("Failed to send");
+            const serverError = data.error || "Unknown server error";
+            throw new Error(`Google Script Error: ${serverError}`);
         }
     } catch (e) {
         console.error("Request Error:", e);
-        errorEl.innerText = "Could not send request. Please try again later.";
+        errorEl.innerText = e.message; // Now displays the specific Google error
         errorEl.style.display = 'block';
         successEl.style.display = 'none';
     }
