@@ -623,6 +623,28 @@ position: sticky;
     align-items: center;
     gap: 25px; /* Adjust this number to increase/decrease the space */
 }
+
+.presence-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: default;
+    user-select: none;
+    transition: transform 0.2s ease;
+}
+
+.presence-avatar:hover {
+    transform: scale(1.1);
+    z-index: 10;
+}
 </style>
 </head>
 <body>
@@ -650,6 +672,8 @@ position: sticky;
     <div class="subheader-item">
         <span id="saveIndicator">Saved</span>
         <button class="tool-btn" onclick="logout()">Logout</button>
+    </div>
+    <div id="presence-list" style="display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 15px;">
     </div>
 </div>
 
@@ -788,6 +812,62 @@ async function handleRequestAccess() {
         errorEl.style.display = 'block';
         successEl.style.display = 'none';
     }
+}
+
+let presenceChannel;
+
+async function initPresence(userEmail) {
+    // 1. Create the Presence Channel
+    presenceChannel = _supabase.channel('online-users', {
+        config: { presence: { key: userEmail } }
+    });
+
+    // 2. Listen for "sync" events (when users join or leave)
+    presenceChannel
+        .on('presence', { event: 'sync' }, () => {
+            const newState = presenceChannel.presenceState();
+            renderPresenceIcons(newState);
+        })
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                // 3. Start tracking this user
+                await presenceChannel.track({
+                    email: userEmail,
+                    online_at: new Date().toISOString(),
+                });
+            }
+        });
+}
+
+function renderPresenceIcons(presenceState) {
+    const container = document.getElementById('presence-list');
+    container.innerHTML = ''; // Clear current icons
+
+    // Get unique users from the presence state
+    const users = Object.keys(presenceState);
+
+    users.forEach(email => {
+        const initial = email.charAt(0).toUpperCase();
+        const color = stringToColor(email); // Generate a consistent color for this user
+        
+        const icon = document.createElement('div');
+        icon.className = 'presence-avatar';
+        icon.innerText = initial;
+        icon.title = email; // Show email on hover
+        icon.style.backgroundColor = color;
+        
+        container.appendChild(icon);
+    });
+}
+
+// Helper to give every email a consistent, bright color
+function stringToColor(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+    return "#" + "00000".substring(0, 6 - c.length) + c;
 }
 
 function initRealtimeSync() {
@@ -988,6 +1068,7 @@ async function startApp() {
             if (isAuth) {
                 window.isAuthorized = true;
                 await fetchDropdownOptions();
+                initPresence(user.email); // <--- ADD THIS LINE
                 refreshDropdowns();
                 await loadData();
                 initRealtimeSync();
