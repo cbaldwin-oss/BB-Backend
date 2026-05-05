@@ -709,7 +709,7 @@ position: sticky;
     <div style="margin-top: 20px; font-size: 14px; display: flex; justify-content: center; gap: 20px;">
     <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">First time? Create your PIN</a>
     <span style="color: #d33b3b;">|</span>
-    <a href="javascript:void(0)" onclick="handleForgotPin()" style="color: #666; text-decoration: none;">Forgot PIN?</a>
+    <a href="javascript:void(0)" onclick="handleForgotPin()" style="color: #e53737; text-decoration: none;">Forgot PIN?</a>
 </div>
 
     <p id="auth-error" style="color: #d32f2f; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
@@ -1329,8 +1329,8 @@ async function handleAuthAction() {
     const successEl = document.getElementById('auth-success');
     const btn = document.getElementById('auth-btn');
 
-    // --- FIX: Only require email if we are NOT in update mode ---
-    if (!window.isUpdateMode && !email) return;
+    // --- THE FIX: Only require email if we are NOT updating the PIN ---
+    if (!window.isUpdateMode && !email) return; 
     if (!pin) return;
 
     if (pin.length < 6) {
@@ -1349,21 +1349,24 @@ async function handleAuthAction() {
             const { error } = await _supabase.auth.updateUser({ password: pin });
             if (error) throw error;
             
-            // Get user to save email to localStorage so we "remember" them
+            // Get the user object to save their email to localStorage
             const { data: { user } } = await _supabase.auth.getUser();
-            if (user) localStorage.setItem('launchpad_email', user.email);
+            if (user) {
+                localStorage.setItem('launchpad_email', user.email);
+            }
 
             successEl.innerText = "PIN updated! Accessing LaunchPad...";
             successEl.style.display = 'block';
+            errorEl.style.display = 'none';
 
+            // Redirect to a clean URL (removes #type=recovery)
             setTimeout(() => {
-                // Clean the URL (remove #type=recovery) and reload
                 window.location.href = window.location.origin + window.location.pathname;
             }, 2000);
             return;
         }
 
-        // --- 2. STANDARD WHITELIST CHECK (Login/Signup) ---
+        // --- 2. STANDARD LOGIN/SIGNUP LOGIC ---
         const isApproved = await verifyPermission(email);
         if (!isApproved) {
             errorEl.innerText = "Access Denied: This email is not authorized.";
@@ -1378,11 +1381,9 @@ async function handleAuthAction() {
             successEl.innerText = "Success! Check your email to verify your account.";
             successEl.style.display = 'block';
         } else {
-            // LOGIN: Immediate entry with PIN
             const { error } = await _supabase.auth.signInWithPassword({ email, password: pin });
             if (error) throw error;
             
-            // Save email to localStorage so startApp lets them in
             localStorage.setItem('launchpad_email', email);
             location.reload(); 
         }
