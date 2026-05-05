@@ -710,6 +710,8 @@ position: sticky;
     <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">First time? Create your PIN</a>
     <span style="color: #d33b3b;">|</span>
     <a href="javascript:void(0)" onclick="handleForgotPin()" style="color: #e53737; text-decoration: none;">Forgot PIN?</a>
+    <span style="color: #ccc;">|</span>
+    <a href="javascript:void(0)" onclick="handleRequestAccess()" style="color: #01579b; text-decoration: none; font-weight: 600;">Request Access</a>
 </div>
 
     <p id="auth-error" style="color: #d32f2f; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
@@ -747,6 +749,45 @@ setInterval(() => {
         // 1. Initialize Supabase
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // 1. Define the Admin Email at the top of your <script>
+const ADMIN_EMAIL = "cbaldwin@criticalarccx.com"; // Change to your actual email
+
+// 2. Add this function near your other Auth functions
+async function handleRequestAccess() {
+    const email = document.getElementById('user-email-input').value.trim().toLowerCase();
+    const errorEl = document.getElementById('auth-error');
+    const successEl = document.getElementById('auth-success');
+
+    if (!email || !email.includes('@')) {
+        errorEl.innerText = "Please enter your valid email address first.";
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    errorEl.style.display = 'none';
+    successEl.innerText = "Sending request...";
+    successEl.style.display = 'block';
+
+    try {
+        // We use your existing Google Script URL to relay the email
+        const url = `${GOOGLE_SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(email)}&admin=${encodeURIComponent(ADMIN_EMAIL)}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.success) {
+            successEl.innerText = "Request sent! The admin will be notified.";
+        } else {
+            throw new Error("Failed to send");
+        }
+    } catch (e) {
+        console.error("Request Error:", e);
+        errorEl.innerText = "Could not send request. Please try again later.";
+        errorEl.style.display = 'block';
+        successEl.style.display = 'none';
+    }
+}
 
 function initRealtimeSync() {
     console.log("📡 Realtime Sync Active");
