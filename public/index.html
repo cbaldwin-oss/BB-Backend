@@ -1376,7 +1376,14 @@ async function handleAuthAction() {
         }
 
         if (isSignUpMode) {
-            const { error } = await _supabase.auth.signUp({ email, password: pin });
+            const { error } = await _supabase.auth.signUp({ 
+    email: email, 
+    password: pin,
+    options: {
+        // This dynamically sends them back to the exact current page folder
+        emailRedirectTo: window.location.origin + window.location.pathname 
+    }
+});
             if (error) throw error;
             successEl.innerText = "Success! Check your email to verify your account.";
             successEl.style.display = 'block';
