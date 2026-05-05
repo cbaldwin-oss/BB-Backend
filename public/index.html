@@ -893,23 +893,17 @@ async function startApp() {
     const loader = document.getElementById('loading-overlay');
 
     try {
-        // --- THE FIX: Check if we have a verified email saved in this browser ---
+        // 1. Check for the local persistence key
         const savedEmail = localStorage.getItem('launchpad_email');
         
-        // Check if there is also an active Supabase session
+        // 2. Check for the active Supabase session
         const { data: { user } } = await _supabase.auth.getUser();
 
-        // If we have a saved email OR a Supabase session, verify permission
-        const emailToVerify = savedEmail || (user ? user.email : null);
-
-        if (emailToVerify) {
-            const isAuth = await verifyPermission(emailToVerify);
+        // 3. REQUIRE BOTH: If one is missing (like after logout), show login
+        if (user && savedEmail) {
+            const isAuth = await verifyPermission(user.email);
             if (isAuth) {
                 window.isAuthorized = true;
-                
-                // Ensure the email is saved if it came from a session but not storage
-                if (!savedEmail) localStorage.setItem('launchpad_email', emailToVerify);
-
                 await fetchDropdownOptions();
                 refreshDropdowns();
                 await loadData();
@@ -923,8 +917,8 @@ async function startApp() {
                 return;
             }
         }
-
-        // No valid session or saved email found: Show login prompt
+        
+        // No valid session/key: Show login prompt
         spinnerSection.style.display = 'none';
         authPrompt.style.display = 'block';
     } catch (e) {
@@ -934,16 +928,16 @@ async function startApp() {
     }
 }
 
-function logout() {
-    // 1. Clear the custom saved email key
+async function logout() {
+    // 1. Clear the custom "Remember Me" key
     localStorage.removeItem('launchpad_email');
     
-    // 2. Clear the Supabase Auth session
+    // 2. THE FIX: Wait for Supabase to actually sign out
     if (_supabase && _supabase.auth) {
-        _supabase.auth.signOut();
+        await _supabase.auth.signOut();
     }
     
-    // 3. Force a reload to return to the Sign In screen
+    // 3. Now reload to return to the Sign In prompt
     location.reload();
 }
 
@@ -1318,22 +1312,20 @@ async function handleAuthAction() {
         return;
     }
 
-    try {
+   try {
         if (isSignUpMode) {
-            // --- THE FIX: This triggers the actual email ---
-            const { data, error } = await _supabase.auth.signUp({ 
-                email: email, 
-                password: pin // Your PIN acts as the password
-            });
-            
+            const { error } = await _supabase.auth.signUp({ email, password: pin });
             if (error) throw error;
-            
-            successEl.innerText = "Registration successful! Check your email to confirm and activate your PIN.";
+            successEl.innerText = "Registration successful! Check your email to verify your account.";
             successEl.style.display = 'block';
         } else {
             // LOGIN: Immediate entry with PIN
-            const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pin });
+            const { error } = await _supabase.auth.signInWithPassword({ email, password: pin });
             if (error) throw error;
+            
+            // --- THE FIX: Save the email so startApp knows you are logged in ---
+            localStorage.setItem('launchpad_email', email);
+            
             location.reload(); 
         }
     } catch (err) {
@@ -1342,6 +1334,7 @@ async function handleAuthAction() {
         btn.disabled = false;
     }
 }
+
 let allWeeksCollapsed = true; // Track the global state
 
 function toggleAllSections() {
