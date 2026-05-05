@@ -1297,8 +1297,9 @@ async function handleAuthAction() {
 
     btn.disabled = true;
     errorEl.style.display = 'none';
+    successEl.style.display = 'none';
 
-    // Step 1: Whitelist Check
+    // 1. Verify against your whitelist table
     const isApproved = await verifyPermission(email);
     if (!isApproved) {
         errorEl.innerText = "Access Denied: This email is not on the approved list.";
@@ -1309,16 +1310,21 @@ async function handleAuthAction() {
 
     try {
         if (isSignUpMode) {
-            // REGISTRATION: Create account and send verification link
-            const { error } = await _supabase.auth.signUp({ email, password: pin });
+            // --- THE FIX: This triggers the actual email ---
+            const { data, error } = await _supabase.auth.signUp({ 
+                email: email, 
+                password: pin // Your PIN acts as the password
+            });
+            
             if (error) throw error;
+            
             successEl.innerText = "Registration successful! Check your email to confirm and activate your PIN.";
             successEl.style.display = 'block';
         } else {
             // LOGIN: Immediate entry with PIN
-            const { error } = await _supabase.auth.signInWithPassword({ email, password: pin });
+            const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pin });
             if (error) throw error;
-            location.reload(); // Reload to trigger startApp with active session
+            location.reload(); 
         }
     } catch (err) {
         errorEl.innerText = err.message;
@@ -1326,7 +1332,6 @@ async function handleAuthAction() {
         btn.disabled = false;
     }
 }
-
 let allWeeksCollapsed = true; // Track the global state
 
 function toggleAllSections() {
