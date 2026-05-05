@@ -709,6 +709,11 @@ position: sticky;
     <div style="margin-top: 20px; font-size: 14px;">
         <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: #2e7d32; text-decoration: none;">First time? Create your PIN</a>
     </div>
+    <div style="margin-top: 20px; font-size: 14px; display: flex; justify-content: center; gap: 20px;">
+    <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: #01579b; text-decoration: none; font-weight: 600;">First time? Create your PIN</a>
+    <span style="color: #ccc;">|</span>
+    <a href="javascript:void(0)" onclick="handleForgotPin()" style="color: #666; text-decoration: none;">Forgot PIN?</a>
+</div>
 
     <p id="auth-error" style="color: #d32f2f; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
     <p id="auth-success" style="color: #2e7d32; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
@@ -770,6 +775,32 @@ function initRealtimeSync() {
             }
         )
         .subscribe();
+}
+
+async function handleForgotPin() {
+    const email = document.getElementById('user-email-input').value.trim().toLowerCase();
+    const errorEl = document.getElementById('auth-error');
+    const successEl = document.getElementById('auth-success');
+
+    if (!email) {
+        errorEl.innerText = "Please enter your email address first.";
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    const { error } = await _supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname,
+    });
+
+    if (error) {
+        errorEl.innerText = error.message;
+        errorEl.style.display = 'block';
+        successEl.style.display = 'none';
+    } else {
+        successEl.innerText = "Reset link sent! Check your email to set a new PIN.";
+        successEl.style.display = 'block';
+        errorEl.style.display = 'none';
+    }
 }
 
 function handleIncomingChange(row) {
@@ -891,6 +922,21 @@ async function startApp() {
     const spinnerSection = document.getElementById('loading-spinner-section');
     const authPrompt = document.getElementById('auth-prompt');
     const loader = document.getElementById('loading-overlay');
+
+    // --- NEW: Detect if user is returning from a password reset link ---
+    if (window.location.hash.includes('type=recovery')) {
+        spinnerSection.style.display = 'none';
+        authPrompt.style.display = 'block';
+        
+        document.getElementById('auth-title').innerText = "Update PIN";
+        document.getElementById('auth-subtitle').innerText = "Enter your new 6-digit PIN below.";
+        document.getElementById('auth-btn').innerText = "Set New PIN";
+        document.getElementById('user-email-input').style.display = 'none'; // Hide email field
+        document.getElementById('auth-toggle-link').parentElement.style.display = 'none'; // Hide toggles
+        
+        window.isUpdateMode = true; // Set a flag for the button click
+        return;
+    }
 
     try {
         // 1. Check for the local persistence key
@@ -1313,6 +1359,19 @@ async function handleAuthAction() {
     }
 
    try {
+    // --- NEW: Handle Password Reset ---
+        if (window.isUpdateMode) {
+            const { error } = await _supabase.auth.updateUser({ password: pin });
+            if (error) throw error;
+            
+            successEl.innerText = "PIN updated! You can now log in with your new PIN.";
+            successEl.style.display = 'block';
+            setTimeout(() => {
+                window.location.hash = ''; // Clear the recovery hash
+                location.reload(); 
+            }, 2500);
+            return;
+        }
         if (isSignUpMode) {
             const { error } = await _supabase.auth.signUp({ email, password: pin });
             if (error) throw error;
