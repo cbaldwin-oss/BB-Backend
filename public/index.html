@@ -1411,7 +1411,7 @@ async function handleAuthAction() {
         // --- 2. STANDARD LOGIN/SIGNUP LOGIC ---
         const isApproved = await verifyPermission(email);
         if (!isApproved) {
-            errorEl.innerText = "Access Denied: This email is not authorized.";
+            errorEl.innerText = "Access Denied: This email is not authorized, please select request access.";
             errorEl.style.display = 'block';
             btn.disabled = false;
             return;
