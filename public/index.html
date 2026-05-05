@@ -792,7 +792,6 @@ async function handleForgotPin() {
     if (error) {
         errorEl.innerText = error.message;
         errorEl.style.display = 'block';
-        successEl.style.display = 'none';
     } else {
         successEl.innerText = "Reset link sent! Check your email to set a new PIN.";
         successEl.style.display = 'block';
@@ -920,29 +919,28 @@ async function startApp() {
     const authPrompt = document.getElementById('auth-prompt');
     const loader = document.getElementById('loading-overlay');
 
-    // --- NEW: Detect if user is returning from a password reset link ---
-    if (window.location.hash.includes('type=recovery')) {
+    // Detect Recovery (Forgot PIN) link
+    const isRecovery = window.location.hash.includes('type=recovery');
+
+    if (isRecovery) {
         spinnerSection.style.display = 'none';
         authPrompt.style.display = 'block';
         
         document.getElementById('auth-title').innerText = "Update PIN";
         document.getElementById('auth-subtitle').innerText = "Enter your new 6-digit PIN below.";
         document.getElementById('auth-btn').innerText = "Set New PIN";
-        document.getElementById('user-email-input').style.display = 'none'; // Hide email field
-        document.getElementById('auth-toggle-link').parentElement.style.display = 'none'; // Hide toggles
+        document.getElementById('user-email-input').style.display = 'none'; 
+        document.getElementById('auth-toggle-link').parentElement.style.display = 'none'; 
         
-        window.isUpdateMode = true; // Set a flag for the button click
-        return;
+        window.isUpdateMode = true; 
+        return; 
     }
 
     try {
-        // 1. Check for the local persistence key
         const savedEmail = localStorage.getItem('launchpad_email');
-        
-        // 2. Check for the active Supabase session
         const { data: { user } } = await _supabase.auth.getUser();
 
-        // 3. REQUIRE BOTH: If one is missing (like after logout), show login
+        // If we have a session AND a saved email, bypass the login screen
         if (user && savedEmail) {
             const isAuth = await verifyPermission(user.email);
             if (isAuth) {
@@ -951,23 +949,18 @@ async function startApp() {
                 refreshDropdowns();
                 await loadData();
                 initRealtimeSync();
-
                 applyViewFilter('view2');
                 collapseEverything();
-
                 loader.classList.add('hidden');
                 setTimeout(() => { loader.style.display = 'none'; autoCleanUI(); }, 800);
                 return;
             }
         }
         
-        // No valid session/key: Show login prompt
         spinnerSection.style.display = 'none';
         authPrompt.style.display = 'block';
     } catch (e) {
         console.error("Launch Error:", e);
-        spinnerSection.style.display = 'none';
-        authPrompt.style.display = 'block';
     }
 }
 
@@ -1329,15 +1322,19 @@ function toggleAuthMode() {
 }
 
 async function handleAuthAction() {
-    const email = document.getElementById('user-email-input').value.trim().toLowerCase();
+    const emailInput = document.getElementById('user-email-input');
+    const email = emailInput.value.trim().toLowerCase();
     const pin = document.getElementById('user-pin-input').value.trim();
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
     const btn = document.getElementById('auth-btn');
 
-    if (!email || !pin) return;
+    // --- FIX: Only require email if we are NOT in update mode ---
+    if (!window.isUpdateMode && !email) return;
+    if (!pin) return;
+
     if (pin.length < 6) {
-        errorEl.innerText = "Security Note: PIN must be at least 6 digits.";
+        errorEl.innerText = "Error: PIN must be at least 6 digits.";
         errorEl.style.display = 'block';
         return;
     }
@@ -1346,42 +1343,47 @@ async function handleAuthAction() {
     errorEl.style.display = 'none';
     successEl.style.display = 'none';
 
-    // 1. Verify against your whitelist table
-    const isApproved = await verifyPermission(email);
-    if (!isApproved) {
-        errorEl.innerText = "Access Denied: This email is not on the approved list.";
-        errorEl.style.display = 'block';
-        btn.disabled = false;
-        return;
-    }
-
-   try {
-    // --- NEW: Handle Password Reset ---
+    try {
+        // --- 1. HANDLE PIN UPDATE (Recovery Mode) ---
         if (window.isUpdateMode) {
             const { error } = await _supabase.auth.updateUser({ password: pin });
             if (error) throw error;
             
-            successEl.innerText = "PIN updated! You can now log in with your new PIN.";
+            // Get user to save email to localStorage so we "remember" them
+            const { data: { user } } = await _supabase.auth.getUser();
+            if (user) localStorage.setItem('launchpad_email', user.email);
+
+            successEl.innerText = "PIN updated! Accessing LaunchPad...";
             successEl.style.display = 'block';
+
             setTimeout(() => {
-                window.location.hash = ''; // Clear the recovery hash
-                location.reload(); 
-            }, 2500);
+                // Clean the URL (remove #type=recovery) and reload
+                window.location.href = window.location.origin + window.location.pathname;
+            }, 2000);
             return;
         }
+
+        // --- 2. STANDARD WHITELIST CHECK (Login/Signup) ---
+        const isApproved = await verifyPermission(email);
+        if (!isApproved) {
+            errorEl.innerText = "Access Denied: This email is not authorized.";
+            errorEl.style.display = 'block';
+            btn.disabled = false;
+            return;
+        }
+
         if (isSignUpMode) {
             const { error } = await _supabase.auth.signUp({ email, password: pin });
             if (error) throw error;
-            successEl.innerText = "Registration successful! Check your email to verify your account.";
+            successEl.innerText = "Success! Check your email to verify your account.";
             successEl.style.display = 'block';
         } else {
             // LOGIN: Immediate entry with PIN
             const { error } = await _supabase.auth.signInWithPassword({ email, password: pin });
             if (error) throw error;
             
-            // --- THE FIX: Save the email so startApp knows you are logged in ---
+            // Save email to localStorage so startApp lets them in
             localStorage.setItem('launchpad_email', email);
-            
             location.reload(); 
         }
     } catch (err) {
