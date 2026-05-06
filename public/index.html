@@ -657,6 +657,9 @@ position: sticky;
         <span>LaunchPad</span>
     </div>
     <div class="header-right">
+        <button id="admin-share-btn" class="view-btn" style="display: none; color: #01579b;" onclick="toggleAdminPanel()">
+        👤 Manage Access
+    </button>
         <button class="view-btn" onclick="switchView('view1', this)">Overall Schedule</button>
         <button class="view-btn active" onclick="switchView('view2', this)">3 Day Look Ahead</button>
         <button class="view-btn" onclick="switchView('view3', this)">1 Week Look Ahead</button>
@@ -753,6 +756,15 @@ position: sticky;
     <p id="auth-success" style="color: #2e7d32; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
 </div>
 </div>
+<div id="admin-panel" style="display: none; position: fixed; top: 80px; right: 30px; width: 350px; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 2000; padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; color: #2e7d32;">Pending Access</h3>
+        <button onclick="toggleAdminPanel()" style="background: none; border: none; cursor: pointer; font-size: 20px;">&times;</button>
+    </div>
+    <div id="request-list" style="max-height: 300px; overflow-y: auto; border-top: 1px solid #eee;">
+        <p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No pending requests.</p>
+    </div>
+</div>
 </div>
 
 <script>
@@ -788,6 +800,49 @@ setInterval(() => {
         // 1. Define the Admin Email at the top of your <script>
 const ADMIN_EMAIL = "cbaldwin@criticalarccx.com"; // Change to your actual email
 
+function toggleAdminPanel() {
+    const panel = document.getElementById('admin-panel');
+    const isOpening = panel.style.display === 'none';
+    panel.style.display = isOpening ? 'block' : 'none';
+    if (isOpening) refreshRequestList();
+}
+
+async function refreshRequestList() {
+    const listContainer = document.getElementById('request-list');
+    const { data, error } = await _supabase.from('access_requests').select('*');
+
+    if (error || !data || data.length === 0) {
+        listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No pending requests.</p>';
+        return;
+    }
+
+    listContainer.innerHTML = data.map(req => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f5f5f5;">
+            <span style="font-size: 13px; color: #333; overflow: hidden; text-overflow: ellipsis;">${req.email}</span>
+            <button onclick="admitUser('${req.email}', ${req.id})" 
+                    style="background: #2e7d32; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                Admit
+            </button>
+        </div>
+    `).join('');
+}
+
+async function admitUser(email, requestId) {
+    try {
+        // 1. Add to authorized_editors
+        const { error: addError } = await _supabase.from('authorized_editors').insert([{ email }]);
+        if (addError) throw addError;
+
+        // 2. Remove from access_requests
+        await _supabase.from('access_requests').delete().eq('id', requestId);
+
+        alert(`Access granted to ${email}`);
+        refreshRequestList();
+    } catch (e) {
+        alert("Error admitting user: " + e.message);
+    }
+}
+
 // 2. Add this function near your other Auth functions
 async function handleRequestAccess() {
     const email = document.getElementById('user-email-input').value.trim().toLowerCase();
@@ -804,7 +859,14 @@ async function handleRequestAccess() {
     successEl.innerText = "Sending request...";
     successEl.style.display = 'block';
 
-    try {
+try {
+        // 1. Log request in Supabase for the Admin Panel
+        const { error: dbError } = await _supabase
+            .from('access_requests')
+            .insert([{ email }]);
+        
+        if (dbError) throw dbError;
+
         const url = `${GOOGLE_SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(email)}&admin=${encodeURIComponent(ADMIN_EMAIL)}`;
         
         const response = await fetch(url);
@@ -1086,6 +1148,9 @@ try {
             }
             const isAuth = await verifyPermission(user.email);
             if (isAuth) {
+                if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+            document.getElementById('admin-share-btn').style.display = 'inline-block';
+        }
                 window.isAuthorized = true;
                 await fetchDropdownOptions();
                 initPresence(user.email); // <--- ADD THIS LINE
