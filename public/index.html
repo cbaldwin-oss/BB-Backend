@@ -2036,40 +2036,48 @@ function collapseEverything() {
 
 function autoCleanUI() {
     const now = new Date();
-    // Get today's date in YYYY-MM-DD format
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0')
+    ].join('-');
 
-    console.log("🧹 Cleaning up empty lines for past dates...");
+    console.log("🧹 Protected Cleanup starting...");
 
-    // 1. Handle individual rows
-    const allRows = document.querySelectorAll('.cell-row');
+    const allRows = document.querySelectorAll('[data-date]');
+    if (allRows.length === 0) return;
+
     allRows.forEach(row => {
         const rowDate = row.getAttribute('data-date');
-        const isOccupied = row.getAttribute('data-occupied') === 'true';
-
-        // Check if the date is in the past
+        
+        // 1. Is the row from a past date?
         if (rowDate < todayStr) {
-            // Hide the line if it's empty (not occupied), show it if it has data
-            row.style.display = isOccupied ? 'flex' : 'none';
-        } else {
-            // For today and future dates, ensure rows remain visible based on your default settings
-            // We only hide them initially via the addRowsToContainer logic (r > 2)
-            const rowIdParts = row.id.split('-r');
-            const rowIndex = parseInt(rowIdParts[1]);
             
-            // Keep the first 3 rows visible for entry, or any row that has data
-            if (isOccupied || rowIndex < 3) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        }
-    });
+            // 2. Is this row "Occupied" by Supabase data?
+            const isOccupied = row.getAttribute('data-occupied') === 'true';
 
-    // 2. Ensure all Day and Week containers stay visible (User Request)
-    // This overrides any logic that might have been hiding empty sections
-    document.querySelectorAll('.section-container, .week-container').forEach(container => {
-        container.style.display = 'block';
+            if (!isOccupied) {
+                // 3. Secondary check: Are the columns actually still empty?
+                const col3 = row.querySelector(`[id$="-c3"]`);
+                const col4 = row.querySelector(`[id$="-c4"]`);
+                
+                const val3 = col3?.value?.toLowerCase() || "";
+                const val4 = col4?.value?.toLowerCase() || "";
+                
+                const isTrulyEmpty = (val3 === "" || val3.includes("select")) && 
+                                     (val4 === "" || val4.includes("select"));
+
+                if (isTrulyEmpty) {
+                    row.style.display = 'none';
+                }
+            } else {
+                // Row has data! Ensure it is visible.
+                row.style.display = 'flex';
+            }
+        } else {
+            // Today or Future: Always visible.
+            row.style.display = 'flex';
+        }
     });
 }
 
