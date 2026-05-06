@@ -1484,12 +1484,13 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
             let element;
 
             if (col === 5) {
-                element = document.createElement('span');
-                element.id = cellId;
-                element.className = 'status-cell';
-                element.innerText = "...";
-                rowDiv.appendChild(element);
-            } 
+    element = document.createElement('span');
+    element.id = cellId;
+    element.className = 'status-cell'; // This is the key for the selector
+    element.setAttribute('data-col-index', '5'); // Helper for the sync script
+    element.innerText = "...";
+    rowDiv.appendChild(element);
+}
             else if (col === 6) {
                 element = document.createElement('select');
                 element.id = cellId;
@@ -1550,24 +1551,24 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
     if (!row) return;
 
     const dateId = row.getAttribute('data-date');
-    // Extract numeric ID (e.g., 2026042005) from row-wrapper-2026042005
     const rowNum = row.id.replace('row-wrapper-', '');
     
-    // Unique keys for timers to prevent cross-cell interference
     const timeoutKey = `timeout-${rowNum}-${colIndex}`;
     const failsafeKey = `failsafe-${rowNum}-${colIndex}`;
 
     const performSave = async (isFailsafe = false) => {
-        // Grab latest value (handles Spans for Col 5 and Inputs/Selects for others)
+        // Correctly read Spans (Col 5) vs Inputs/Selects
         const currentValue = (cell.tagName === 'SPAN') ? cell.innerText : (cell.getAttribute('data-selected') || cell.value);
         
+        // Skip saving if it's just a loading indicator
+        if (currentValue.includes("Checking...")) return;
+
         const updateObj = { 
             id: parseInt(rowNum),
             day_label: dateId
-            // REMOVED row_index here to match your database schema
+            // REMOVED row_index here to match your database schema and stop 400 errors
         };
         
-        // Only update the specific column that changed
         updateObj[`col${colIndex}`] = currentValue;
 
         const { data, error } = await _supabase
@@ -1580,28 +1581,34 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
             const indicator = document.getElementById('saveIndicator');
             if (indicator) indicator.innerText = `Last saved at: ${new Date().toLocaleTimeString()}`;
             
-            // If this was the first save, trigger the 5-second "Check Back"
+            // --- THE NEW FAILSAFE LOGIC ---
             if (!isFailsafe) {
                 if (window[failsafeKey]) clearTimeout(window[failsafeKey]);
                 window[failsafeKey] = setTimeout(() => {
-                    console.log(`🕒 Failsafe verifying Col ${colIndex} for ${dateId}...`);
-                    runFailsafeSync; 
-                }, 10000);
+                    // 1. Re-save this specific cell as a verification
+                    performSave(true); 
+
+                    // 2. If Col 3 or 4 was edited, specifically force a save of Col 5 (Status)
+                    // This ensures the Google Sheet VLOOKUP result is captured
+                    if (colIndex === 3 || colIndex === 4) {
+                        const statusCell = row.querySelector('.status-cell');
+                        if (statusCell && statusCell.innerText !== "..." && !statusCell.innerText.includes("Checking")) {
+                            console.log(`🕒 Failsafe: Syncing Status for row ${rowNum}`);
+                            runFailsafeSync();;
+                        }
+                    }
+                }, 7000);
             }
         } else if (error) {
-            // Log full error details to help debug schema mismatches
             console.error("🔴 Save Error:", error.message, error.hint);
         }
     };
 
     if (window[timeoutKey]) clearTimeout(window[timeoutKey]);
-
-    if (isImmediate) {
-        performSave();
-    } else {
-        window[timeoutKey] = setTimeout(performSave, 400); // 400ms debounce
-    }
+    if (isImmediate) performSave();
+    else window[timeoutKey] = setTimeout(performSave, 400);
 }
+
 const contentArea = document.getElementById('main-content-area');
 
 function createSections() {
@@ -2224,18 +2231,16 @@ function setCellValueAndSave(dateId, rowIndex, colIndex, newValue) {
 }
 
 async function runFailsafeSync() {
-    console.log("🔍 Failsafe Sync: Checking for late-loading data in Col 5...");
+    console.log("🔍 Failsafe Sync: Pushing all visible Status (Col 5) values to Database...");
     
-    // Find all Col 5 inputs that have values
-    const col5Cells = document.querySelectorAll('.cell-input[data-col-index="5"]');
+    // Find all Status spans inside rows that are currently in use
+    const statusCells = document.querySelectorAll('.cell-row[data-occupied="true"] .status-cell');
     
-    col5Cells.forEach(cell => {
-        const value = cell.value.trim();
-        const row = cell.closest('.cell-row');
+    statusCells.forEach(cell => {
+        const value = cell.innerText.trim();
         
-        // If there's a value but the row isn't marked as "occupied" yet,
-        // or if we just want to ensure it's synced:
-        if (value !== "") {
+        // Only save if it's a real status, not a placeholder or loading text
+        if (value !== "" && value !== "..." && !value.includes("Checking")) {
             saveCell(cell, value, 5, true); 
         }
     });
