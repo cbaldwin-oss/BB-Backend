@@ -840,26 +840,37 @@ setInterval(() => {
 }, 60000);
 
 async function triggerFullStatusRefresh() {
-    // 1. Calculate the 7-day range
+    // 1. Calculate the 7-day range using Local Time to match autoCleanUI
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0')
+    ].join('-');
     
     const endDate = new Date();
     endDate.setDate(now.getDate() + 6);
-    const endStr = endDate.toISOString().split('T')[0];
+    const endStr = [
+        endDate.getFullYear(),
+        String(endDate.getMonth() + 1).padStart(2, '0'),
+        String(endDate.getDate()).padStart(2, '0')
+    ].join('-');
+
 
     console.log(`♻️ Starting Targeted Refresh: ${todayStr} to ${endStr}`);
     
-    // Select all occupied rows
+    // Select all occupied rows (rows that have data)
     const occupiedRows = document.querySelectorAll('.cell-row[data-occupied="true"]');
     let refreshCount = 0;
 
     for (const row of occupiedRows) {
         const rowDate = row.getAttribute('data-date');
 
-        // 2. Filter: Only proceed if the row is within the current week window
+        // 2. Filter: Only proceed if the row is within the current 7-day window
         if (rowDate >= todayStr && rowDate <= endStr) {
-            const rowNum = row.id.replace('row-wrapper-', '');
+            const rowNum = parseInt(row.id.replace('row-wrapper-', ''));
+            
+            // Search for the specific columns using the newly added data-col-index
             const col3 = row.querySelector('[data-col-index="3"]');
             const col4 = row.querySelector('[data-col-index="4"]');
             const col5 = row.querySelector('.status-cell');
@@ -876,24 +887,21 @@ async function triggerFullStatusRefresh() {
                     col5.innerText = "Refreshing...";
                     applyCellColor(col5, "Checking...");
 
-                    // Wipe in Database
+                    // Wipe in Database (Wipe Col 5 only)
                     await _supabase
                         .from('BackEndData')
                         .update({ col5: "" })
                         .eq('id', rowNum);
 
-                    // Redo VLOOKUP
-                    lookupColumn5Value(val3, val4, col5);
+                    // Redo VLOOKUP (this calls saveCell automatically upon result)
+                    lookupColumn5Value(rowNum, rowDate, true);
 
-                    // Tiny delay to prevent browser/API lag
-                    await new Promise(resolve => setTimeout(resolve, 50));
+                    // Small delay to prevent hitting Google rate limits
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
             }
         }
     }
-
-    console.log(`✅ Refresh complete for ${refreshCount} rows.`);
-    alert(`7-Day Refresh initiated for ${refreshCount} rows.`);
 }
 
         // --- CONFIGURE THESE ---
@@ -1546,11 +1554,13 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
     element.className = 'status-cell'; // This is the key for the selector
     element.setAttribute('data-col-index', '5'); // Helper for the sync script
     element.innerText = "...";
+    element.setAttribute('data-col-index', col);
     rowDiv.appendChild(element);
 }
             else if (col === 6) {
                 element = document.createElement('select');
                 element.id = cellId;
+                element.setAttribute('data-col-index', col); // ADD THIS
                 element.innerHTML = '<option value="">+ Add Multi</option>';
                 const opts = (window.dropdownData?.col6) || [];
                 opts.forEach(t => { element.appendChild(new Option(t, t)); });
@@ -1561,6 +1571,7 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
 else if ([1, 2, 3, 4, 7].includes(col)) {
     element = document.createElement('select');
     element.id = cellId;
+    element.setAttribute('data-col-index', col); // ADD THIS
     element.innerHTML = '<option value="">Select...</option>';
     const opts = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
     opts.forEach(t => {
@@ -1584,6 +1595,7 @@ else if ([1, 2, 3, 4, 7].includes(col)) {
             else {
                 element = document.createElement('textarea');
                 element.id = cellId;
+                element.setAttribute('data-col-index', col); // ADD THIS
                 element.oninput = () => applyCellColor(element, element.value);
                 element.onblur = () => { 
                     applyCellColor(element, element.value); 
