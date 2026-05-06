@@ -837,7 +837,7 @@ if (isIPad()) {
 setInterval(() => {
         triggerFullStatusRefresh(); // Silent background sync
          // Periodic Google Sheets refresh
-}, 60000);
+}, 300000);
 
 async function triggerFullStatusRefresh() {
     // 1. Calculate the 7-day range using Local Time to match autoCleanUI
