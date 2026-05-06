@@ -1029,29 +1029,62 @@ function initRealtimeSync() {
         .on('postgres_changes', { 
             event: '*', // Listen to INSERT, UPDATE, and DELETE
             schema: 'public', 
-            table: 'scheduling_data' 
+            table: 'BackEndData' // FIX: Corrected table name
         }, payload => {
             if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
                 const row = payload.new;
-                // Specifically ensure col5 is updated in the UI when it arrives
                 updateRowInUI(row);
+            } else if (payload.eventType === 'DELETE') {
+                // Handle real-time deletion
+                const rowId = payload.old.id;
+                const rowEl = document.getElementById(`row-wrapper-${rowId}`);
+                if (rowEl) {
+                    rowEl.removeAttribute('data-occupied');
+                    rowEl.querySelectorAll('input, select, textarea').forEach(el => {
+                        el.value = "";
+                        applyCellColor(el, "");
+                    });
+                    const statusCell = rowEl.querySelector('.status-cell');
+                    if (statusCell) statusCell.innerText = "...";
+                }
             }
         })
         .subscribe();
 }
 
 function updateRowInUI(row) {
-    const rowEl = document.getElementById(`row-${row.day_label}-r${row.row_index}`);
+    // FIX: Match the ID format used in addRowsToContainer (row-wrapper-ID)
+    const rowEl = document.getElementById(`row-wrapper-${row.id}`);
     if (!rowEl) return;
 
-    rowEl.setAttribute('data-db-id', row.id);
     rowEl.setAttribute('data-occupied', 'true');
 
-    // Update all columns, especially 5
-    for (let i = 0; i < 9; i++) {
-        const input = rowEl.querySelector(`[data-col-index="${i}"]`);
-        if (input && input.value !== row[`col${i}`]) {
-            input.value = row[`col${i}`] || '';
+    // Update columns 1 through 8
+    for (let i = 1; i <= 8; i++) {
+        const cellId = `${row.day_label}-r${row.id}-c${i}`;
+        const el = document.getElementById(cellId);
+        
+        if (el && el !== document.activeElement) {
+            const content = row[`col${i}`] || "";
+            
+            if (i === 5) {
+                // Column 5 is a status span
+                el.innerText = content;
+            } else if (i === 6) {
+                // Column 6 is the multi-select
+                el.setAttribute('data-selected', content);
+                if (el.options && el.options[0]) {
+                    el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
+                }
+            } else {
+                // Standard Selects and Textareas
+                if (el.tagName === 'SELECT' && content !== "") {
+                    const exists = Array.from(el.options).some(opt => opt.value === content);
+                    if (!exists) el.add(new Option(content, content));
+                }
+                el.value = content;
+            }
+            applyCellColor(el, content);
         }
     }
 }
@@ -1078,48 +1111,6 @@ async function handleForgotPin() {
         successEl.innerText = "Reset link sent! Check your email to set a new PIN.";
         successEl.style.display = 'block';
         errorEl.style.display = 'none';
-    }
-}
-
-function handleIncomingChange(row) {
-    // 1. Identify the row wrapper
-    const wrapper = document.getElementById(`row-wrapper-${row.id}`);
-    if (wrapper) {
-        wrapper.style.display = 'flex';
-        wrapper.setAttribute('data-occupied', 'true');
-    }
-
-    // 2. Loop through columns and update values
-    for (let col = 1; col <= 8; col++) {
-        const cellId = `${row.day_label}-r${row.id}-c${col}`;
-        const el = document.getElementById(cellId);
-        
-        if (el) {
-            // PROTECTION: Don't overwrite if YOU are currently typing in this box
-            if (el === document.activeElement) continue;
-
-            const content = row[`col${col}`] || "";
-            
-if (col === 6) {
-    el.setAttribute('data-selected', content);
-    // Refresh the visible label instantly
-    if (el.options && el.options[0]) {
-        el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
-    }
-} else if (col === 5) {
-    el.innerText = content;
-} else {
-    // --- THE FIX: Ensure Realtime updates don't break Selects ---
-    if (el.tagName === 'SELECT' && content !== "") {
-        const exists = Array.from(el.options).some(opt => opt.value === content);
-        if (!exists) {
-            el.add(new Option(content, content));
-        }
-    }
-    el.value = content;
-}
-applyCellColor(el, content);
-        }
     }
 }
 
