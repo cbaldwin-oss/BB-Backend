@@ -1557,16 +1557,16 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
     const failsafeKey = `failsafe-${rowNum}-${colIndex}`;
 
     const performSave = async (isFailsafe = false) => {
-        // Correctly read Spans (Col 5) vs Inputs/Selects
+        // Read value from Span (Col 5) or Input/Select
         const currentValue = (cell.tagName === 'SPAN') ? cell.innerText : (cell.getAttribute('data-selected') || cell.value);
         
-        // Skip saving if it's just a loading indicator
-        if (currentValue.includes("Checking...")) return;
+        // Skip saving if it's still "Checking..."
+        if (currentValue.includes("Checking")) return;
 
         const updateObj = { 
             id: parseInt(rowNum),
             day_label: dateId
-            // REMOVED row_index here to match your database schema and stop 400 errors
+            // Note: row_index removed here if not in your DB schema to prevent 400 errors
         };
         
         updateObj[`col${colIndex}`] = currentValue;
@@ -1581,26 +1581,25 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
             const indicator = document.getElementById('saveIndicator');
             if (indicator) indicator.innerText = `Last saved at: ${new Date().toLocaleTimeString()}`;
             
-            // --- THE NEW FAILSAFE LOGIC ---
+            // --- UPDATED FAILSAFE LOGIC ---
             if (!isFailsafe) {
                 if (window[failsafeKey]) clearTimeout(window[failsafeKey]);
+                
+                // Increase wait to 7 seconds for Apps Script to finish
                 window[failsafeKey] = setTimeout(() => {
-                    // 1. Re-save this specific cell as a verification
+                    console.log(`🕒 7s Failsafe: Verifying Col ${colIndex} for ${dateId}`);
                     performSave(true); 
 
-                    // 2. If Col 3 or 4 was edited, specifically force a save of Col 5 (Status)
-                    // This ensures the Google Sheet VLOOKUP result is captured
+                    // If Place (Col 3) or Activity (Col 4) changed, force a sync of Status (Col 5)
                     if (colIndex === 3 || colIndex === 4) {
                         const statusCell = row.querySelector('.status-cell');
-                        if (statusCell && statusCell.innerText !== "..." && !statusCell.innerText.includes("Checking")) {
-                            console.log(`🕒 Failsafe: Syncing Status for row ${rowNum}`);
-                            runFailsafeSync();;
+                        if (statusCell && !statusCell.innerText.includes("Checking") && statusCell.innerText !== "...") {
+                            console.log("⚡ Failsafe: Syncing final Status result...");
+                            saveCell(statusCell, statusCell.innerText, 5, true);
                         }
                     }
-                }, 7000);
+                }, 7000); 
             }
-        } else if (error) {
-            console.error("🔴 Save Error:", error.message, error.hint);
         }
     };
 
@@ -2231,15 +2230,16 @@ function setCellValueAndSave(dateId, rowIndex, colIndex, newValue) {
 }
 
 async function runFailsafeSync() {
-    console.log("🔍 Failsafe Sync: Pushing all visible Status (Col 5) values to Database...");
+    console.log("🔍 Failsafe Sync: Scanning all Status (Col 5) cells...");
     
-    // Find all Status spans inside rows that are currently in use
-    const statusCells = document.querySelectorAll('.cell-row[data-occupied="true"] .status-cell');
+    // FIX: Target the correct class (.status-cell)
+    const statusCells = document.querySelectorAll('.status-cell');
     
     statusCells.forEach(cell => {
         const value = cell.innerText.trim();
+        const row = cell.closest('.cell-row');
         
-        // Only save if it's a real status, not a placeholder or loading text
+        // Only sync if the row has data and the status isn't a placeholder
         if (value !== "" && value !== "..." && !value.includes("Checking")) {
             saveCell(cell, value, 5, true); 
         }
