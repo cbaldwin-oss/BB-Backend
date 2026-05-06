@@ -835,9 +835,66 @@ if (isIPad()) {
 }
 
 setInterval(() => {
-        syncAllAssetLookups(); // Silent background sync
+        triggerFullStatusRefresh(); // Silent background sync
          // Periodic Google Sheets refresh
 }, 60000);
+
+async function triggerFullStatusRefresh() {
+    // 1. Calculate the 7-day range
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    
+    const endDate = new Date();
+    endDate.setDate(now.getDate() + 6);
+    const endStr = endDate.toISOString().split('T')[0];
+
+    console.log(`♻️ Starting Targeted Refresh: ${todayStr} to ${endStr}`);
+    
+    // Select all occupied rows
+    const occupiedRows = document.querySelectorAll('.cell-row[data-occupied="true"]');
+    let refreshCount = 0;
+
+    for (const row of occupiedRows) {
+        const rowDate = row.getAttribute('data-date');
+
+        // 2. Filter: Only proceed if the row is within the current week window
+        if (rowDate >= todayStr && rowDate <= endStr) {
+            const rowNum = row.id.replace('row-wrapper-', '');
+            const col3 = row.querySelector('[data-col-index="3"]');
+            const col4 = row.querySelector('[data-col-index="4"]');
+            const col5 = row.querySelector('.status-cell');
+
+            if (col3 && col4 && col5) {
+                const val3 = col3.value.trim();
+                const val4 = col4.value.trim();
+
+                // Only redo lookup if both Place and Activity exist
+                if (val3 !== "" && val4 !== "") {
+                    refreshCount++;
+
+                    // Wipe UI and show loading
+                    col5.innerText = "Refreshing...";
+                    applyCellColor(col5, "Checking...");
+
+                    // Wipe in Database
+                    await _supabase
+                        .from('BackEndData')
+                        .update({ col5: "" })
+                        .eq('id', rowNum);
+
+                    // Redo VLOOKUP
+                    lookupColumn5Value(val3, val4, col5);
+
+                    // Tiny delay to prevent browser/API lag
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+            }
+        }
+    }
+
+    console.log(`✅ Refresh complete for ${refreshCount} rows.`);
+    alert(`7-Day Refresh initiated for ${refreshCount} rows.`);
+}
 
         // --- CONFIGURE THESE ---
         const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
