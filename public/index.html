@@ -769,8 +769,8 @@ position: sticky;
 <script>
 const activeSyncs = new Set(); // Track which rows are currently uploading
 const START_DATE = "2026-04-20"; // A Monday
-const WEEKS_TO_SHOW = 40; 
-const INITIAL_ROWS = 20;
+const WEEKS_TO_SHOW = 60; 
+const INITIAL_ROWS = 30;
 // Add this near the top of your script area
 const deletingRows = new Set(); 
 // Add this at the top of your script section
@@ -1428,7 +1428,7 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
         rowDiv.setAttribute('data-date', dayLabel);
-        rowDiv.style.display = (r > 2) ? 'none' : 'flex';
+        rowDiv.style.display = (r > 14) ? 'none' : 'flex';
 
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
