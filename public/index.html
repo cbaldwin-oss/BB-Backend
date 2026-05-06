@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LaunchPad</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="QCx LaunchPad">
+
+<link rel="apple-touch-icon" href="your-icon.png">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
 <style>
 
     .header {
@@ -645,6 +652,35 @@ position: sticky;
     transform: scale(1.1);
     z-index: 10;
 }
+/* Specific styles for iPad and smaller screens */
+@media only screen and (max-width: 1024px) {
+    /* 1. Make the text bigger for readability */
+    body {
+        font-size: 16px;
+    }
+
+    /* 2. Adjust the scheduling grid */
+    .cell-row {
+        flex-wrap: nowrap; /* Keep it in a line */
+        overflow-x: auto;  /* Allow horizontal swiping on the row */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* 3. Make inputs and dropdowns easier to tap with fingers */
+    input, select, .view-btn {
+        min-height: 44px; /* Apple's recommended minimum tap target */
+        font-size: 16px !important; /* Prevents iOS from zooming in automatically on focus */
+    }
+
+    /* 4. Hide less important columns or shrink them */
+    .cell-input[data-col="Tech"], .cell-input[data-col="Site"] {
+        min-width: 120px;
+    }
+}
+.ipad-mode .admin-actions {
+    display: flex !important;
+    opacity: 1 !important;
+}
 </style>
 </head>
 <body>
@@ -782,6 +818,21 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
+    const isTouchDevice = () => {
+  return (('ontouchstart' in window) ||
+     (navigator.maxTouchPoints > 0) ||
+     (navigator.msMaxTouchPoints > 0));
+};
+
+const isIPad = () => {
+  return /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
+};
+
+// Example usage:
+if (isIPad()) {
+    console.log("Running on iPad");
+    document.body.classList.add('ipad-mode');
+}
 
 setInterval(() => {
         syncAllAssetLookups(); // Silent background sync
