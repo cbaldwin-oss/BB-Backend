@@ -1513,7 +1513,7 @@ else if ([1, 2, 3, 4, 7].includes(col)) {
 
     element.onchange = () => { 
         applyCellColor(element, element.value); 
-        saveRow(rowNumericId, dayLabel);
+        saveCell(element, element.value, col, true);
 
         // --- THE FIX: Trigger lookup immediately for quicker data pull ---
         if (col === 3 || col === 4) {
@@ -1529,7 +1529,7 @@ else if ([1, 2, 3, 4, 7].includes(col)) {
                 element.oninput = () => applyCellColor(element, element.value);
                 element.onblur = () => { 
                     applyCellColor(element, element.value); 
-                    saveRow(rowNumericId, dayLabel); 
+                    saveCell(element, element.value, col, true);
                 };
                 rowDiv.appendChild(element);
             }
@@ -1543,6 +1543,60 @@ else if ([1, 2, 3, 4, 7].includes(col)) {
         container.appendChild(rowDiv);
     }
     if (anchorBtn) container.appendChild(anchorBtn);
+}
+
+function saveCell(cell, value, colIndex, isImmediate = false) {
+    const row = cell.closest('.cell-row');
+    if (!row) return;
+
+    const dateId = row.getAttribute('data-date');
+    // Extract numeric ID from row-wrapper-2026042005
+    const rowNum = row.id.replace('row-wrapper-', '');
+    
+    // Unique keys for timers to prevent cross-cell interference
+    const timeoutKey = `timeout-${rowNum}-${colIndex}`;
+    const failsafeKey = `failsafe-${rowNum}-${colIndex}`;
+
+    const performSave = async (isFailsafe = false) => {
+        // Grab latest value (handles Spans for Col 5 and Inputs/Selects for others)
+        const currentValue = (cell.tagName === 'SPAN') ? cell.innerText : (cell.getAttribute('data-selected') || cell.value);
+        
+        const updateObj = { 
+            id: parseInt(rowNum),
+            day_label: dateId, 
+            row_index: parseInt(rowNum.toString().slice(-2)) // last 2 digits
+        };
+        
+        // Only update the specific column that changed
+        updateObj[`col${colIndex}`] = currentValue;
+
+        const { data, error } = await _supabase
+            .from('BackEndData')
+            .upsert([updateObj])
+            .select();
+
+        if (!error && data && data[0]) {
+            row.setAttribute('data-occupied', 'true');
+            document.getElementById('saveIndicator').innerText = `Last saved at: ${new Date().toLocaleTimeString()}`;
+            
+            // If this was the first save, trigger the 5-second "Check Back"
+            if (!isFailsafe) {
+                if (window[failsafeKey]) clearTimeout(window[failsafeKey]);
+                window[failsafeKey] = setTimeout(() => {
+                    console.log(`🕒 Failsafe verifying Col ${colIndex} for ${dateId}...`);
+                    performSave(true); 
+                }, 5000);
+            }
+        }
+    };
+
+    if (window[timeoutKey]) clearTimeout(window[timeoutKey]);
+
+    if (isImmediate) {
+        performSave();
+    } else {
+        window[timeoutKey] = setTimeout(performSave, 400); // 400ms debounce
+    }
 }
 
 const contentArea = document.getElementById('main-content-area');
@@ -1805,7 +1859,7 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
     }
 
     // 4. Force the cloud save with the string directly (bypass the element's current value)
-    await saveRow(rowNum, dayLabel, updatedString);
+    saveCell(element, updatedString, 6, true); 
 
     // 5. Reset visual selection ONLY AFTER the save process has the data
     element.value = ""; 
@@ -1873,7 +1927,7 @@ async function lookupColumn5Value(rowNum, dayLabel, isBackground = false) {
             if (data.result !== currentText) {
                 col5.innerText = data.result;
                 applyCellColor(col5, data.result);
-                await saveRow(rowNum, dayLabel); 
+                saveCell(col5, data.result, 5, true);
             }
         } else if (!isBackground) {
             col5.innerText = "NA";
