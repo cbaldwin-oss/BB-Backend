@@ -1548,6 +1548,25 @@ function createSections() {
 
             header.onclick = (e) => {
                 e.stopPropagation();
+                
+                // NEW: If rows don't exist yet, build them now
+                if (rowsDiv.innerHTML === '') {
+                    const addBtn = document.createElement('button');
+                    addBtn.className = 'add-rows-btn';
+                    addBtn.innerText = "+ Add 5 Rows";
+                    addBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        const hiddenRows = Array.from(rowsDiv.querySelectorAll('.cell-row'))
+                                                .filter(r => r.style.display === 'none');
+                        for (let i = 0; i < 5 && i < hiddenRows.length; i++) {
+                            hiddenRows[i].style.display = 'flex';
+                        }
+                        if (hiddenRows.length <= 5) addBtn.style.display = 'none';
+                    };
+                    
+                    addRowsToContainer(rowsDiv, dateId, addBtn);
+                }
+
                 const isHidden = rowsDiv.classList.toggle('hidden');
                 header.querySelector('.arrow').innerText = isHidden ? '▶' : '▼';
             };
@@ -1569,8 +1588,6 @@ addBtn.onclick = (e) => {
 
     if (hiddenRows.length <= 5) addBtn.style.display = 'none';
 };
-
-addRowsToContainer(rowsDiv, dateId, addBtn);
 
             section.appendChild(header);
             section.appendChild(rowsDiv);
@@ -1977,6 +1994,7 @@ function autoCleanUI() {
     console.log("🧹 Protected Cleanup starting...");
 
     const allRows = document.querySelectorAll('[data-date]');
+    if (allRows.length === 0) return;
 
     allRows.forEach(row => {
         const rowDate = row.getAttribute('data-date');
@@ -2025,8 +2043,14 @@ async function loadData(isSilent = false) {
 
         if (data) {
             data.forEach(row => {
-                // --- THE FIX: If we are currently deleting this row, SKIP IT ---
                 if (deletingRows.has(row.id)) return;
+
+                // NEW: If the rows for this date aren't built yet, build them
+                const rowsDiv = document.getElementById(`rows-${row.day_label}`);
+                if (rowsDiv && rowsDiv.innerHTML === '') {
+                    // Logic to build rows without the toggle behavior
+                    addRowsToContainer(rowsDiv, row.day_label); 
+                }
 
                 const wrapper = document.getElementById(`row-wrapper-${row.id}`);
                 if (wrapper) {
