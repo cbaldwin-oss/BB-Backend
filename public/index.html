@@ -1585,7 +1585,7 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
                 if (window[failsafeKey]) clearTimeout(window[failsafeKey]);
                 window[failsafeKey] = setTimeout(() => {
                     console.log(`🕒 Failsafe verifying Col ${colIndex} for ${dateId}...`);
-                    performSave(true); 
+                    runFailsafeSync; 
                 }, 10000);
             }
         } else if (error) {
