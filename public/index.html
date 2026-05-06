@@ -1182,10 +1182,15 @@ try {
             document.getElementById('admin-share-btn').style.display = 'inline-block';
         }
                 window.isAuthorized = true;
-                window.isAdmin = permissions.isAdmin;
+const permissions = await verifyPermission(user.email); // Define permissions here
+            if (permissions.isAuthorized) { // Check the property
+                window.isAuthorized = true;
+                window.isAdmin = permissions.isAdmin; // Now defined
+                
+                // Show the Admin Share Button if they are an admin
                 if (window.isAdmin) {
-            document.getElementById('admin-share-btn').style.display = 'inline-block';
-        }
+                    document.getElementById('admin-share-btn').style.display = 'inline-block';
+                }
                 await fetchDropdownOptions();
                 initPresence(user.email); // <--- ADD THIS LINE
                 refreshDropdowns();
