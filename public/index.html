@@ -824,30 +824,31 @@ async function refreshRequestList() {
                         style="background: #2e7d32; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
                     Admit
                 </button>
-                <button onclick="declineUser(${req.id})" 
-                        style="background: #d32f2f; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
-                    Decline
+                <button onclick="declineUser('${req.email}', ${req.id})" 
+        style="background: #d32f2f; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
+    Decline
+</button>
                 </button>
             </div>
         </div>
     `).join('');
 }
 
-async function declineUser(requestId) {
-    if (!confirm("Are you sure you want to decline this request?")) return;
+async function declineUser(email, requestId) { // Added email parameter here
+    if (!confirm(`Are you sure you want to decline the request from ${email}?`)) return;
 
     try {
-        const { error } = await _supabase
-            .from('access_requests')
-            .delete()
-            .eq('id', requestId);
-
+        // 1. Remove from access_requests
+        const { error } = await _supabase.from('access_requests').delete().eq('id', requestId);
         if (error) throw error;
 
-        // Refresh the list to show the request is gone
+        // 2. Send Notification Email via Google Script
+        const url = `${GOOGLE_SCRIPT_URL}?action=notifyDecline&email=${encodeURIComponent(email)}`;
+        await fetch(url);
+
+        alert(`Request declined and notification sent to ${email}`);
         refreshRequestList();
     } catch (e) {
-        console.error("Decline Error:", e);
         alert("Error declining request: " + e.message);
     }
 }
@@ -861,7 +862,11 @@ async function admitUser(email, requestId) {
         // 2. Remove from access_requests
         await _supabase.from('access_requests').delete().eq('id', requestId);
 
-        alert(`Access granted to ${email}`);
+        // 3. Send Notification Email via Google Script
+        const url = `${GOOGLE_SCRIPT_URL}?action=notifyAdmit&email=${encodeURIComponent(email)}`;
+        await fetch(url);
+
+        alert(`Access granted and email sent to ${email}`);
         refreshRequestList();
     } catch (e) {
         alert("Error admitting user: " + e.message);
