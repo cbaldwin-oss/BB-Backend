@@ -1586,7 +1586,7 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
                 window[failsafeKey] = setTimeout(() => {
                     console.log(`🕒 Failsafe verifying Col ${colIndex} for ${dateId}...`);
                     performSave(true); 
-                }, 5000);
+                }, 10000);
             }
         } else if (error) {
             // Log full error details to help debug schema mismatches
