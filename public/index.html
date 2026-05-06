@@ -1024,29 +1024,36 @@ function stringToColor(str) {
 }
 
 function initRealtimeSync() {
-    console.log("📡 Realtime Sync Active");
-
-    const channel = _supabase
-        .channel('table-db-changes')
-        .on(
-            'postgres_changes',
-            {
-                event: '*', // Listen for INSERT, UPDATE, and DELETE
-                schema: 'public',
-                table: 'BackEndData'
-            },
-            (payload) => {
-                const { eventType, new: newRow, old: oldRow } = payload;
-
-                if (eventType === 'UPDATE' || eventType === 'INSERT') {
-                    handleIncomingChange(newRow);
-                } else if (eventType === 'DELETE') {
-                    const wrapper = document.getElementById(`row-wrapper-${oldRow.id}`);
-                    if (wrapper) wrapper.style.display = 'none';
-                }
+    _supabase
+        .channel('schema-db-changes')
+        .on('postgres_changes', { 
+            event: '*', // Listen to INSERT, UPDATE, and DELETE
+            schema: 'public', 
+            table: 'scheduling_data' 
+        }, payload => {
+            if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                const row = payload.new;
+                // Specifically ensure col5 is updated in the UI when it arrives
+                updateRowInUI(row);
             }
-        )
+        })
         .subscribe();
+}
+
+function updateRowInUI(row) {
+    const rowEl = document.getElementById(`row-${row.day_label}-r${row.row_index}`);
+    if (!rowEl) return;
+
+    rowEl.setAttribute('data-db-id', row.id);
+    rowEl.setAttribute('data-occupied', 'true');
+
+    // Update all columns, especially 5
+    for (let i = 0; i < 9; i++) {
+        const input = rowEl.querySelector(`[data-col-index="${i}"]`);
+        if (input && input.value !== row[`col${i}`]) {
+            input.value = row[`col${i}`] || '';
+        }
+    }
 }
 
 async function handleForgotPin() {
@@ -2148,6 +2155,42 @@ applyCellColor(el, content);
         console.error("🔴 Load Error:", err.message);
         return false;
     }
+}
+
+/**
+ * Use this instead of input.value = "xyz" 
+ * to ensure the change is saved to Supabase.
+ */
+function setCellValueAndSave(dateId, rowIndex, colIndex, newValue) {
+    const row = document.getElementById(`row-${dateId}-r${rowIndex}`);
+    if (!row) return;
+
+    const cell = row.querySelector(`[data-col-index="${colIndex}"]`);
+    if (!cell) return;
+
+    // 1. Update the UI
+    cell.value = newValue;
+
+    // 2. Manually trigger the save logic
+    saveCell(cell, newValue, colIndex, true); // true = immediate save
+}
+
+async function runFailsafeSync() {
+    console.log("🔍 Failsafe Sync: Checking for late-loading data in Col 5...");
+    
+    // Find all Col 5 inputs that have values
+    const col5Cells = document.querySelectorAll('.cell-input[data-col-index="5"]');
+    
+    col5Cells.forEach(cell => {
+        const value = cell.value.trim();
+        const row = cell.closest('.cell-row');
+        
+        // If there's a value but the row isn't marked as "occupied" yet,
+        // or if we just want to ensure it's synced:
+        if (value !== "") {
+            saveCell(cell, value, 5, true); 
+        }
+    });
 }
 
     </script>
