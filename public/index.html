@@ -1072,14 +1072,14 @@ applyCellColor(el, content);
 
 // 1. Verify if email exists in your authorized_editors table
 async function verifyPermission(email) {
-    try {
-        const { data, error } = await _supabase
-            .from('authorized_editors')
-            .select('email')
-            .ilike('email', email.toLowerCase().trim())
-            .single();
-        return !!data;
-    } catch (e) { return false; }
+    const { data, error } = await _supabase
+        .from('authorized_editors')
+        .select('is_admin')
+        .eq('email', email.toLowerCase())
+        .single();
+
+    if (error || !data) return { isAuthorized: false, isAdmin: false };
+    return { isAuthorized: true, isAdmin: data.is_admin };
 }
 
 // 2. Handle the "Verify & Enter" button click
@@ -1182,6 +1182,10 @@ try {
             document.getElementById('admin-share-btn').style.display = 'inline-block';
         }
                 window.isAuthorized = true;
+                window.isAdmin = permissions.isAdmin;
+                if (window.isAdmin) {
+            document.getElementById('admin-share-btn').style.display = 'inline-block';
+        }
                 await fetchDropdownOptions();
                 initPresence(user.email); // <--- ADD THIS LINE
                 refreshDropdowns();
