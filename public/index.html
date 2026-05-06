@@ -1550,7 +1550,7 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
     if (!row) return;
 
     const dateId = row.getAttribute('data-date');
-    // Extract numeric ID from row-wrapper-2026042005
+    // Extract numeric ID (e.g., 2026042005) from row-wrapper-2026042005
     const rowNum = row.id.replace('row-wrapper-', '');
     
     // Unique keys for timers to prevent cross-cell interference
@@ -1563,8 +1563,8 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
         
         const updateObj = { 
             id: parseInt(rowNum),
-            day_label: dateId, 
-            row_index: parseInt(rowNum.toString().slice(-2)) // last 2 digits
+            day_label: dateId
+            // REMOVED row_index here to match your database schema
         };
         
         // Only update the specific column that changed
@@ -1577,7 +1577,8 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
 
         if (!error && data && data[0]) {
             row.setAttribute('data-occupied', 'true');
-            document.getElementById('saveIndicator').innerText = `Last saved at: ${new Date().toLocaleTimeString()}`;
+            const indicator = document.getElementById('saveIndicator');
+            if (indicator) indicator.innerText = `Last saved at: ${new Date().toLocaleTimeString()}`;
             
             // If this was the first save, trigger the 5-second "Check Back"
             if (!isFailsafe) {
@@ -1587,6 +1588,9 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
                     performSave(true); 
                 }, 5000);
             }
+        } else if (error) {
+            // Log full error details to help debug schema mismatches
+            console.error("🔴 Save Error:", error.message, error.hint);
         }
     };
 
@@ -1598,7 +1602,6 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
         window[timeoutKey] = setTimeout(performSave, 400); // 400ms debounce
     }
 }
-
 const contentArea = document.getElementById('main-content-area');
 
 function createSections() {
