@@ -1481,6 +1481,12 @@ const permissions = await verifyPermission(user.email); // Define permissions he
             if (permissions.isAuthorized) { // Check the property
                 window.isAuthorized = true;
                 window.isAdmin = permissions.isAdmin; // Now defined
+
+                if (window.isAdmin) {
+            console.log("🧹 Admin detected: Cleaning up old history records...");
+            const { error } = await _supabase.rpc('delete_old_edit_history');
+            if (error) console.error("Cleanup Error:", error);
+        }
                 
                 // Show the Admin Share Button if they are an admin
                 if (window.isAdmin) {
