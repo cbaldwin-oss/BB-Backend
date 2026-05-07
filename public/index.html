@@ -817,6 +817,13 @@ position: sticky;
         <p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No pending requests.</p>
     </div>
 </div>
+<div id="history-menu" style="display:none; position:fixed; background:white; border:1px solid #ccc; box-shadow:0 4px 15px rgba(0,0,0,0.2); z-index:9999; width:280px; padding:0; border-radius:8px; overflow:hidden; font-family: sans-serif;">
+    <div style="background:#2e7d32; color:white; padding:10px; font-size:14px; font-weight:bold; display:flex; justify-content:space-between;">
+        <span>Cell Edit History</span>
+        <span onclick="document.getElementById('history-menu').style.display='none'" style="cursor:pointer;">×</span>
+    </div>
+    <div id="history-content" style="max-height:300px; overflow-y:auto; padding:10px; font-size:12px; line-height:1.4;"></div>
+</div>
 </div>
 
 <script>
@@ -870,6 +877,51 @@ document.getElementById('app-search-input').addEventListener('input', (e) => {
 // Trigger search on Enter key
 document.getElementById('app-search-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') navigateSearch(1);
+});
+
+async function showCellHistory(e, rowId, colIndex) {
+    e.preventDefault();
+    const menu = document.getElementById('history-menu');
+    const content = document.getElementById('history-content');
+    
+    // Position menu near cursor
+    menu.style.display = 'block';
+    menu.style.left = Math.min(e.pageX, window.innerWidth - 300) + 'px';
+    menu.style.top = Math.min(e.pageY, window.innerHeight - 350) + 'px';
+    
+    content.innerHTML = '<p style="text-align:center; color:#666;">Loading history...</p>';
+
+    const { data, error } = await _supabase
+        .from('edit_history')
+        .select('*')
+        .eq('row_id', rowId)
+        .eq('col_index', colIndex)
+        .order('changed_at', { ascending: false })
+        .limit(20);
+
+    if (error || !data || data.length === 0) {
+        content.innerHTML = '<p style="text-align:center; color:#999; padding:20px;">No edit history found for this cell.</p>';
+        return;
+    }
+
+    content.innerHTML = data.map(h => `
+        <div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #eee;">
+            <div style="color:#2e7d32; font-weight:bold; margin-bottom:2px;">${new Date(h.changed_at).toLocaleString()}</div>
+            <div style="color:#666; margin-bottom:4px;">User: ${h.changed_by}</div>
+            <div style="display:flex; gap:5px; align-items:center;">
+                <span style="color:#d32f2f; text-decoration:line-through; background:#ffebee; padding:2px 4px; border-radius:2px;">${h.old_value || '(empty)'}</span>
+                <span>➔</span>
+                <span style="color:#2e7d32; background:#e8f5e9; padding:2px 4px; border-radius:2px; font-weight:bold;">${h.new_value || '(empty)'}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Close menu when clicking elsewhere
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#history-menu')) {
+        document.getElementById('history-menu').style.display = 'none';
+    }
 });
 
 function performSearch(query) {
@@ -1667,11 +1719,12 @@ function generateNumericId(dateStr, index) {
 function addRowsToContainer(container, dayLabel, anchorBtn = null) {
     const MAX_ROWS = 20; 
     for (let r = 0; r < MAX_ROWS; r++) {
-        const rowNumericId = generateNumericId(dayLabel, r); // dayLabel is date (e.g. "2026-04-20")
+        const rowNumericId = generateNumericId(dayLabel, r);
         const rowDiv = document.createElement('div');
         rowDiv.className = 'cell-row';
         rowDiv.id = `row-wrapper-${rowNumericId}`;
         rowDiv.setAttribute('data-date', dayLabel);
+        rowDiv.setAttribute('data-row-index', r); // Helpful for ID lookups
         rowDiv.style.display = (r > 14) ? 'none' : 'flex';
 
         for (let col = 1; col <= 8; col++) {
@@ -1679,60 +1732,58 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
             let element;
 
             if (col === 5) {
-    element = document.createElement('span');
-    element.id = cellId;
-    element.className = 'status-cell'; // This is the key for the selector
-    element.setAttribute('data-col-index', '5'); // Helper for the sync script
-    element.innerText = "...";
-    element.setAttribute('data-col-index', col);
-    rowDiv.appendChild(element);
-}
+                element = document.createElement('span');
+                element.id = cellId;
+                element.className = 'status-cell';
+                element.setAttribute('data-col-index', col);
+                element.innerText = "...";
+            } 
             else if (col === 6) {
                 element = document.createElement('select');
                 element.id = cellId;
-                element.setAttribute('data-col-index', col); // ADD THIS
+                element.setAttribute('data-col-index', col);
                 element.innerHTML = '<option value="">+ Add Multi</option>';
                 const opts = (window.dropdownData?.col6) || [];
                 opts.forEach(t => { element.appendChild(new Option(t, t)); });
                 element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
-                rowDiv.appendChild(element);
             } 
-            // Locate this block in your addRowsToContainer function
-else if ([1, 2, 3, 4, 7].includes(col)) {
-    element = document.createElement('select');
-    element.id = cellId;
-    element.setAttribute('data-col-index', col); // ADD THIS
-    element.innerHTML = '<option value="">Select...</option>';
-    const opts = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
-    opts.forEach(t => {
-        const o = document.createElement('option');
-        o.value = t; o.text = t;
-        element.appendChild(o);
-    });
-
-    element.onchange = () => { 
-        applyCellColor(element, element.value); 
-        saveCell(element, element.value, col, true);
-
-        // --- THE FIX: Trigger lookup immediately for quicker data pull ---
-        if (col === 3 || col === 4) {
-            console.log(`⚡ Instant Lookup Triggered for Row ${rowNumericId}`);
-            lookupColumn5Value(rowNumericId, dayLabel, false);
-        }
-    };
-    rowDiv.appendChild(element);
-}
+            else if ([1, 2, 3, 4, 7].includes(col)) {
+                element = document.createElement('select');
+                element.id = cellId;
+                element.setAttribute('data-col-index', col);
+                element.innerHTML = '<option value="">Select...</option>';
+                const opts = (window.dropdownData && window.dropdownData[`col${col}`]) ? window.dropdownData[`col${col}`] : [];
+                opts.forEach(t => element.appendChild(new Option(t, t)));
+                element.onchange = () => { 
+                    applyCellColor(element, element.value); 
+                    saveCell(element, element.value, col, true);
+                    if (col === 3 || col === 4) lookupColumn5Value(rowNumericId, dayLabel, false);
+                };
+            }
             else {
                 element = document.createElement('textarea');
                 element.id = cellId;
-                element.setAttribute('data-col-index', col); // ADD THIS
+                element.setAttribute('data-col-index', col);
                 element.oninput = () => applyCellColor(element, element.value);
                 element.onblur = () => { 
                     applyCellColor(element, element.value); 
                     saveCell(element, element.value, col, true);
                 };
-                rowDiv.appendChild(element);
             }
+
+            // --- HISTORY LISTENERS ---
+            // 1. Capture value before edit (for Inputs/Selects)
+            if (element.tagName !== 'SPAN') {
+                element.onfocus = (e) => {
+                    const current = e.target.getAttribute('data-selected') || e.target.value;
+                    e.target.setAttribute('data-before-edit', current || "");
+                };
+            }
+
+            // 2. Right-click context menu for History
+            element.oncontextmenu = (e) => showCellHistory(e, rowNumericId, col);
+
+            rowDiv.appendChild(element);
         }
         
         const delBtn = document.createElement('button');
@@ -1756,18 +1807,13 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
     const failsafeKey = `failsafe-${rowNum}-${colIndex}`;
 
     const performSave = async (isFailsafe = false) => {
-        // Read value from Span (Col 5) or Input/Select
         const currentValue = (cell.tagName === 'SPAN') ? cell.innerText : (cell.getAttribute('data-selected') || cell.value);
-        
-        // Skip saving if it's still "Checking..."
-        if (currentValue.includes("Checking")) return;
+        const oldValue = cell.getAttribute('data-before-edit') || "";
 
-        const updateObj = { 
-            id: parseInt(rowNum),
-            day_label: dateId
-            // Note: row_index removed here if not in your DB schema to prevent 400 errors
-        };
-        
+        // Skip saving if it's still "Checking..." or if the value hasn't actually changed
+        if (currentValue.includes("Checking") || (isFailsafe && currentValue === oldValue)) return;
+
+        const updateObj = { id: parseInt(rowNum), day_label: dateId };
         updateObj[`col${colIndex}`] = currentValue;
 
         const { data, error } = await _supabase
@@ -1777,23 +1823,29 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
 
         if (!error && data && data[0]) {
             row.setAttribute('data-occupied', 'true');
-            const indicator = document.getElementById('saveIndicator');
-            if (indicator) indicator.innerText = `Last saved at: ${new Date().toLocaleTimeString()}`;
+            document.getElementById('saveIndicator').innerText = `Saved at: ${new Date().toLocaleTimeString()}`;
             
-            // --- UPDATED FAILSAFE LOGIC ---
+            // --- LOG TO EDIT HISTORY ---
+            // Only log if this wasn't a redundant failsafe save
+            if (currentValue !== oldValue) {
+                await _supabase.from('edit_history').insert([{
+                    row_id: parseInt(rowNum),
+                    col_index: colIndex,
+                    old_value: oldValue,
+                    new_value: currentValue,
+                    changed_by: localStorage.getItem('launchpad_email') || 'Unknown'
+                }]);
+                // Update the "before" value so the failsafe or next edit is accurate
+                cell.setAttribute('data-before-edit', currentValue);
+            }
+
             if (!isFailsafe) {
                 if (window[failsafeKey]) clearTimeout(window[failsafeKey]);
-                
-                // Increase wait to 7 seconds for Apps Script to finish
                 window[failsafeKey] = setTimeout(() => {
-                    console.log(`🕒 7s Failsafe: Verifying Col ${colIndex} for ${dateId}`);
                     performSave(true); 
-
-                    // If Place (Col 3) or Activity (Col 4) changed, force a sync of Status (Col 5)
                     if (colIndex === 3 || colIndex === 4) {
                         const statusCell = row.querySelector('.status-cell');
                         if (statusCell && !statusCell.innerText.includes("Checking") && statusCell.innerText !== "...") {
-                            console.log("⚡ Failsafe: Syncing final Status result...");
                             saveCell(statusCell, statusCell.innerText, 5, true);
                         }
                     }
