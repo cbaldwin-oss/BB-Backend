@@ -918,38 +918,46 @@ function navigateSearch(direction) {
     const activeEl = searchState.results[searchState.currentIndex];
     activeEl.classList.add('search-active-result');
 
-    // AUTO-EXPAND LOGIC
+    // --- KEY FIX: Open the containers first ---
     revealElement(activeEl);
 
-    // Scroll into view
-    activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Now that it's visible, the browser can scroll to it
+    setTimeout(() => {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50); // Small delay to allow the CSS 'display: block' to register
+    
     updateSearchUI();
 }
 
 function revealElement(el) {
-    // 1. Expand the Day (rows-container)
+    // 1. Unhide the specific Row (if it was hidden by autoCleanUI)
+    const rowWrapper = el.closest('.cell-row');
+    if (rowWrapper) {
+        rowWrapper.style.display = 'flex';
+    }
+
+    // 2. Expand the Day (rows-container)
     const rowsContainer = el.closest('.rows-container');
     if (rowsContainer && rowsContainer.classList.contains('hidden')) {
         rowsContainer.classList.remove('hidden');
-        // Update the arrow in the header
+        
+        // Update the arrow in the Day Header
         const section = rowsContainer.closest('.section-container');
         if (section) {
+            section.style.display = 'block'; // Ensure day isn't hidden by autoClean
             const arrow = section.querySelector('.arrow');
             if (arrow) arrow.innerText = '▼';
         }
     }
 
-    // 2. Unhide the Row (if hidden by filters or autoclean)
-    const rowWrapper = el.closest('.cell-row');
-    if (rowWrapper) rowWrapper.style.display = 'flex';
-
-    // 3. Unhide the Day Section (if hidden by autoclean)
-    const sectionContainer = el.closest('.section-container');
-    if (sectionContainer) sectionContainer.style.display = 'block';
-
-    // 4. Unhide the Week (if hidden)
+    // 3. Expand the Week (if your weeks use a similar toggle)
     const weekContainer = el.closest('.week-container');
-    if (weekContainer) weekContainer.style.display = 'block';
+    if (weekContainer) {
+        weekContainer.style.display = 'block'; // Ensure week isn't hidden
+        // If your weeks have a 'hidden' class on a content div, remove it here:
+        const weekContent = weekContainer.querySelector('.week-content');
+        if (weekContent) weekContent.classList.remove('hidden');
+    }
 }
 
 function updateSearchUI() {
@@ -2284,6 +2292,11 @@ function collapseEverything() {
         const arrow = document.querySelectorAll('.arrow')[i];
         if (arrow) arrow.innerText = '▶';
     });
+    const searchInput = document.getElementById('app-search-input');
+    if (searchInput) {
+        searchInput.value = "";
+        performSearch(""); // Clears all yellow/orange highlights
+    }
 }
 
 function autoCleanUI() {
