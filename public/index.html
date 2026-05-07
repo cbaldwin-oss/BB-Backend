@@ -681,6 +681,16 @@ position: sticky;
     display: flex !important;
     opacity: 1 !important;
 }
+.search-match-highlight {
+    outline: 2px solid #fbc02d !important; /* Yellow highlight */
+    background-color: #fffde7 !important;
+    transition: outline 0.2s;
+}
+
+.search-active-result {
+    outline: 3px solid #f57f17 !important; /* Brighter orange for the current one */
+    box-shadow: 0 0 10px rgba(245, 127, 23, 0.5);
+}
 </style>
 </head>
 <body>
@@ -706,6 +716,13 @@ position: sticky;
     <div class="subheader-item">
         <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
         <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
+        <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
+        <input type="text" id="app-search-input" placeholder="Find in data..." 
+               style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
+        <span id="search-count" style="font-size: 11px; color: #666; margin: 0 5px; min-width: 30px;">0/0</span>
+        <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▲</button>
+        <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▼</button>
+    </div>
     </div>
         <div id="presence-list" style="display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 15px;">
     </div>
@@ -838,6 +855,111 @@ setInterval(() => {
         triggerFullStatusRefresh(); // Silent background sync
          // Periodic Google Sheets refresh
 }, 300000);
+
+let searchState = {
+    results: [],
+    currentIndex: -1,
+    query: ""
+};
+
+// Listen for typing in the search bar
+document.getElementById('app-search-input').addEventListener('input', (e) => {
+    performSearch(e.target.value);
+});
+
+// Trigger search on Enter key
+document.getElementById('app-search-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') navigateSearch(1);
+});
+
+function performSearch(query) {
+    // Clean up previous highlights
+    searchState.results.forEach(el => el.classList.remove('search-match-highlight', 'search-active-result'));
+    
+    searchState.query = query.trim().toLowerCase();
+    searchState.results = [];
+    searchState.currentIndex = -1;
+
+    if (searchState.query === "" || searchState.query.length < 2) {
+        updateSearchUI();
+        return;
+    }
+
+    // Find all potential data elements
+    const elements = document.querySelectorAll('.cell-input, .status-cell, select[id*="-c"]');
+    
+    elements.forEach(el => {
+        const val = (el.tagName === 'SPAN' ? el.innerText : el.value).toLowerCase();
+        if (val.includes(searchState.query)) {
+            searchState.results.push(el);
+            el.classList.add('search-match-highlight');
+        }
+    });
+
+    updateSearchUI();
+    if (searchState.results.length > 0) {
+        navigateSearch(1); // Jump to first result
+    }
+}
+
+function navigateSearch(direction) {
+    if (searchState.results.length === 0) return;
+
+    // Remove active class from old result
+    if (searchState.currentIndex >= 0) {
+        searchState.results[searchState.currentIndex].classList.remove('search-active-result');
+    }
+
+    // Calculate next index
+    searchState.currentIndex += direction;
+    if (searchState.currentIndex >= searchState.results.length) searchState.currentIndex = 0;
+    if (searchState.currentIndex < 0) searchState.currentIndex = searchState.results.length - 1;
+
+    const activeEl = searchState.results[searchState.currentIndex];
+    activeEl.classList.add('search-active-result');
+
+    // AUTO-EXPAND LOGIC
+    revealElement(activeEl);
+
+    // Scroll into view
+    activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    updateSearchUI();
+}
+
+function revealElement(el) {
+    // 1. Expand the Day (rows-container)
+    const rowsContainer = el.closest('.rows-container');
+    if (rowsContainer && rowsContainer.classList.contains('hidden')) {
+        rowsContainer.classList.remove('hidden');
+        // Update the arrow in the header
+        const section = rowsContainer.closest('.section-container');
+        if (section) {
+            const arrow = section.querySelector('.arrow');
+            if (arrow) arrow.innerText = '▼';
+        }
+    }
+
+    // 2. Unhide the Row (if hidden by filters or autoclean)
+    const rowWrapper = el.closest('.cell-row');
+    if (rowWrapper) rowWrapper.style.display = 'flex';
+
+    // 3. Unhide the Day Section (if hidden by autoclean)
+    const sectionContainer = el.closest('.section-container');
+    if (sectionContainer) sectionContainer.style.display = 'block';
+
+    // 4. Unhide the Week (if hidden)
+    const weekContainer = el.closest('.week-container');
+    if (weekContainer) weekContainer.style.display = 'block';
+}
+
+function updateSearchUI() {
+    const countEl = document.getElementById('search-count');
+    if (searchState.query === "") {
+        countEl.innerText = "0/0";
+    } else {
+        countEl.innerText = `${searchState.currentIndex + 1}/${searchState.results.length}`;
+    }
+}
 
 async function triggerFullStatusRefresh() {
     // 1. Calculate the 7-day range using Local Time to match autoCleanUI
