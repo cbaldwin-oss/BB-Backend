@@ -697,7 +697,7 @@ position: sticky;
     left: 0;
     top: 80px; /* Below Header */
     height: calc(100vh - 80px);
-    width: 60px;
+    width: 45px;
     background-color: #ffffff;
     border-right: 1px solid #dcdcdc;
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -709,14 +709,14 @@ position: sticky;
 }
 
 #sidebar:hover {
-    width: 200px;
+    width: 180px;
 }
 
 /* Sidebar Navigation Items */
 .nav-item {
     display: flex;
     align-items: center;
-    padding: 15px 18px;
+    padding: 12px 12px;
     cursor: pointer;
     color: #5f6368;
     transition: background 0.2s;
@@ -736,15 +736,15 @@ position: sticky;
 }
 
 .nav-icon {
-    font-size: 20px;
-    min-width: 24px;
+    font-size: 16px;
+    min-width: 20px;
     text-align: center;
 }
 
 .nav-text {
-    margin-left: 20px;
+    margin-left: 15px;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13px;
     opacity: 0;
     transition: opacity 0.2s;
 }
@@ -755,12 +755,12 @@ position: sticky;
 
 /* Main Content Wrapper */
 #app-body {
-    margin-left: 60px; /* Collapsed sidebar width */
+    margin-left: 45px; /* Collapsed sidebar width */
     transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #sidebar:hover ~ #app-body {
-    margin-left: 200px;
+    margin-left: 180px;
 }
 
 /* Dashboard Specific Layout */
