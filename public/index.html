@@ -804,6 +804,11 @@ position: sticky;
     border: 1px solid #ddd;
     text-align: center;
 }
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden; /* We handle scrolling inside the views */
+}
 </style>
 </head>
 <body>
@@ -1075,6 +1080,8 @@ document.addEventListener('click', (e) => {
 function switchMainView(viewType, btn) {
     const dash = document.getElementById('dashboard-view');
     const sched = document.getElementById('schedule-view');
+    
+    // Select the elements we want to remove from the dashboard view
     const subheader = document.querySelector('.subheader');
     const frozenBar = document.querySelector('.frozen-bar');
     
@@ -1086,14 +1093,16 @@ function switchMainView(viewType, btn) {
         dash.style.display = 'block';
         sched.style.display = 'none';
         
-        // Hide schedule-specific tools when in Dashboard mode
+        // REMOVE 3-DAY LOOK AHEAD & FILTERS FROM DASHBOARD
         if (subheader) subheader.style.display = 'none';
         if (frozenBar) frozenBar.style.display = 'none';
+        
+        console.log("📊 Dashboard Active: Removing schedule headers for full-screen view.");
     } else {
         dash.style.display = 'none';
         sched.style.display = 'block';
         
-        // Restore schedule-specific tools
+        // RESTORE HEADERS FOR SCHEDULE
         if (subheader) subheader.style.display = 'flex';
         if (frozenBar) frozenBar.style.display = 'flex';
     }
