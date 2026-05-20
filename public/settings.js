@@ -1,7 +1,3 @@
-/**
- * Settings Module
- * Handles Admin-only system configurations and maintenance tasks.
- */
 const Settings = {
     containerId: 'settings-container',
     currentCategory: 'Assets', // Default category
@@ -14,10 +10,9 @@ const Settings = {
     render(container) {
         container.innerHTML = `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-                
                 <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.05); grid-column: span 2;">
                     <h3 style="margin-top:0; font-size:16px; color:#333;">📋 Dropdown Management</h3>
-                    <p style="font-size: 13px; color: #666;">Add or remove options for your schedule's dropdown menus.</p>
+                    <p style="font-size: 13px; color: #666;">Add or remove options. (Only non-empty entries are shown).</p>
                     
                     <div style="margin-bottom: 15px;">
                         <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">Select Category:</label>
@@ -31,28 +26,25 @@ const Settings = {
                         </select>
                     </div>
 
-                    <div id="dropdown-list-container" style="max-height: 250px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 10px; background: #fafafa;">
+                    <div id="dropdown-list-container" style="max-height: 250px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 10px; background: #fafafa; position: relative;">
                         </div>
 
                     <div style="margin-top: 15px; display: flex; gap: 10px;">
                         <input type="text" id="new-option-input" placeholder="Enter new option..." style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <button onclick="Settings.addOption()" style="background: #2e7d32; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add</button>
+                        <button id="add-opt-btn" onclick="Settings.addOption(this)" style="background: #2e7d32; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add</button>
                     </div>
                 </div>
 
                 <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                    <h3 style="margin-top:0; font-size:16px; color:#333;">📦 Database Maintenance</h3>
-                    <p style="font-size: 13px; color: #666;">Wipe and re-verify Column 5 (Status) for the next 7 days.</p>
-                    <button onclick="triggerFullStatusRefresh()" style="background: #01579b; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%;">🔄 Run 7-Day Status Refresh</button>
-                </div>
-
-                <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                    <h3 style="margin-top:0; font-size:16px; color:#333;">👥 User Permissions</h3>
-                    <p style="font-size: 13px; color: #666;">Add or remove users and toggle Admin privileges.</p>
-                    <button onclick="toggleAdminPanel()" style="background: #2e7d32; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%;">👤 Manage User Access</button>
+                    <h3 style="margin-top:0; font-size:16px; color:#333;">🧹 Database Maintenance</h3>
+                    <p style="font-size: 13px; color: #666;">Cleanup empty rows and refresh the status system.</p>
+                    <button onclick="Settings.cleanupEmptyRows(this)" style="background: #616161; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; width: 100%; margin-bottom: 10px;">Delete Empty DB Rows</button>
+                    <button onclick="triggerFullStatusRefresh()" style="background: #01579b; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; width: 100%;">Run 7-Day Status Refresh</button>
                 </div>
             </div>
         `;
+        // Sync the select value with current state
+        document.getElementById('setting-category-select').value = this.currentCategory;
         this.loadCategoryData();
     },
 
@@ -63,28 +55,48 @@ const Settings = {
 
     loadCategoryData() {
         const container = document.getElementById('dropdown-list-container');
-        // Map UI category to the window.dropdownData key
         const mapping = { 'Times': 'col1', 'Places': 'col2', 'Activities': 'col3', 'Assets': 'col4', 'Trade_Partners': 'col6', 'Results': 'col7' };
         const dataKey = mapping[this.currentCategory];
         const options = window.dropdownData[dataKey] || [];
 
         if (options.length === 0) {
-            container.innerHTML = '<p style="color:#999; font-size:12px; text-align:center;">No options found for this category.</p>';
+            container.innerHTML = '<p style="color:#999; font-size:12px; text-align:center; padding: 20px;">No options found. Add one below!</p>';
             return;
         }
 
         container.innerHTML = options.map(opt => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #eee;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 5px; border-bottom:1px solid #eee;">
                 <span style="font-size:13px;">${opt}</span>
-                <button onclick="Settings.deleteOption('${opt}')" style="background:none; border:none; color:#d32f2f; cursor:pointer; font-size:16px;">&times;</button>
+                <button onclick="Settings.deleteOption('${opt.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#d32f2f; cursor:pointer; font-size:18px; line-height:1;">&times;</button>
             </div>
         `).join('');
     },
 
-    async deleteOption(val) {
-        if (!confirm(`Are you sure you want to delete "${val}" from ${this.currentCategory}?`)) return;
+    async addOption(btn) {
+        const input = document.getElementById('new-option-input');
+        const val = input.value.trim();
+        if (!val) return;
 
-        // Delete from Supabase (sets specific column cells to null where value matches)
+        btn.disabled = true;
+        btn.innerText = "Saving...";
+
+        const insertData = {};
+        insertData[this.currentCategory] = val;
+
+        const { error } = await _supabase.from('dropdownoptions').insert([insertData]);
+
+        if (error) {
+            alert("Error adding: " + error.message);
+        } else {
+            input.value = "";
+            await this.refreshAppData();
+        }
+        btn.disabled = false;
+        btn.innerText = "Add";
+    },
+
+    async deleteOption(val) {
+        if (!confirm(`Delete "${val}" from ${this.currentCategory}?`)) return;
         const updateData = {};
         updateData[this.currentCategory] = null;
 
@@ -93,52 +105,28 @@ const Settings = {
             .update(updateData)
             .eq(this.currentCategory, val);
 
-        if (error) {
-            alert("Error deleting option: " + error.message);
-        } else {
-            await this.refreshAppData();
-        }
+        if (error) alert("Error: " + error.message);
+        else await this.refreshAppData();
     },
 
-// Inside Settings object in settings.js
-
-async addOption() {
-    const input = document.getElementById('new-option-input');
-    const btn = event.target; // The "Add" button
-    const val = input.value.trim();
-    
-    if (!val) return;
-
-    // Visual feedback: disable button while adding
-    btn.disabled = true;
-    btn.innerText = "Saving...";
-
-    const insertData = {};
-    insertData[this.currentCategory] = val;
-
-    const { error } = await _supabase.from('dropdownoptions').insert([insertData]);
-
-    if (error) {
-        alert("Error adding option: " + error.message);
+    async cleanupEmptyRows(btn) {
+        btn.disabled = true;
+        btn.innerText = "Cleaning...";
+        // Deletes rows where ALL columns are null
+        const { error } = await _supabase
+            .from('dropdownoptions')
+            .delete()
+            .is('Times', null).is('Places', null).is('Activities', null)
+            .is('Assets', null).is('Trade_Partners', null).is('Results', null);
+        
+        alert(error ? "Error: " + error.message : "Database cleaned of empty rows!");
         btn.disabled = false;
-        btn.innerText = "Add";
-    } else {
-        input.value = "";
-        // Keep the button disabled until data is actually back and rendered
-        await this.refreshAppData();
-        btn.disabled = false;
-        btn.innerText = "Add";
+        btn.innerText = "Delete Empty DB Rows";
+    },
+
+    async refreshAppData() {
+        await fetchDropdownOptions();
+        if (typeof refreshDropdowns === 'function') refreshDropdowns();
+        this.loadCategoryData(); 
     }
-},
-
-async refreshAppData() {
-    // 1. Fetch fresh data from Supabase
-    await fetchDropdownOptions();
-    
-    // 2. Refresh the schedule's dropdown menus (global function in index.html)
-    if (typeof refreshDropdowns === 'function') refreshDropdowns();
-    
-    // 3. Re-load the specific category list you were just looking at
-    this.loadCategoryData(); 
-}
 };
