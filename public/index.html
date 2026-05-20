@@ -1888,50 +1888,37 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzuFE1ZBtJ0OF
 let dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
 
 async function fetchDropdownOptions() {
-    console.log("🛠️ Fetching unique options per column...");
     const columns = ['Times', 'Places', 'Activities', 'Assets', 'Trade_Partners', 'Results'];
-    const mapping = { 
-        'Times': 'col1', 'Places': 'col2', 'Activities': 'col3', 
-        'Assets': 'col4', 'Trade_Partners': 'col6', 'Results': 'col7' 
-    };
+    const mapping = { 'Times': 'col1', 'Places': 'col2', 'Activities': 'col3', 'Assets': 'col4', 'Trade_Partners': 'col6', 'Results': 'col7' };
     
-    // Initialize/Reset
-    window.dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
+    // Create a temporary object to hold new data
+    const newData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
 
-    // Create a promise for each column to fetch non-null values efficiently
     const promises = columns.map(async (dbCol) => {
         const { data, error } = await _supabase
             .from('dropdownoptions')
             .select(dbCol)
-            .not(dbCol, 'is', null) // Only fetch rows where THIS column has data
-            .neq(dbCol, '')         // Ignore empty strings
-            .range(0, 1000);        // Get up to 1000 unique items per category
+            .not(dbCol, 'is', null)
+            .range(0, 1000); 
 
         if (!error && data) {
             const uiKey = mapping[dbCol];
             data.forEach(row => {
-                const val = row[dbCol].toString().trim();
-                if (!window.dropdownData[uiKey].includes(val)) {
-                    window.dropdownData[uiKey].push(val);
+                const val = row[dbCol]?.toString().trim();
+                if (val && !newData[uiKey].includes(val)) {
+                    newData[uiKey].push(val);
                 }
             });
-            window.dropdownData[uiKey].sort(); // Alphabetize for the UI
-        } else if (error) {
-            console.error(`Error fetching ${dbCol}:`, error.message);
+            newData[uiKey].sort();
         }
     });
 
     await Promise.all(promises);
-
-    // Update the Request Access dropdown if it exists
-    const companySelect = document.getElementById('request-company-select');
-    if (companySelect && window.dropdownData.col6) {
-        const currentVal = companySelect.value;
-        companySelect.innerHTML = '<option value="">Select Company...</option>';
-        window.dropdownData.col6.forEach(p => companySelect.add(new Option(p, p)));
-        companySelect.value = currentVal;
-    }
-    console.log("✅ Dropdown data fully loaded:", window.dropdownData);
+    
+    // SWAP the data only once everything is fetched
+    window.dropdownData = newData;
+    
+    console.log("✅ Dropdown data synced.");
 }
 
 // Helper to create stable, short integers for Supabase int4

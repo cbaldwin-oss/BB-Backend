@@ -1,34 +1,80 @@
-// Inside dashboard.js
 const Dashboard = {
     async init() {
-        const container = document.getElementById(this.containerId);
-        container.innerHTML = '<p style="padding:20px;">Gathering data from all systems...</p>';
+        const container = document.getElementById('dash-content');
+        container.innerHTML = '<p>Loading analytics...</p>';
 
         try {
-            // 1. Fetch Supabase Data
+            // Fetch Supabase data
             const { data: scheduleData } = await _supabase.from('BackEndData').select('*');
+            
+            // Fetch Weekly Stats from Google
+            const chartResp = await fetch(`${GOOGLE_SCRIPT_URL}?action=getWeeklyStats`);
+            const chartData = await chartResp.json();
 
-            // 2. Fetch External Google Sheets Data
-            const externalUrl = `${GOOGLE_SCRIPT_URL}?action=getExternalDashboardData`;
-            const response = await fetch(externalUrl);
-            const externalData = await response.json();
-
-            // 3. Fetch Recent History
-            const { data: historyData } = await _supabase
-                .from('edit_history')
-                .select('*')
-                .order('changed_at', { ascending: false })
-                .limit(5);
-
-            this.render(scheduleData, externalData, historyData);
+            this.render(scheduleData, chartData);
         } catch (err) {
-            container.innerHTML = `<p style="color:red; padding:20px;">Sync Error: ${err.message}</p>`;
+            console.error(err);
         }
     },
 
-    render(data, external, history) {
-        const stats = this.calculateStats(data);
-        const container = document.getElementById(this.containerId);
+    render(scheduleData, chartData) {
+        const stats = this.calculateStats(scheduleData);
+        const container = document.getElementById('dash-content');
+
+        container.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px;">
+                ${this.createStatCard("Active Jobs", stats.total, "#01579b")}
+                ${this.createStatCard("Total Checklists", chartData.checklists.reduce((a,b)=>a+b,0), "#2e7d32")}
+                ${this.createStatCard("Total Tests", chartData.tests.reduce((a,b)=>a+b,0), "#c62828")}
+            </div>
+
+            <div style="background:white; padding:20px; border:1px solid #ddd; border-radius:8px; margin-bottom:25px;">
+                <h4 style="margin-top:0;">Weekly Performance (Last 8 Weeks)</h4>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+            </div>
+        `;
+
+        // Initialize the Chart
+        this.initWeeklyChart(chartData);
+    },
+
+    initWeeklyChart(data) {
+        const ctx = document.getElementById('weeklyChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: 'Checklists Completed',
+                        data: data.checklists,
+                        backgroundColor: 'rgba(46, 125, 50, 0.7)', // Green
+                        borderColor: '#2e7d32',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Tests Completed',
+                        data: data.tests,
+                        backgroundColor: 'rgba(198, 40, 40, 0.7)', // Red
+                        borderColor: '#c62828',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { display: false } },
+                    x: { grid: { display: false } }
+                },
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
 
         container.innerHTML = `
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px;">
