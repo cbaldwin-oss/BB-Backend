@@ -1629,7 +1629,6 @@ async function completeAppLaunch() {
         loader.classList.add('hidden');
         setTimeout(() => { 
             loader.style.display = 'none'; 
-            autoCleanUI(); 
         }, 800);
     } catch (e) {
         console.error("Launch error:", e);
@@ -1714,7 +1713,6 @@ if (permissions.isAuthorized) {
     applyViewFilter('view2');
     collapseEverything();
     loader.classList.add('hidden');
-    setTimeout(() => { loader.style.display = 'none'; autoCleanUI(); }, 800);
     return;
 }
             }
@@ -2500,16 +2498,15 @@ function applyViewFilter(viewId) {
     const sections = document.querySelectorAll('.section-container');
     const weekContainers = document.querySelectorAll('.week-container');
     const allRows = document.querySelectorAll('.cell-row');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    // 1. Reset everything to visible first (Base state)
+    // 1. Reset: Show everything initially
     sections.forEach(s => s.style.display = 'block');
     weekContainers.forEach(w => w.style.display = 'block');
     allRows.forEach(r => r.style.display = 'flex');
 
-    // 2. Define the date range logic (Look Ahead)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
+    // 2. Define Look Ahead Range
     let targetDate = null;
     if (viewId === 'view2') {
         targetDate = new Date(today);
@@ -2519,19 +2516,19 @@ function applyViewFilter(viewId) {
         targetDate.setDate(today.getDate() + 6);
     }
 
-    // 3. Process every row to check BOTH Date and Company
+    // 3. Sequential Filtering
     allRows.forEach(row => {
         const rowDateStr = row.getAttribute('data-date');
         const [y, m, d] = rowDateStr.split('-').map(Number);
         const rowDate = new Date(y, m - 1, d);
         rowDate.setHours(0, 0, 0, 0);
 
-        // A. Apply Date Filter
+        // A. Look Ahead Check: Hide if outside range
         if (targetDate && (rowDate < today || rowDate > targetDate)) {
-            row.style.display = 'none';
+            row.closest('.section-container').style.display = 'none';
         }
 
-        // B. Apply "My Activities" Filter (Trade Partners is Column 6)
+        // B. My Activities Check: Hide if row doesn't match company
         if (isMyActivitiesActive && row.style.display !== 'none') {
             const company = (window.userCompany || "").toLowerCase();
             const col6 = row.querySelector('[id$="-c6"]');
@@ -2543,28 +2540,30 @@ function applyViewFilter(viewId) {
         }
     });
 
-    // 4. Hide empty Days and Weeks
-    sections.forEach(section => {
-        const visibleRows = Array.from(section.querySelectorAll('.cell-row'))
-                                 .filter(r => r.style.display !== 'none');
-        if (visibleRows.length === 0) section.style.display = 'none';
-    });
+    // 4. Hide empty Days and Weeks only if a filter is active
+    if (targetDate || isMyActivitiesActive) {
+        sections.forEach(section => {
+            const visibleRows = Array.from(section.querySelectorAll('.cell-row'))
+                                     .filter(r => r.style.display !== 'none');
+            if (visibleRows.length === 0) section.style.display = 'none';
+        });
 
-    weekContainers.forEach(week => {
-        const visibleDays = Array.from(week.querySelectorAll('.section-container'))
-                                 .filter(s => s.style.display !== 'none');
-        if (visibleDays.length === 0) {
-            week.style.display = 'none';
-        } else if (targetDate || isMyActivitiesActive) {
-            // Auto-expand weeks if any filter is active
-            const content = week.querySelector('.week-content');
-            const arrow = week.querySelector('.week-arrow');
-            if (content) content.classList.remove('hidden');
-            if (arrow) arrow.innerText = '▼';
-        }
-    });
-
-    if (!targetDate && !isMyActivitiesActive && viewId === 'view1') expandAllWeeks(); 
+        weekContainers.forEach(week => {
+            const visibleDays = Array.from(week.querySelectorAll('.section-container'))
+                                     .filter(s => s.style.display !== 'none');
+            if (visibleDays.length === 0) {
+                week.style.display = 'none';
+            } else {
+                const content = week.querySelector('.week-content');
+                if (content) content.classList.remove('hidden');
+                const arrow = week.querySelector('.week-arrow');
+                if (arrow) arrow.innerText = '▼';
+            }
+        });
+    } else {
+        // Default View: Show all Weeks and all Days
+        expandAllWeeks(); 
+    }
 }
 
 async function switchView(viewId, buttonElement) {
@@ -2619,53 +2618,6 @@ function collapseEverything() {
         searchInput.value = "";
         performSearch(""); // Clears all yellow/orange highlights
     }
-}
-
-function autoCleanUI() {
-    const now = new Date();
-    const todayStr = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, '0'),
-        String(now.getDate()).padStart(2, '0')
-    ].join('-');
-
-    console.log("🧹 Protected Cleanup starting...");
-
-    const allRows = document.querySelectorAll('[data-date]');
-    if (allRows.length === 0) return;
-
-    allRows.forEach(row => {
-        const rowDate = row.getAttribute('data-date');
-        
-        // 1. Is the row from a past date?
-        if (rowDate < todayStr) {
-            
-            // 2. Is this row "Occupied" by Supabase data?
-            const isOccupied = row.getAttribute('data-occupied') === 'true';
-
-            if (!isOccupied) {
-                // 3. Secondary check: Are the columns actually still empty?
-                const col3 = row.querySelector(`[id$="-c3"]`);
-                const col4 = row.querySelector(`[id$="-c4"]`);
-                
-                const val3 = col3?.value?.toLowerCase() || "";
-                const val4 = col4?.value?.toLowerCase() || "";
-                
-                const isTrulyEmpty = (val3 === "" || val3.includes("select")) && 
-                                     (val4 === "" || val4.includes("select"));
-
-                if (isTrulyEmpty) {
-                    row.style.display = 'none';
-                }
-            } else {
-                // Row has data! Ensure it is visible.
-                row.style.display = 'flex';
-            }
-        } else {
-            // Today or Future: Always visible.
-            row.style.display = 'flex';
-        }
-    });
 }
 
 /**
