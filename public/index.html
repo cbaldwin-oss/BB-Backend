@@ -760,8 +760,12 @@ position: sticky;
 
 /* Main Content Wrapper */
 #app-body {
-    margin-left: 30px; /* Collapsed sidebar width */
+    margin-left: 36px; /* Collapsed sidebar width */
     transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    height: calc(100vh - 80px); /* FILLS SCREEN: Viewport height minus header (80px) */
+    width: calc(100% - 36px);
+    overflow: hidden; /* Prevents double scrollbars */
+    position: relative;
 }
 
 #sidebar:hover ~ #app-body {
@@ -900,10 +904,9 @@ html, body {
     </div>
 </div>
 </div>
-</div>
 <div id="main-content-area">
     </div>
-
+</div>
 <div id="grid-container">
     <table id="grid"></table>
 </div>
