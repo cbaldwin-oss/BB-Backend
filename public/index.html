@@ -937,38 +937,31 @@ html, body {
     <p id="grant-status" style="margin-top: 15px; font-size: 14px; display: none;"></p>
 </div>
 
-<div id="auth-prompt" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 400px; padding: 40px; text-align: center;">
-        <img src="https://lh3.googleusercontent.com/d/1_XyCdfN4Y_O8Xm0D2k2T76A18Z-r-O2W" style="width: 120px; margin-bottom: 20px;">
-        <h2 id="auth-title" style="margin-bottom: 10px; color: #2e7d32;">Welcome back</h2>
-        <p id="auth-subtitle" style="color: #666; margin-bottom: 25px; font-size: 14px;">Enter your details to access the terminal.</p>
-        
-        <input type="email" id="user-email-input" placeholder="Email Address" 
-               style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 15px; box-sizing: border-box; font-size: 16px;">
+<div id="auth-prompt" style="display: none; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); color: #333; max-width: 400px; margin: 0 20px;">
+    <h2 id="auth-title" style="margin-top: 0; color: #2e7d32; font-size: 26px;">Sign In</h2>
+    <p id="auth-subtitle" style="margin-bottom: 25px; color: #666;">Enter your credentials to access LaunchPad.</p>
+    
+    <input type="email" id="user-email-input" placeholder="Email Address" 
+           style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 10px; box-sizing: border-box; font-size: 16px;">
+    
+    <input type="password" id="user-pin-input" placeholder="Enter PIN (min. 6 digits)" 
+           style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; text-align: center; letter-spacing: 4px;">
+    
+    <button id="auth-btn" onclick="handleAuthAction()" 
+            style="background: #2e7d32; color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;">
+        Login
+    </button>
 
-        <div id="login-fields">
-            <input type="password" id="user-pin-input" placeholder="Enter PIN" 
-                   style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; text-align: center; letter-spacing: 5px;">
-            <button onclick="handleLogin()" style="width: 100%; padding: 15px; background: #2e7d32; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px;">Login</button>
-            <p style="margin-top: 20px; font-size: 13px; color: #666;">
-                Don't have access? <a href="#" onclick="toggleAuthMode('request')" style="color: #2e7d32; font-weight: bold; text-decoration: none;">Request Access</a>
-            </p>
-        </div>
+    <div style="margin-top: 20px; font-size: 14px; display: flex; justify-content: center; gap: 20px;">
+    <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">First time? Create your PIN</a>
+    <span style="color: #d33b3b;">|</span>
+    <a href="javascript:void(0)" onclick="handleForgotPin()" style="color: #e53737; text-decoration: none;">Forgot PIN?</a>
+    <span style="color: #ccc;">|</span>
+    <a href="javascript:void(0)" onclick="handleRequestAccess()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">Request Access</a>
+</div>
 
-        <div id="request-fields" style="display: none;">
-            <select id="request-company-select" 
-                    style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; background-color: white;">
-                <option value="">Select Company...</option>
-            </select>
-            <button onclick="handleRequestAccess()" style="width: 100%; padding: 15px; background: #01579b; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px;">Submit Request</button>
-            <p style="margin-top: 20px; font-size: 13px; color: #666;">
-                Already have access? <a href="#" onclick="toggleAuthMode('login')" style="color: #2e7d32; font-weight: bold; text-decoration: none;">Back to Login</a>
-            </p>
-        </div>
-
-        <div id="auth-error" style="color: #d32f2f; margin-top: 20px; font-size: 13px; display: none; background: #ffebee; padding: 10px; border-radius: 4px;"></div>
-        <div id="auth-success" style="color: #2e7d32; margin-top: 20px; font-size: 13px; display: none; background: #e8f5e9; padding: 10px; border-radius: 4px;"></div>
-    </div>
+    <p id="auth-error" style="color: #d32f2f; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
+    <p id="auth-success" style="color: #2e7d32; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
 </div>
 </div>
 <div id="admin-panel" style="display: none; position: fixed; top: 80px; right: 30px; width: 350px; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 2000; padding: 20px;">
@@ -1330,17 +1323,23 @@ async function refreshRequestList() {
     const { data, error } = await _supabase.from('access_requests').select('*');
 
     if (error || !data || data.length === 0) {
-        listContainer.innerHTML = '<p style="text-align: center; padding: 20px;">No pending requests.</p>';
+        listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No pending requests.</p>';
         return;
     }
 
     listContainer.innerHTML = data.map(req => `
-        <div style="padding: 10px 0; border-bottom: 1px solid #f5f5f5;">
-            <div style="font-size: 13px; font-weight: bold; color: #333;">${req.email}</div>
-            <div style="font-size: 11px; color: #666; margin-bottom: 8px;">Company: ${req.company || 'Unknown'}</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f5f5f5;">
+            <span style="font-size: 13px; color: #333; overflow: hidden; text-overflow: ellipsis; max-width: 180px;" title="${req.email}">${req.email}</span>
             <div style="display: flex; gap: 5px;">
-                <button onclick="admitUser('${req.email}', ${req.id})" class="admit-btn">Admit</button>
-                <button onclick="declineUser('${req.email}', ${req.id})" class="decline-btn">Decline</button>
+                <button onclick="admitUser('${req.email}', ${req.id})" 
+                        style="background: #2e7d32; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
+                    Admit
+                </button>
+                <button onclick="declineUser('${req.email}', ${req.id})" 
+        style="background: #d32f2f; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
+    Decline
+</button>
+                </button>
             </div>
         </div>
     `).join('');
@@ -1388,7 +1387,6 @@ async function admitUser(email, requestId) {
 // 2. Add this function near your other Auth functions
 async function handleRequestAccess() {
     const email = document.getElementById('user-email-input').value.trim().toLowerCase();
-    const company = document.getElementById('request-company-select').value; // GET THE COMPANY
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
 
@@ -1397,39 +1395,34 @@ async function handleRequestAccess() {
         errorEl.style.display = 'block';
         return;
     }
-    
-    // NEW: Ensure company is selected
-    if (!company) {
-        errorEl.innerText = "Please select your company.";
-        errorEl.style.display = 'block';
-        return;
-    }
 
     errorEl.style.display = 'none';
     successEl.innerText = "Sending request...";
     successEl.style.display = 'block';
 
-    try {
-        // 1. Log request with Company in Supabase
+try {
+        // 1. Log request in Supabase for the Admin Panel
         const { error: dbError } = await _supabase
             .from('access_requests')
-            .insert([{ email, company }]); // ADDED COMPANY HERE
+            .insert([{ email }]);
         
         if (dbError) throw dbError;
 
-        // 2. Notify Admin via Google Script
-        const url = `${GOOGLE_SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(email)}&company=${encodeURIComponent(company)}&admin=${encodeURIComponent(ADMIN_EMAIL)}`;
+        const url = `${GOOGLE_SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(email)}&admin=${encodeURIComponent(ADMIN_EMAIL)}`;
         
         const response = await fetch(url);
         const data = await response.json();
 
+        // THE FIX: If it fails, show the error message sent by the Google Script
         if (data.success) {
             successEl.innerText = "Request sent! The admin will be notified.";
         } else {
-            throw new Error(data.error || "Server error");
+            const serverError = data.error || "Unknown server error";
+            throw new Error(`Google Script Error: ${serverError}`);
         }
     } catch (e) {
-        errorEl.innerText = e.message;
+        console.error("Request Error:", e);
+        errorEl.innerText = e.message; // Now displays the specific Google error
         errorEl.style.display = 'block';
         successEl.style.display = 'none';
     }
@@ -1656,7 +1649,6 @@ async function completeAppLaunch() {
 
 async function startApp() {
     createSections(); 
-    fetchDropdownOptions();
     const urlParams = new URLSearchParams(window.location.search);
     const grantTarget = urlParams.get('grant');
     const spinnerSection = document.getElementById('loading-spinner-section');
@@ -1914,40 +1906,45 @@ let dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] 
 async function fetchDropdownOptions() {
     console.log("🛠️ Fetching options from Supabase...");
     
+    // 1. Fetch the descriptive columns from your table
     const { data, error } = await _supabase
         .from('dropdownoptions')
         .select('Times, Places, Activities, Assets, Trade_Partners, Results');
 
-    if (error) return;
+    if (error) {
+        console.error("❌ Supabase Fetch Error:", error.message);
+        return;
+    }
 
+    // 2. Define the mapping: Supabase Column Name -> App Column ID
     const mapping = {
-        'Times': 'col1', 'Places': 'col2', 'Activities': 'col3', 
-        'Assets': 'col4', 'Trade_Partners': 'col6', 'Results': 'col7'
+        'Times': 'col1',
+        'Places': 'col2',
+        'Activities': 'col3',
+        'Assets': 'col4',
+        'Trade_Partners': 'col6',
+        'Results': 'col7'
     };
 
+    // Initialize/Reset dropdownData
     window.dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
 
-    const companySelect = document.getElementById('request-company-select');
-    if (companySelect) companySelect.innerHTML = '<option value="">Select Company...</option>';
-
+    // 3. Populate the lists using the mapping
     if (data && data.length > 0) {
         data.forEach(row => {
             Object.keys(mapping).forEach(dbColumn => {
                 const uiKey = mapping[dbColumn];
-                const val = row[dbColumn];
+                const val = row[dbColumn]; // Get value using DB name (e.g. row['Times'])
 
+                // Add to list if it has a value and isn't a duplicate
                 if (val && val.toString().trim() !== "" && !window.dropdownData[uiKey].includes(val)) {
-                    const cleanVal = val.toString().trim();
-                    window.dropdownData[uiKey].push(cleanVal);
-                    
-                    // --- ADD THIS: Populate the Request Access dropdown with Trade Partners ---
-                    if (dbColumn === 'Trade_Partners' && companySelect) {
-                        companySelect.add(new Option(cleanVal, cleanVal));
-                    }
+                    window.dropdownData[uiKey].push(val.toString().trim());
                 }
             });
         });
     }
+
+    console.log("✅ Dropdown data mapped and loaded:", window.dropdownData);
 }
 
 // Helper to create stable, short integers for Supabase int4
@@ -2209,41 +2206,24 @@ addBtn.onclick = (e) => {
 
 let isSignUpMode = false;
 
-/**
- * Toggles between Login and Request Access modes
- */
-function toggleAuthMode(mode) {
-    const loginFields = document.getElementById('login-fields');
-    const requestFields = document.getElementById('request-fields');
+function toggleAuthMode() {
+    isSignUpMode = !isSignUpMode;
     const title = document.getElementById('auth-title');
     const subtitle = document.getElementById('auth-subtitle');
-    const errorEl = document.getElementById('auth-error');
-    const successEl = document.getElementById('auth-success');
-
-    // Reset messages
-    errorEl.style.display = 'none';
-    successEl.style.display = 'none';
-
-    if (mode === 'request') {
-        loginFields.style.display = 'none';
-        requestFields.style.display = 'block';
-        title.innerText = "Request Access";
-        subtitle.innerText = "Select your company to request terminal access.";
-        
-        // Ensure dropdown is populated even if not logged in
-        fetchDropdownOptions(); 
+    const btn = document.getElementById('auth-btn');
+    const toggleLink = document.getElementById('auth-toggle-link');
+    
+    if (isSignUpMode) {
+        title.innerText = "Create PIN";
+        subtitle.innerText = "Set a 6-digit PIN for your email.";
+        btn.innerText = "Register & Send Verification";
+        toggleLink.innerText = "Already have a PIN? Login";
     } else {
-        loginFields.style.display = 'block';
-        requestFields.style.display = 'none';
-        title.innerText = "Welcome back";
-        subtitle.innerText = "Enter your details to access the terminal.";
+        title.innerText = "Sign In";
+        subtitle.innerText = "Enter your credentials to access LaunchPad.";
+        btn.innerText = "Login";
+        toggleLink.innerText = "First time? Create your PIN";
     }
-}
-
-// Modify showLogin to always start in login mode
-function showLogin() {
-    document.getElementById('auth-prompt').style.display = 'flex';
-    toggleAuthMode('login'); 
 }
 
 async function handleAuthAction() {
