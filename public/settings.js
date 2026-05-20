@@ -4,7 +4,7 @@
  */
 const Settings = {
     containerId: 'settings-container',
-    currentCategory: 'Times', // Default category
+    currentCategory: 'Assets', // Default category
 
     init() {
         const container = document.getElementById(this.containerId);
@@ -22,12 +22,12 @@ const Settings = {
                     <div style="margin-bottom: 15px;">
                         <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">Select Category:</label>
                         <select id="setting-category-select" onchange="Settings.switchCategory(this.value)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                            <option value="Times">Times (Col 1)</option>
-                            <option value="Places">Places (Col 2)</option>
-                            <option value="Activities">Activities (Col 3)</option>
-                            <option value="Assets">Assets (Col 4)</option>
-                            <option value="Trade_Partners">Trade Partners (Col 6)</option>
-                            <option value="Results">Results (Col 7)</option>
+                            <option value="Times">Times</option>
+                            <option value="Places">Places</option>
+                            <option value="Activities">Activities</option>
+                            <option value="Assets">Assets</option>
+                            <option value="Trade_Partners">Trade Partners</option>
+                            <option value="Results">Results</option>
                         </select>
                     </div>
 

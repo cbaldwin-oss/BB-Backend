@@ -943,7 +943,12 @@ html, body {
     
     <input type="email" id="user-email-input" placeholder="Email Address" 
            style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 10px; box-sizing: border-box; font-size: 16px;">
-    
+   
+           <select id="request-company-select" 
+        style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; background-color: white;">
+    <option value="">Select Company...</option>
+</select>
+
     <input type="password" id="user-pin-input" placeholder="Enter PIN (min. 6 digits)" 
            style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; text-align: center; letter-spacing: 4px;">
     
@@ -1323,23 +1328,17 @@ async function refreshRequestList() {
     const { data, error } = await _supabase.from('access_requests').select('*');
 
     if (error || !data || data.length === 0) {
-        listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No pending requests.</p>';
+        listContainer.innerHTML = '<p style="text-align: center; padding: 20px;">No pending requests.</p>';
         return;
     }
 
     listContainer.innerHTML = data.map(req => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f5f5f5;">
-            <span style="font-size: 13px; color: #333; overflow: hidden; text-overflow: ellipsis; max-width: 180px;" title="${req.email}">${req.email}</span>
+        <div style="padding: 10px 0; border-bottom: 1px solid #f5f5f5;">
+            <div style="font-size: 13px; font-weight: bold; color: #333;">${req.email}</div>
+            <div style="font-size: 11px; color: #666; margin-bottom: 8px;">Company: ${req.company || 'Unknown'}</div>
             <div style="display: flex; gap: 5px;">
-                <button onclick="admitUser('${req.email}', ${req.id})" 
-                        style="background: #2e7d32; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
-                    Admit
-                </button>
-                <button onclick="declineUser('${req.email}', ${req.id})" 
-        style="background: #d32f2f; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
-    Decline
-</button>
-                </button>
+                <button onclick="admitUser('${req.email}', ${req.id})" class="admit-btn">Admit</button>
+                <button onclick="declineUser('${req.email}', ${req.id})" class="decline-btn">Decline</button>
             </div>
         </div>
     `).join('');
@@ -1387,6 +1386,7 @@ async function admitUser(email, requestId) {
 // 2. Add this function near your other Auth functions
 async function handleRequestAccess() {
     const email = document.getElementById('user-email-input').value.trim().toLowerCase();
+    const company = document.getElementById('request-company-select').value; // GET THE COMPANY
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
 
@@ -1395,34 +1395,39 @@ async function handleRequestAccess() {
         errorEl.style.display = 'block';
         return;
     }
+    
+    // NEW: Ensure company is selected
+    if (!company) {
+        errorEl.innerText = "Please select your company.";
+        errorEl.style.display = 'block';
+        return;
+    }
 
     errorEl.style.display = 'none';
     successEl.innerText = "Sending request...";
     successEl.style.display = 'block';
 
-try {
-        // 1. Log request in Supabase for the Admin Panel
+    try {
+        // 1. Log request with Company in Supabase
         const { error: dbError } = await _supabase
             .from('access_requests')
-            .insert([{ email }]);
+            .insert([{ email, company }]); // ADDED COMPANY HERE
         
         if (dbError) throw dbError;
 
-        const url = `${GOOGLE_SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(email)}&admin=${encodeURIComponent(ADMIN_EMAIL)}`;
+        // 2. Notify Admin via Google Script
+        const url = `${GOOGLE_SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(email)}&company=${encodeURIComponent(company)}&admin=${encodeURIComponent(ADMIN_EMAIL)}`;
         
         const response = await fetch(url);
         const data = await response.json();
 
-        // THE FIX: If it fails, show the error message sent by the Google Script
         if (data.success) {
             successEl.innerText = "Request sent! The admin will be notified.";
         } else {
-            const serverError = data.error || "Unknown server error";
-            throw new Error(`Google Script Error: ${serverError}`);
+            throw new Error(data.error || "Server error");
         }
     } catch (e) {
-        console.error("Request Error:", e);
-        errorEl.innerText = e.message; // Now displays the specific Google error
+        errorEl.innerText = e.message;
         errorEl.style.display = 'block';
         successEl.style.display = 'none';
     }
@@ -1906,45 +1911,40 @@ let dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] 
 async function fetchDropdownOptions() {
     console.log("🛠️ Fetching options from Supabase...");
     
-    // 1. Fetch the descriptive columns from your table
     const { data, error } = await _supabase
         .from('dropdownoptions')
         .select('Times, Places, Activities, Assets, Trade_Partners, Results');
 
-    if (error) {
-        console.error("❌ Supabase Fetch Error:", error.message);
-        return;
-    }
+    if (error) return;
 
-    // 2. Define the mapping: Supabase Column Name -> App Column ID
     const mapping = {
-        'Times': 'col1',
-        'Places': 'col2',
-        'Activities': 'col3',
-        'Assets': 'col4',
-        'Trade_Partners': 'col6',
-        'Results': 'col7'
+        'Times': 'col1', 'Places': 'col2', 'Activities': 'col3', 
+        'Assets': 'col4', 'Trade_Partners': 'col6', 'Results': 'col7'
     };
 
-    // Initialize/Reset dropdownData
     window.dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
 
-    // 3. Populate the lists using the mapping
+    const companySelect = document.getElementById('request-company-select');
+    if (companySelect) companySelect.innerHTML = '<option value="">Select Company...</option>';
+
     if (data && data.length > 0) {
         data.forEach(row => {
             Object.keys(mapping).forEach(dbColumn => {
                 const uiKey = mapping[dbColumn];
-                const val = row[dbColumn]; // Get value using DB name (e.g. row['Times'])
+                const val = row[dbColumn];
 
-                // Add to list if it has a value and isn't a duplicate
                 if (val && val.toString().trim() !== "" && !window.dropdownData[uiKey].includes(val)) {
-                    window.dropdownData[uiKey].push(val.toString().trim());
+                    const cleanVal = val.toString().trim();
+                    window.dropdownData[uiKey].push(cleanVal);
+                    
+                    // --- ADD THIS: Populate the Request Access dropdown with Trade Partners ---
+                    if (dbColumn === 'Trade_Partners' && companySelect) {
+                        companySelect.add(new Option(cleanVal, cleanVal));
+                    }
                 }
             });
         });
     }
-
-    console.log("✅ Dropdown data mapped and loaded:", window.dropdownData);
 }
 
 // Helper to create stable, short integers for Supabase int4
