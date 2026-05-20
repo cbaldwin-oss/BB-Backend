@@ -872,6 +872,9 @@ html, body {
     <div class="subheader-item">
         <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
         <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
+        <button id="my-activities-btn" class="tool-btn" onclick="toggleMyActivitiesFilter()" style="display: inline-flex; align-items: center; gap: 8px;">
+    <span id="my-activities-check">☐</span> My Activities
+</button>v
         <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
         <input type="text" id="app-search-input" placeholder="Find in data..." 
                style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
@@ -1567,12 +1570,95 @@ async function handleForgotPin() {
 async function verifyPermission(email) {
     const { data, error } = await _supabase
         .from('authorized_editors')
-        .select('is_admin')
+        .select('is_admin, company') // Add 'company' here
         .eq('email', email.toLowerCase())
         .single();
 
-    if (error || !data) return { isAuthorized: false, isAdmin: false };
-    return { isAuthorized: true, isAdmin: data.is_admin };
+    if (error || !data) return { isAuthorized: false, isAdmin: false, company: null };
+    
+    // Store company in window object for global access
+    window.userCompany = data.company; 
+    return { isAuthorized: true, isAdmin: data.is_admin, company: data.company };
+}
+// Add to your global variables at the top of the <script>
+let isMyActivitiesActive = false;
+
+/**
+ * Toggles the "My Activities" filter
+ */
+function toggleMyActivitiesFilter() {
+    isMyActivitiesActive = !isMyActivitiesActive;
+    
+    const btn = document.getElementById('my-activities-btn');
+    const check = document.getElementById('my-activities-check');
+    
+    if (isMyActivitiesActive) {
+        btn.style.backgroundColor = "#e8f5e9";
+        btn.style.color = "#2e7d32";
+        check.innerText = "☑";
+    } else {
+        btn.style.backgroundColor = "";
+        btn.style.color = "";
+        check.innerText = "☐";
+    }
+
+    applyMyActivitiesFilter();
+}
+
+/**
+ * Logic to show/hide rows based on the user's company
+ */
+function applyMyActivitiesFilter() {
+    const rows = document.querySelectorAll('.cell-row');
+    const company = (window.userCompany || "").toLowerCase();
+
+    if (!company && isMyActivitiesActive) {
+        console.warn("Filter active but no company found for user.");
+        return;
+    }
+
+    rows.forEach(row => {
+        // If filter is OFF, let autoCleanUI or other view filters decide visibility
+        if (!isMyActivitiesActive) {
+            // We trigger a refresh of the current view to restore visibility
+            applyViewFilter(currentView);
+            return;
+        }
+
+        // Search for company name specifically in Column 6 (Trade Partners)
+        const col6 = row.querySelector('[id$="-c6"]');
+        const tradePartners = (col6?.getAttribute('data-selected') || col6?.value || "").toLowerCase();
+
+        if (tradePartners.includes(company)) {
+            row.style.display = 'flex';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // Cleanup empty weeks/days after filtering
+    if (isMyActivitiesActive) {
+        hideEmptyDateContainers();
+    }
+}
+
+/**
+ * Helper to hide days and weeks that have no visible rows after filtering
+ */
+function hideEmptyDateContainers() {
+    const days = document.querySelectorAll('.section-container');
+    days.forEach(day => {
+        const visibleRows = Array.from(day.querySelectorAll('.cell-row'))
+                                 .filter(r => r.style.display !== 'none');
+        day.style.display = visibleRows.length > 0 ? 'block' : 'none';
+    });
+
+    const weeks = document.querySelectorAll('.week-container');
+    weeks.forEach(week => {
+        const visibleDays = Array.from(week.querySelectorAll('.section-container'))
+                                 .filter(d => d.style.display !== 'none');
+        week.style.display = visibleDays.length > 0 ? 'block' : 'none';
+    });
 }
 
 // 2. Handle the "Verify & Enter" button click
@@ -2520,6 +2606,9 @@ function applyViewFilter(viewId) {
                 if (arrow) arrow.innerText = '▼';
             }
         });
+    } 
+    if (isMyActivitiesActive) {
+        applyMyActivitiesFilter();
     } else {
         // OVERALL SCHEDULE: ViewId 'view1' or default
         // Standard behavior: make sure everything is expanded or follows default state
