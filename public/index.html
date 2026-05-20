@@ -938,27 +938,52 @@ html, body {
 </div>
 
 <div id="auth-prompt" style="display: none; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); color: #333; max-width: 400px; margin: 0 20px;">
-    <h2 id="auth-title" style="margin-top: 0; color: #2e7d32; font-size: 26px;">Sign In</h2>
-    <p id="auth-subtitle" style="margin-bottom: 25px; color: #666;">Enter your credentials to access LaunchPad.</p>
     
-    <input type="email" id="user-email-input" placeholder="Email Address" 
-           style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 10px; box-sizing: border-box; font-size: 16px;">
-    
-    <input type="password" id="user-pin-input" placeholder="Enter PIN (min. 6 digits)" 
-           style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; text-align: center; letter-spacing: 4px;">
-    
-    <button id="auth-btn" onclick="handleAuthAction()" 
-            style="background: #2e7d32; color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;">
-        Login
-    </button>
+    <div id="auth-login-view">
+        <h2 id="auth-title" style="margin-top: 0; color: #2e7d32; font-size: 26px;">Sign In</h2>
+        <p id="auth-subtitle" style="margin-bottom: 25px; color: #666;">Enter your credentials to access LaunchPad.</p>
+        
+        <input type="email" id="user-email-input" placeholder="Email Address" 
+               style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 10px; box-sizing: border-box; font-size: 16px;">
+        
+        <input type="password" id="user-pin-input" placeholder="Enter PIN (min. 6 digits)" 
+               style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; text-align: center; letter-spacing: 4px;">
+        
+        <button id="auth-btn" onclick="handleAuthAction()" 
+                style="background: #2e7d32; color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;">
+            Login
+        </button>
 
-    <div style="margin-top: 20px; font-size: 14px; display: flex; justify-content: center; gap: 20px;">
-    <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">First time? Create your PIN</a>
-    <span style="color: #d33b3b;">|</span>
-    <a href="javascript:void(0)" onclick="handleForgotPin()" style="color: #e53737; text-decoration: none;">Forgot PIN?</a>
-    <span style="color: #ccc;">|</span>
-    <a href="javascript:void(0)" onclick="handleRequestAccess()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">Request Access</a>
-</div>
+        <div style="margin-top: 20px; font-size: 14px; display: flex; justify-content: center; gap: 20px;">
+            <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">First time? Create your PIN</a>
+            <span style="color: #d33b3b;">|</span>
+            <a href="javascript:void(0)" onclick="handleForgotPin()" style="color: #e53737; text-decoration: none;">Forgot PIN?</a>
+            <span style="color: #ccc;">|</span>
+            <a href="javascript:void(0)" onclick="switchToRequestView()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">Request Access</a>
+        </div>
+    </div>
+
+    <div id="auth-request-view" style="display: none;">
+        <h2 style="margin-top: 0; color: #2e7d32; font-size: 26px;">Request Access</h2>
+        <p style="margin-bottom: 25px; color: #666;">Enter your details to request terminal access.</p>
+        
+        <input type="email" id="request-email-input" placeholder="Email Address" 
+               style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 10px; box-sizing: border-box; font-size: 16px;">
+        
+        <select id="request-company-select" 
+               style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; background-color: white;">
+            <option value="">Select Company...</option>
+        </select>
+        
+        <button id="request-submit-btn" onclick="submitAccessRequest()" 
+                style="background: #2e7d32; color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;">
+            Submit Request
+        </button>
+
+        <div style="margin-top: 20px; font-size: 14px;">
+            <a href="javascript:void(0)" onclick="switchToLoginView()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">Back to Sign In</a>
+        </div>
+    </div>
 
     <p id="auth-error" style="color: #d32f2f; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
     <p id="auth-success" style="color: #2e7d32; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
@@ -1381,50 +1406,6 @@ async function admitUser(email, requestId) {
         refreshRequestList();
     } catch (e) {
         alert("Error admitting user: " + e.message);
-    }
-}
-
-// 2. Add this function near your other Auth functions
-async function handleRequestAccess() {
-    const email = document.getElementById('user-email-input').value.trim().toLowerCase();
-    const errorEl = document.getElementById('auth-error');
-    const successEl = document.getElementById('auth-success');
-
-    if (!email || !email.includes('@')) {
-        errorEl.innerText = "Please enter your valid email address first.";
-        errorEl.style.display = 'block';
-        return;
-    }
-
-    errorEl.style.display = 'none';
-    successEl.innerText = "Sending request...";
-    successEl.style.display = 'block';
-
-try {
-        // 1. Log request in Supabase for the Admin Panel
-        const { error: dbError } = await _supabase
-            .from('access_requests')
-            .insert([{ email }]);
-        
-        if (dbError) throw dbError;
-
-        const url = `${GOOGLE_SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(email)}&admin=${encodeURIComponent(ADMIN_EMAIL)}`;
-        
-        const response = await fetch(url);
-        const data = await response.json();
-
-        // THE FIX: If it fails, show the error message sent by the Google Script
-        if (data.success) {
-            successEl.innerText = "Request sent! The admin will be notified.";
-        } else {
-            const serverError = data.error || "Unknown server error";
-            throw new Error(`Google Script Error: ${serverError}`);
-        }
-    } catch (e) {
-        console.error("Request Error:", e);
-        errorEl.innerText = e.message; // Now displays the specific Google error
-        errorEl.style.display = 'block';
-        successEl.style.display = 'none';
     }
 }
 
@@ -1906,7 +1887,6 @@ let dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] 
 async function fetchDropdownOptions() {
     console.log("🛠️ Fetching options from Supabase...");
     
-    // 1. Fetch the descriptive columns from your table
     const { data, error } = await _supabase
         .from('dropdownoptions')
         .select('Times, Places, Activities, Assets, Trade_Partners, Results');
@@ -1916,7 +1896,6 @@ async function fetchDropdownOptions() {
         return;
     }
 
-    // 2. Define the mapping: Supabase Column Name -> App Column ID
     const mapping = {
         'Times': 'col1',
         'Places': 'col2',
@@ -1926,22 +1905,29 @@ async function fetchDropdownOptions() {
         'Results': 'col7'
     };
 
-    // Initialize/Reset dropdownData
     window.dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
 
-    // 3. Populate the lists using the mapping
     if (data && data.length > 0) {
         data.forEach(row => {
             Object.keys(mapping).forEach(dbColumn => {
                 const uiKey = mapping[dbColumn];
-                const val = row[dbColumn]; // Get value using DB name (e.g. row['Times'])
-
-                // Add to list if it has a value and isn't a duplicate
+                const val = row[dbColumn];
                 if (val && val.toString().trim() !== "" && !window.dropdownData[uiKey].includes(val)) {
                     window.dropdownData[uiKey].push(val.toString().trim());
                 }
             });
         });
+    }
+
+    // --- POPULATE REQUEST ACCESS COMPANY DROPDOWN ---
+    const companySelect = document.getElementById('request-company-select');
+    if (companySelect && window.dropdownData.col6) {
+        const currentSelection = companySelect.value;
+        companySelect.innerHTML = '<option value="">Select Company...</option>';
+        window.dropdownData.col6.forEach(p => {
+            companySelect.add(new Option(p, p));
+        });
+        companySelect.value = currentSelection;
     }
 
     console.log("✅ Dropdown data mapped and loaded:", window.dropdownData);
@@ -2637,6 +2623,88 @@ function autoCleanUI() {
             row.style.display = 'flex';
         }
     });
+}
+
+/**
+ * View Switcher: Show Request Access Screen
+ */
+function switchToRequestView() {
+    document.getElementById('auth-login-view').style.display = 'none';
+    document.getElementById('auth-request-view').style.display = 'block';
+    document.getElementById('auth-error').style.display = 'none';
+    document.getElementById('auth-success').style.display = 'none';
+    fetchDropdownOptions(); // Ensure company list is loaded
+}
+
+/**
+ * View Switcher: Return to Login Screen
+ */
+function switchToLoginView() {
+    document.getElementById('auth-login-view').style.display = 'block';
+    document.getElementById('auth-request-view').style.display = 'none';
+    document.getElementById('auth-error').style.display = 'none';
+    document.getElementById('auth-success').style.display = 'none';
+    
+    // Reset to Sign In mode
+    isSignUpMode = true; 
+    toggleAuthMode();
+}
+
+/**
+ * Handle the submission of the Access Request
+ */
+async function submitAccessRequest() {
+    const email = document.getElementById('request-email-input').value.trim().toLowerCase();
+    const company = document.getElementById('request-company-select').value;
+    const errorEl = document.getElementById('auth-error');
+    const successEl = document.getElementById('auth-success');
+    const btn = document.getElementById('request-submit-btn');
+
+    if (!email || !email.includes('@')) {
+        errorEl.innerText = "Please enter your valid email address.";
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    if (!company) {
+        errorEl.innerText = "Please select your company.";
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    errorEl.style.display = 'none';
+    successEl.innerText = "Sending request...";
+    successEl.style.display = 'block';
+
+    try {
+        // 1. Log request with Company in Supabase
+        const { error: dbError } = await _supabase
+            .from('access_requests')
+            .insert([{ email, company }]);
+        
+        if (dbError) throw dbError;
+
+        // 2. Notify Admin via Google Script
+        const url = `${GOOGLE_SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(email)}&company=${encodeURIComponent(company)}&admin=${encodeURIComponent(ADMIN_EMAIL)}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.success) {
+            successEl.innerText = "Request sent! The admin will be notified.";
+            document.getElementById('request-email-input').value = "";
+            document.getElementById('request-company-select').value = "";
+        } else {
+            throw new Error(data.error || "Unknown server error");
+        }
+    } catch (e) {
+        errorEl.innerText = e.message;
+        errorEl.style.display = 'block';
+        successEl.style.display = 'none';
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 // UPDATE YOUR LOAD LOGIC
