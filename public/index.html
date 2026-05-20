@@ -1892,7 +1892,7 @@ async function fetchDropdownOptions() {
     
     const { data, error } = await _supabase
         .from('dropdownoptions')
-        .select('Times, Places, Activities, Assets, Trade_Partners, Results');
+        .select('Times, Places, Activities, Assets, Trade_Partners, Results')
         .range(0, 5000); // <--- ADD THIS LINE
 
     if (error) {
