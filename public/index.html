@@ -826,13 +826,13 @@ position: sticky;
 </div>
 
 <div id="app-body">
-    <div id="dashboard-view">
-    <div id="dash-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-        <h2 style="color: #2e7d32; margin:0;">Operational Overview</h2>
-        <button onclick="Dashboard.init()" style="padding:8px 15px; cursor:pointer; background:#f1f3f4; border:1px solid #ddd; border-radius:4px;">🔄 Refresh Data</button>
-    </div>
-    <div id="dash-content">
-        </div>
+<div id="dashboard-view">
+    <iframe 
+        id="streamlit-iframe"
+        src="https://criticalarc-san-terminal-cxdashboard.streamlit.app/?embed=true" 
+        allow="autoplay; encrypted-media; fullscreen"
+        allowfullscreen>
+    </iframe>
 </div>
 
     <div id="schedule-view">
@@ -1058,7 +1058,10 @@ document.addEventListener('click', (e) => {
 function switchMainView(viewType, btn) {
     const dash = document.getElementById('dashboard-view');
     const sched = document.getElementById('schedule-view');
+    const subheader = document.querySelector('.subheader');
+    const frozenBar = document.querySelector('.frozen-bar');
     
+    // Update active nav item styles
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     btn.classList.add('active');
 
@@ -1066,11 +1069,16 @@ function switchMainView(viewType, btn) {
         dash.style.display = 'block';
         sched.style.display = 'none';
         
-        // --- CALL THE NEW FILE ---
-        Dashboard.init(); 
+        // Hide schedule-specific tools when in Dashboard mode
+        if (subheader) subheader.style.display = 'none';
+        if (frozenBar) frozenBar.style.display = 'none';
     } else {
         dash.style.display = 'none';
         sched.style.display = 'block';
+        
+        // Restore schedule-specific tools
+        if (subheader) subheader.style.display = 'flex';
+        if (frozenBar) frozenBar.style.display = 'flex';
     }
 }
 
