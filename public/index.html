@@ -851,74 +851,54 @@ html, body {
 </div>
 
 <div id="app-body">
-<div id="dashboard-view">
-    <iframe 
-        id="streamlit-iframe"
-        src="https://criticalarc-san-terminal-cxdashboard.streamlit.app/?embed=true" 
-        allow="autoplay; encrypted-media; fullscreen"
-        allowfullscreen>
-    </iframe>
-</div>
-<div id="settings-view" style="display:none; height:100%; padding: 30px; background: #f8f9fa; overflow-y: auto;">
+    <div id="dashboard-view">
+        <iframe id="streamlit-iframe" src="https://criticalarc-san-terminal-cxdashboard.streamlit.app/?embed=true"></iframe>
+    </div>
+
+    <div id="settings-view" style="display:none; height:100%; padding: 30px; background: #f8f9fa; overflow-y: auto;">
         <h2 style="color: #2e7d32; margin-top: 0;">Admin Control Panel</h2>
-        <p style="color: #666;">Manage system data, refresh statuses, and user access.</p>
-        <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
         <div id="settings-container"></div>
     </div>
 
-    <div id="schedule-view">
+    <div id="schedule-view" style="height: 100%; overflow-y: auto; position: relative;">
+        <div class="subheader">
+            <div class="subheader-item">
+                <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
+                <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
+                <button id="my-activities-btn" class="tool-btn" onclick="toggleMyActivitiesFilter()" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <span id="my-activities-check">☐</span> My Activities
+                </button>
+                <div class="search-container">
+                    <input type="text" id="app-search-input" placeholder="Find in data...">
+                    <span id="search-count">0/0</span>
+                    <button onclick="navigateSearch(-1)">▲</button>
+                    <button onclick="navigateSearch(1)">▼</button>
+                </div>
+            </div>
+            <div id="presence-list"></div>
+            <div class="subheader-item">
+                <span id="saveIndicator">Saved</span>
+                <button class="tool-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
 
-<div class="subheader">
-    <div class="subheader-item">
-        <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
-        <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
-        <button id="my-activities-btn" class="tool-btn" onclick="toggleMyActivitiesFilter()" style="display: inline-flex; align-items: center; gap: 8px;">
-    <span id="my-activities-check">☐</span> My Activities
-</button>
-        <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
-        <input type="text" id="app-search-input" placeholder="Find in data..." 
-               style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
-        <span id="search-count" style="font-size: 11px; color: #666; margin: 0 5px; min-width: 30px;">0/0</span>
-        <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▲</button>
-        <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▼</button>
-    </div>
-    </div>
-        <div id="presence-list" style="display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 15px;">
-    </div>
-    <div class="subheader-item">
-        <span id="saveIndicator">Saved</span>
-        <button class="tool-btn" onclick="logout()">Logout</button>
-    </div>
-</div>
+        <div class="frozen-bar">
+            <div class="frozen-grid">
+                <div class="header-cell">Time</div><span class="sep">|</span>
+                <div class="header-cell">Place</div><span class="sep">|</span>
+                <div class="header-cell">Activity</div><span class="sep">|</span>
+                <div class="header-cell">Asset</div><span class="sep">|</span>
+                <div class="header-cell">Status</div><span class="sep">|</span>
+                <div class="header-cell">Trade Partners</div><span class="sep">|</span>
+                <div class="header-cell">Result</div><span class="sep">|</span>
+                <div class="header-cell">Notes</div>
+                <div class="spacer"></div>
+            </div>
+        </div>
 
-<div class="frozen-bar">
-    <div class="frozen-grid">
-        <div class="header-cell">Time</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Place</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Activity</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Asset</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Status</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Trade Partners</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Result</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Notes</div>
-        <div class="spacer"></div>
+        <div id="main-content-area"></div>
     </div>
 </div>
-<div id="main-content-area">
-    </div>
-</div>
-<div id="grid-container">
-    <table id="grid"></table>
-</div>
-<div id="main-content-area">
-    </div>
 
 <div id="loading-overlay">
     <div id="loading-spinner-section" style="text-align: center;">
@@ -2500,7 +2480,7 @@ function applyViewFilter(viewId) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 1. Reset: Show everything initially
+    // 1. Reset everything to visible
     sections.forEach(s => s.style.display = 'block');
     weekContainers.forEach(w => w.style.display = 'block');
     allRows.forEach(r => r.style.display = 'flex');
@@ -2509,59 +2489,56 @@ function applyViewFilter(viewId) {
     let targetDate = null;
     if (viewId === 'view2') {
         targetDate = new Date(today);
-        targetDate.setDate(today.getDate() + 2);
+        targetDate.setDate(today.getDate() + 2); // 3-Day range
     } else if (viewId === 'view3') {
         targetDate = new Date(today);
-        targetDate.setDate(today.getDate() + 6);
+        targetDate.setDate(today.getDate() + 6); // 1-Week range
     }
 
-    // 3. Sequential Filtering
+    // 3. Process Rows
     allRows.forEach(row => {
         const rowDateStr = row.getAttribute('data-date');
         const [y, m, d] = rowDateStr.split('-').map(Number);
         const rowDate = new Date(y, m - 1, d);
         rowDate.setHours(0, 0, 0, 0);
 
-        // A. Look Ahead Check: Hide if outside range
+        // Date Filter
         if (targetDate && (rowDate < today || rowDate > targetDate)) {
-            row.closest('.section-container').style.display = 'none';
+            row.style.display = 'none';
         }
 
-        // B. My Activities Check: Hide if row doesn't match company
+        // My Activities Filter
         if (isMyActivitiesActive && row.style.display !== 'none') {
             const company = (window.userCompany || "").toLowerCase();
             const col6 = row.querySelector('[id$="-c6"]');
             const tradePartners = (col6?.getAttribute('data-selected') || col6?.value || "").toLowerCase();
-            
             if (!tradePartners.includes(company)) {
                 row.style.display = 'none';
             }
         }
     });
 
-    // 4. Hide empty Days and Weeks only if a filter is active
-    if (targetDate || isMyActivitiesActive) {
-        sections.forEach(section => {
-            const visibleRows = Array.from(section.querySelectorAll('.cell-row'))
-                                     .filter(r => r.style.display !== 'none');
-            if (visibleRows.length === 0) section.style.display = 'none';
-        });
+    // 4. Clean up empty containers
+    sections.forEach(section => {
+        const visibleRows = Array.from(section.querySelectorAll('.cell-row'))
+                                 .filter(r => r.style.display !== 'none');
+        if (visibleRows.length === 0 && (targetDate || isMyActivitiesActive)) {
+            section.style.display = 'none';
+        }
+    });
 
-        weekContainers.forEach(week => {
-            const visibleDays = Array.from(week.querySelectorAll('.section-container'))
-                                     .filter(s => s.style.display !== 'none');
-            if (visibleDays.length === 0) {
-                week.style.display = 'none';
-            } else {
-                const content = week.querySelector('.week-content');
-                if (content) content.classList.remove('hidden');
-                const arrow = week.querySelector('.week-arrow');
-                if (arrow) arrow.innerText = '▼';
-            }
-        });
-    } else {
-        // Default View: Show all Weeks and all Days
-        expandAllWeeks(); 
+    weekContainers.forEach(week => {
+        const visibleDays = Array.from(week.querySelectorAll('.section-container'))
+                                 .filter(s => s.style.display !== 'none');
+        if (visibleDays.length === 0 && (targetDate || isMyActivitiesActive)) {
+            week.style.display = 'none';
+        }
+    });
+
+    // For Overall Schedule, expand all content so scrolling is useful
+    if (viewId === 'view1') {
+        expandAllWeeks();
+        expandAllDays();
     }
 }
 
