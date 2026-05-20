@@ -1074,35 +1074,35 @@ document.addEventListener('click', (e) => {
     }
 });
 
-/**
- * Switches between primary application modules (Dashboard vs Schedule)
- */
 function switchMainView(viewType, btn) {
     const dash = document.getElementById('dashboard-view');
     const sched = document.getElementById('schedule-view');
-    
-    // Select the elements we want to remove from the dashboard view
-    const subheader = document.querySelector('.subheader');
-    const frozenBar = document.querySelector('.frozen-bar');
+    const mainContent = document.getElementById('main-content-area'); // The schedule grid
+    const subheader = document.querySelector('.subheader');           // Search and tools
+    const frozenBar = document.querySelector('.frozen-bar');           // 3-day headers
     
     // Update active nav item styles
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     btn.classList.add('active');
 
     if (viewType === 'dashboard') {
+        // 1. Show Dashboard
         dash.style.display = 'block';
-        sched.style.display = 'none';
         
-        // REMOVE 3-DAY LOOK AHEAD & FILTERS FROM DASHBOARD
+        // 2. Hide everything related to the Schedule
+        sched.style.display = 'none';
+        if (mainContent) mainContent.style.display = 'none';
         if (subheader) subheader.style.display = 'none';
         if (frozenBar) frozenBar.style.display = 'none';
         
-        console.log("📊 Dashboard Active: Removing schedule headers for full-screen view.");
+        console.log("📊 Dashboard Active: Schedule tools hidden for full-screen view.");
     } else {
+        // 1. Hide Dashboard
         dash.style.display = 'none';
-        sched.style.display = 'block';
         
-        // RESTORE HEADERS FOR SCHEDULE
+        // 2. Restore all Schedule elements
+        sched.style.display = 'block';
+        if (mainContent) mainContent.style.display = 'block';
         if (subheader) subheader.style.display = 'flex';
         if (frozenBar) frozenBar.style.display = 'flex';
     }
