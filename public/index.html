@@ -1904,11 +1904,11 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzuFE1ZBtJ0OF
 let dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
 
 async function fetchDropdownOptions() {
-    console.log("🛠️ Step 1: Fetching options from Supabase (Column-Based)...");
+    console.log("🛠️ Fetching options from Supabase...");
     
-    // 1. Fetch from Supabase using the specific column names
+    // 1. Fetch the descriptive columns from your table
     const { data, error } = await _supabase
-        .from('dropdownoptions') // Ensure your table name matches
+        .from('dropdownoptions')
         .select('Times, Places, Activities, Assets, Trade_Partners, Results');
 
     if (error) {
@@ -1916,25 +1916,35 @@ async function fetchDropdownOptions() {
         return;
     }
 
-    // 2. Reset the global object to prepare for fresh data
-    const keys = ['col1', 'col2', 'col3', 'col4', 'col6', 'col7'];
-    window.dropdownData = {};
-    keys.forEach(k => window.dropdownData[k] = []);
+    // 2. Define the mapping: Supabase Column Name -> App Column ID
+    const mapping = {
+        'Times': 'col1',
+        'Places': 'col2',
+        'Activities': 'col3',
+        'Assets': 'col4',
+        'Trade_Partners': 'col6',
+        'Results': 'col7'
+    };
 
-    // 3. Populate the lists by iterating through rows
+    // Initialize/Reset dropdownData
+    window.dropdownData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
+
+    // 3. Populate the lists using the mapping
     if (data && data.length > 0) {
         data.forEach(row => {
-            keys.forEach(key => {
-                const val = row[key];
-                // Check if the cell has a value, is not null, and isn't already in the list
-                if (val && val.toString().trim() !== "" && !window.dropdownData[key].includes(val)) {
-                    window.dropdownData[key].push(val.toString().trim());
+            Object.keys(mapping).forEach(dbColumn => {
+                const uiKey = mapping[dbColumn];
+                const val = row[dbColumn]; // Get value using DB name (e.g. row['Times'])
+
+                // Add to list if it has a value and isn't a duplicate
+                if (val && val.toString().trim() !== "" && !window.dropdownData[uiKey].includes(val)) {
+                    window.dropdownData[uiKey].push(val.toString().trim());
                 }
             });
         });
     }
 
-    console.log("✅ Dropdown data fully loaded from columns:", window.dropdownData);
+    console.log("✅ Dropdown data mapped and loaded:", window.dropdownData);
 }
 
 // Helper to create stable, short integers for Supabase int4
