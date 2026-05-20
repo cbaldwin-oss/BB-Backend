@@ -851,15 +851,11 @@ html, body {
 </div>
 
 <div id="app-body">
-<div id="dashboard-view">
-    <iframe 
-        id="streamlit-iframe"
-        src="https://criticalarc-san-terminal-cxdashboard.streamlit.app/?embed=true" 
-        allow="autoplay; encrypted-media; fullscreen"
-        allowfullscreen>
-    </iframe>
-</div>
-<div id="settings-view" style="display:none; height:100%; padding: 30px; background: #f8f9fa; overflow-y: auto;">
+    <div id="dashboard-view">
+        <iframe id="streamlit-iframe" src="https://criticalarc-san-terminal-cxdashboard.streamlit.app/?embed=true"></iframe>
+    </div>
+
+    <div id="settings-view" style="display:none; height:100%; padding: 30px; background: #f8f9fa; overflow-y: auto;">
         <h2 style="color: #2e7d32; margin-top: 0;">Admin Control Panel</h2>
         <p style="color: #666;">Manage system data, refresh statuses, and user access.</p>
         <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
@@ -867,52 +863,42 @@ html, body {
     </div>
 
     <div id="schedule-view">
+        <div class="subheader">
+            <div class="subheader-item">
+                <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
+                <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
+                <button id="my-activities-btn" class="tool-btn" onclick="toggleMyActivitiesFilter()" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <span id="my-activities-check">☐</span> My Activities
+                </button>
+                <div class="search-container">
+                    <input type="text" id="app-search-input" placeholder="Find in data...">
+                    <span id="search-count">0/0</span>
+                    <button onclick="navigateSearch(-1)">▲</button>
+                    <button onclick="navigateSearch(1)">▼</button>
+                </div>
+            </div>
+            <div id="presence-list"></div>
+            <div class="subheader-item">
+                <span id="saveIndicator">Saved</span>
+                <button class="tool-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
 
-<div class="subheader">
-    <div class="subheader-item">
-        <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
-        <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
-        <button id="my-activities-btn" class="tool-btn" onclick="toggleMyActivitiesFilter()" style="display: inline-flex; align-items: center; gap: 8px;">
-    <span id="my-activities-check">☐</span> My Activities
-</button>
-        <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
-        <input type="text" id="app-search-input" placeholder="Find in data..." 
-               style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
-        <span id="search-count" style="font-size: 11px; color: #666; margin: 0 5px; min-width: 30px;">0/0</span>
-        <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▲</button>
-        <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▼</button>
-    </div>
-    </div>
-        <div id="presence-list" style="display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 15px;">
-    </div>
-    <div class="subheader-item">
-        <span id="saveIndicator">Saved</span>
-        <button class="tool-btn" onclick="logout()">Logout</button>
-    </div>
-</div>
+        <div class="frozen-bar">
+            <div class="frozen-grid">
+                <div class="header-cell">Time</div><span class="sep">|</span>
+                <div class="header-cell">Place</div><span class="sep">|</span>
+                <div class="header-cell">Activity</div><span class="sep">|</span>
+                <div class="header-cell">Asset</div><span class="sep">|</span>
+                <div class="header-cell">Status</div><span class="sep">|</span>
+                <div class="header-cell">Trade Partners</div><span class="sep">|</span>
+                <div class="header-cell">Result</div><span class="sep">|</span>
+                <div class="header-cell">Notes</div>
+                <div class="spacer"></div>
+            </div>
+        </div>
 
-<div class="frozen-bar">
-    <div class="frozen-grid">
-        <div class="header-cell">Time</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Place</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Activity</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Asset</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Status</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Trade Partners</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Result</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Notes</div>
-        <div class="spacer"></div>
-    </div>
-</div>
-</div>
-<div id="main-content-area">
+        <div id="main-content-area"></div>
     </div>
 </div>
 <div id="grid-container">
@@ -1710,87 +1696,45 @@ async function completeAppLaunch() {
 
 async function startApp() {
     createSections(); 
-    const urlParams = new URLSearchParams(window.location.search);
-    const grantTarget = urlParams.get('grant');
-    const spinnerSection = document.getElementById('loading-spinner-section');
-    const authPrompt = document.getElementById('auth-prompt');
     const loader = document.getElementById('loading-overlay');
+    const authPrompt = document.getElementById('auth-prompt');
 
-    // Detect Recovery (Forgot PIN) link
-    const isRecovery = window.location.hash.includes('type=recovery');
-
-    if (isRecovery) {
-        spinnerSection.style.display = 'none';
-        authPrompt.style.display = 'block';
-        
-        document.getElementById('auth-title').innerText = "Update PIN";
-        document.getElementById('auth-subtitle').innerText = "Enter your new 6-digit PIN below.";
-        document.getElementById('auth-btn').innerText = "Set New PIN";
-        document.getElementById('user-email-input').style.display = 'none'; 
-        document.getElementById('auth-toggle-link').parentElement.style.display = 'none'; 
-        
-        window.isUpdateMode = true; 
-        return; 
-    }
-
-try {
-        const savedEmail = localStorage.getItem('launchpad_email');
+    try {
         const { data: { user } } = await _supabase.auth.getUser();
-
-        if (user && savedEmail) {
-            // --- NEW: Admin Grant Logic ---
-            if (grantTarget && user.email === ADMIN_EMAIL) {
-                document.getElementById('loading-spinner-section').style.display = 'none';
-                document.getElementById('admin-grant-prompt').style.display = 'block';
-                document.getElementById('grant-email-display').innerText = grantTarget;
-                window.pendingGrantEmail = grantTarget; // Store for the button click
-                return;
-            }
-            const isAuth = await verifyPermission(user.email);
-            if (isAuth) {
-                if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-            document.getElementById('admin-share-btn').style.display = 'inline-block';
+        if (!user) {
+            authPrompt.style.display = 'block';
+            return;
         }
-                window.isAuthorized = true;
-const permissions = await verifyPermission(user.email); 
-if (permissions.isAuthorized) { 
-    window.isAuthorized = true;
-    window.isAdmin = permissions.isAdmin; 
 
-    if (window.isAdmin) {
-        console.log("🧹 Admin detected: Cleaning up old history records...");
-        const { error } = await _supabase.rpc('delete_old_edit_history');
-        if (error) console.error("Cleanup Error:", error);
-    }
-    
-    // Show the Admin buttons/settings if they are an admin
-    if (window.isAdmin) {
-        // Show the floating blue "Manage Access" button
-        document.getElementById('admin-share-btn').style.display = 'inline-block'; 
-        
-        // --- THE FIX: Actually show the sidebar icon ---
-        const navSettings = document.getElementById('nav-settings');
-        if (navSettings) {
-            navSettings.style.display = 'flex'; // This reveals the gear icon
-        }
-    }
-    
-    // Continue with the rest of the launch sequence
-    await fetchDropdownOptions();
-    initPresence(user.email); 
-    refreshDropdowns();
-    await loadData();
-    initRealtimeSync();
-    applyViewFilter('view2');
-    collapseEverything();
-    loader.classList.add('hidden');
-    setTimeout(() => { loader.style.display = 'none'; autoCleanUI(); }, 800);
-    return;
-}
+        const permissions = await verifyPermission(user.email); 
+        if (permissions.isAuthorized) { 
+            window.isAdmin = permissions.isAdmin;
+            window.userCompany = permissions.company;
+
+            // Show Admin UI
+            if (window.isAdmin) {
+                document.getElementById('admin-share-btn').style.display = 'inline-block';
+                const navSettings = document.getElementById('nav-settings');
+                if (navSettings) navSettings.style.display = 'flex';
+                await _supabase.rpc('delete_old_edit_history');
             }
+            
+            // Standard Launch Sequence
+            await fetchDropdownOptions();
+            initPresence(user.email); 
+            refreshDropdowns();
+            await loadData(); // Syncs values only
+            initRealtimeSync();
+
+            // SINGLE visibility trigger
+            applyViewFilter('view2'); 
+            collapseEverything();
+
+            loader.classList.add('hidden');
+            setTimeout(() => { loader.style.display = 'none'; }, 800);
+            return;
         }
         
-        spinnerSection.style.display = 'none';
         authPrompt.style.display = 'block';
     } catch (e) {
         console.error("Launch Error:", e);
@@ -2563,17 +2507,17 @@ function applyViewFilter(viewId) {
         targetDate.setDate(today.getDate() + 6);
     }
 
-    // 3. Apply Filters sequentially
+    // 3. Apply Filters sequentially to every row
     allRows.forEach(row => {
         const rowDate = row.getAttribute('data-date');
         const isOccupied = row.getAttribute('data-occupied') === 'true';
         const rowIndex = parseInt(row.getAttribute('data-row-index'));
         
-        // --- A. DATE FILTER (Look Ahead) ---
+        // --- A. DATE RANGE FILTER ---
         if (targetDate) {
             if (rowDate < todayStr || rowDate > targetDate.toISOString().split('T')[0]) {
                 row.style.display = 'none';
-                return; // Move to next row
+                return;
             }
         }
 
@@ -2601,7 +2545,7 @@ function applyViewFilter(viewId) {
         }
     });
 
-    // 4. Hide empty Days and Weeks
+    // 4. Clean up Headers (Hide empty days/weeks)
     sections.forEach(section => {
         const visibleRows = Array.from(section.querySelectorAll('.cell-row'))
                                  .filter(r => r.style.display !== 'none');
@@ -2614,7 +2558,6 @@ function applyViewFilter(viewId) {
         if (visibleDays.length === 0) {
             week.style.display = 'none';
         } else if (viewId !== 'view1' || isMyActivitiesActive) {
-            // Auto-expand weeks if a filter is active
             const content = week.querySelector('.week-content');
             const arrow = week.querySelector('.week-arrow');
             if (content) content.classList.remove('hidden');
@@ -2622,9 +2565,7 @@ function applyViewFilter(viewId) {
         }
     });
 
-    if (!targetDate && !isMyActivitiesActive && viewId === 'view1') {
-        expandAllWeeks(); 
-    }
+    if (!targetDate && !isMyActivitiesActive && viewId === 'view1') expandAllWeeks(); 
 }
 
 async function switchView(viewId, buttonElement) {
@@ -2678,53 +2619,6 @@ function collapseEverything() {
         searchInput.value = "";
         performSearch(""); // Clears all yellow/orange highlights
     }
-}
-
-function autoCleanUI() {
-    const now = new Date();
-    const todayStr = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, '0'),
-        String(now.getDate()).padStart(2, '0')
-    ].join('-');
-
-    console.log("🧹 Protected Cleanup starting...");
-
-    const allRows = document.querySelectorAll('[data-date]');
-    if (allRows.length === 0) return;
-
-    allRows.forEach(row => {
-        const rowDate = row.getAttribute('data-date');
-        
-        // 1. Is the row from a past date?
-        if (rowDate < todayStr) {
-            
-            // 2. Is this row "Occupied" by Supabase data?
-            const isOccupied = row.getAttribute('data-occupied') === 'true';
-
-            if (!isOccupied) {
-                // 3. Secondary check: Are the columns actually still empty?
-                const col3 = row.querySelector(`[id$="-c3"]`);
-                const col4 = row.querySelector(`[id$="-c4"]`);
-                
-                const val3 = col3?.value?.toLowerCase() || "";
-                const val4 = col4?.value?.toLowerCase() || "";
-                
-                const isTrulyEmpty = (val3 === "" || val3.includes("select")) && 
-                                     (val4 === "" || val4.includes("select"));
-
-                if (isTrulyEmpty) {
-                    row.style.display = 'none';
-                }
-            } else {
-                // Row has data! Ensure it is visible.
-                row.style.display = 'flex';
-            }
-        } else {
-            // Today or Future: Always visible.
-            row.style.display = 'flex';
-        }
-    });
 }
 
 /**
@@ -2832,9 +2726,6 @@ async function loadData(isSilent = false) {
                 }
 
                 const wrapper = document.getElementById(`row-wrapper-${row.id}`);
-                if (wrapper) {
-                    wrapper.style.display = 'flex';
-                }
 
                 for (let col = 1; col <= 8; col++) {
                     const cellId = `${row.day_label}-r${row.id}-c${col}`;
