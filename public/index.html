@@ -869,7 +869,7 @@ html, body {
         <div id="settings-container"></div>
     </div>
 
-    <div id="schedule-view">
+    <div id="schedule-view" style="height: 100%; overflow-y: auto;">
         <div class="subheader">
             <div class="subheader-item">
                 <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
@@ -906,48 +906,6 @@ html, body {
         </div>
 
         <div id="main-content-area"></div>
-    </div>
-</div>
-
-<div id="auth-prompt" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 5000; justify-content: center; align-items: center;">
-    <div style="text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); color: #333; max-width: 400px; width: 90%;">
-        <div id="auth-login-view">
-            <h2 id="auth-title" style="margin-top: 0; color: #2e7d32; font-size: 26px;">Sign In</h2>
-            <p id="auth-subtitle" style="margin-bottom: 25px; color: #666;">Enter your credentials to access LaunchPad.</p>
-            <input type="email" id="user-email-input" placeholder="Email Address" style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 10px; box-sizing: border-box; font-size: 16px;">
-            <input type="password" id="user-pin-input" placeholder="Enter PIN" style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; text-align: center; letter-spacing: 4px;">
-            <button id="auth-btn" onclick="handleAuthAction()" style="background: #2e7d32; color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;">Login</button>
-            <div style="margin-top: 20px; font-size: 14px; display: flex; justify-content: center; gap: 10px;">
-                <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">First time? Create PIN</a>
-                <span style="color: #ccc;">|</span>
-                <a href="javascript:void(0)" onclick="switchToRequestView()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">Request Access</a>
-            </div>
-        </div>
-
-        <div id="auth-request-view" style="display: none;">
-            <h2 style="margin-top: 0; color: #2e7d32; font-size: 26px;">Request Access</h2>
-            <p style="margin-bottom: 25px; color: #666;">Enter details to request terminal access.</p>
-            <input type="email" id="request-email-input" placeholder="Email Address" style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 10px; box-sizing: border-box; font-size: 16px;">
-            <select id="request-company-select" style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid #eee; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; background-color: white;">
-                <option value="">Select Company...</option>
-            </select>
-            <button id="request-submit-btn" onclick="submitAccessRequest()" style="background: #2e7d32; color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;">Submit Request</button>
-            <div style="margin-top: 20px; font-size: 14px;">
-                <a href="javascript:void(0)" onclick="switchToLoginView()" style="color: #2e7d32; text-decoration: none; font-weight: 600;">Back to Sign In</a>
-            </div>
-        </div>
-        <p id="auth-error" style="color: #d32f2f; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
-        <p id="auth-success" style="color: #2e7d32; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
-    </div>
-</div>
-
-<div id="admin-panel" style="display: none; position: fixed; top: 80px; right: 30px; width: 350px; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 2000; padding: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h3 style="margin: 0; color: #2e7d32;">Pending Access</h3>
-        <button onclick="toggleAdminPanel()" style="background: none; border: none; cursor: pointer; font-size: 20px;">×</button>
-    </div>
-    <div id="request-list" style="max-height: 300px; overflow-y: auto; border-top: 1px solid #eee;">
-        <p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No pending requests.</p>
     </div>
 </div>
 <script>
@@ -2441,30 +2399,24 @@ let currentView = 'view2'; // Default view
 function applyViewFilter(viewId) {
     const sections = document.querySelectorAll('.section-container');
     const weekContainers = document.querySelectorAll('.week-container');
-    const allRows = document.querySelectorAll('.cell-row');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
 
-    // 1. Reset everything to visible (Base State)
+    // 1. Reset everything to visible
     sections.forEach(s => s.style.display = 'block');
     weekContainers.forEach(w => w.style.display = 'block');
-    
-    // We don't reset allRows to flex here because we will build them below
-    // but we should ensure existing ones are visible initially
-    allRows.forEach(r => r.style.display = 'flex');
 
-    // 2. Define Date Range for Look Ahead
+    // 2. Define Date Range (Today + X Days)
     let targetDate = null;
     if (viewId === 'view2') {
         targetDate = new Date(today);
-        targetDate.setDate(today.getDate() + 2);
+        targetDate.setDate(today.getDate() + 2); // 3 Day Look Ahead
     } else if (viewId === 'view3') {
         targetDate = new Date(today);
-        targetDate.setDate(today.getDate() + 6);
+        targetDate.setDate(today.getDate() + 6); // 1 Week Look Ahead
     }
 
-    // 3. Process Sections (Days) and ensure Rows exist for the range
+    // 3. Process Days
     sections.forEach(section => {
         const rowsDiv = section.querySelector('.rows-container');
         if (!rowsDiv) return;
@@ -2473,32 +2425,33 @@ function applyViewFilter(viewId) {
         const sectionDate = new Date(dateId + "T00:00:00");
         sectionDate.setHours(0, 0, 0, 0);
 
-        // --- A. DATE RANGE LOGIC ---
+        // A. DATE RANGE FILTER
         if (targetDate) {
             if (sectionDate < today || sectionDate > targetDate) {
                 section.style.display = 'none';
-                return; // Stop processing this day
-            } else {
-                // If within range, ensure rows are generated so they appear
-                if (rowsDiv.innerHTML === '') {
-                    buildRowsForDay(rowsDiv, dateId);
-                }
+                return; 
+            } else if (rowsDiv.innerHTML === '') {
+                // FORCE BUILD rows for empty days within the range so they appear
+                buildRowsForDay(rowsDiv, dateId);
             }
         }
 
-        // --- B. AUTO-CLEAN (Hide empty past rows within a visible day) ---
+        // B. ROW LEVEL FILTERING (For built rows)
         const dayRows = rowsDiv.querySelectorAll('.cell-row');
         dayRows.forEach(row => {
             const isOccupied = row.getAttribute('data-occupied') === 'true';
             const rowIndex = parseInt(row.getAttribute('data-row-index'));
 
+            row.style.display = 'flex'; // Reset
+
+            // Auto-Clean for past dates
             if (sectionDate < today && !isOccupied) {
                 row.style.display = 'none';
             } else if (!isOccupied && rowIndex >= 15) {
                 row.style.display = 'none';
             }
 
-            // --- C. MY ACTIVITIES FILTER ---
+            // My Activities Filter
             if (isMyActivitiesActive && row.style.display !== 'none') {
                 const company = (window.userCompany || "").toLowerCase();
                 const col6 = row.querySelector('[id$="-c6"]');
@@ -2509,14 +2462,16 @@ function applyViewFilter(viewId) {
             }
         });
 
-        // Final cleanup: If a day has NO visible rows (e.g., filtered by Company), hide the day
-        const visibleRows = Array.from(dayRows).filter(r => r.style.display !== 'none');
-        if (visibleRows.length === 0) {
-            section.style.display = 'none';
+        // C. HIDE EMPTY DAYS (If a filter is active)
+        if (targetDate || isMyActivitiesActive) {
+            const visibleRows = Array.from(dayRows).filter(r => r.style.display !== 'none');
+            if (visibleRows.length === 0) {
+                section.style.display = 'none';
+            }
         }
     });
 
-    // 4. Clean up Week Accordions
+    // 4. Clean up Week Containers
     weekContainers.forEach(week => {
         const visibleDays = Array.from(week.querySelectorAll('.section-container'))
                                  .filter(s => s.style.display !== 'none');
@@ -2531,7 +2486,10 @@ function applyViewFilter(viewId) {
         }
     });
 
-    if (!targetDate && !isMyActivitiesActive && viewId === 'view1') expandAllWeeks(); 
+    // For Overall Schedule (view1), expand weeks but keep empty day headers visible
+    if (!targetDate && !isMyActivitiesActive && viewId === 'view1') {
+        expandAllWeeks(); 
+    }
 }
 
 /**
