@@ -81,25 +81,6 @@ const Settings = {
         `).join('');
     },
 
-    async addOption() {
-        const input = document.getElementById('new-option-input');
-        const val = input.value.trim();
-        if (!val) return;
-
-        // Add to Supabase (inserts a new row with just this column filled)
-        const insertData = {};
-        insertData[this.currentCategory] = val;
-
-        const { error } = await _supabase.from('dropdownoptions').insert([insertData]);
-
-        if (error) {
-            alert("Error adding option: " + error.message);
-        } else {
-            input.value = "";
-            await this.refreshAppData();
-        }
-    },
-
     async deleteOption(val) {
         if (!confirm(`Are you sure you want to delete "${val}" from ${this.currentCategory}?`)) return;
 
@@ -119,12 +100,45 @@ const Settings = {
         }
     },
 
-    async refreshAppData() {
-        // 1. Fetch fresh data from Supabase to window.dropdownData
-        await fetchDropdownOptions();
-        // 2. Refresh the schedule's dropdown menus
-        refreshDropdowns();
-        // 3. Update the settings UI list
-        this.loadCategoryData();
+// Inside Settings object in settings.js
+
+async addOption() {
+    const input = document.getElementById('new-option-input');
+    const btn = event.target; // The "Add" button
+    const val = input.value.trim();
+    
+    if (!val) return;
+
+    // Visual feedback: disable button while adding
+    btn.disabled = true;
+    btn.innerText = "Saving...";
+
+    const insertData = {};
+    insertData[this.currentCategory] = val;
+
+    const { error } = await _supabase.from('dropdownoptions').insert([insertData]);
+
+    if (error) {
+        alert("Error adding option: " + error.message);
+        btn.disabled = false;
+        btn.innerText = "Add";
+    } else {
+        input.value = "";
+        // Keep the button disabled until data is actually back and rendered
+        await this.refreshAppData();
+        btn.disabled = false;
+        btn.innerText = "Add";
     }
+},
+
+async refreshAppData() {
+    // 1. Fetch fresh data from Supabase
+    await fetchDropdownOptions();
+    
+    // 2. Refresh the schedule's dropdown menus (global function in index.html)
+    if (typeof refreshDropdowns === 'function') refreshDropdowns();
+    
+    // 3. Re-load the specific category list you were just looking at
+    this.loadCategoryData(); 
+}
 };
