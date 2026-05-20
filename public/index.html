@@ -1688,26 +1688,23 @@ async function handleVerification() {
 
 async function completeAppLaunch() {
     const loader = document.getElementById('loading-overlay');
-    
     try {
-        // Load the actual schedule data
         await fetchDropdownOptions();
         refreshDropdowns();
         await loadData();
         initRealtimeSync();
 
-        applyViewFilter('view2');
+        // The single call that handles everything
+        applyViewFilter('view2'); 
         collapseEverything();
 
-        // Hide the loading screen
         loader.classList.add('hidden');
         setTimeout(() => { 
             loader.style.display = 'none'; 
-            autoCleanUI(); 
+            // autoCleanUI(); <-- REMOVE THIS LINE
         }, 800);
     } catch (e) {
         console.error("Launch error:", e);
-        alert("Failed to load data. Please refresh.");
     }
 }
 
@@ -2543,21 +2540,20 @@ async function saveRow(rowNum, dayLabel, col6Override = null) {
 
 let currentView = 'view2'; // Default view
 
-// Replace the existing applyViewFilter function (around line 1545)
 function applyViewFilter(viewId) {
     const sections = document.querySelectorAll('.section-container');
     const weekContainers = document.querySelectorAll('.week-container');
     const allRows = document.querySelectorAll('.cell-row');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
 
-    // 1. Reset everything to visible first
+    // 1. Reset everything to visible (Base State)
     sections.forEach(s => s.style.display = 'block');
     weekContainers.forEach(w => w.style.display = 'block');
     allRows.forEach(r => r.style.display = 'flex');
 
-    // 2. Define the date range logic
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
+    // 2. Define Date Range for Look Ahead
     let targetDate = null;
     if (viewId === 'view2') {
         targetDate = new Date(today);
@@ -2567,58 +2563,58 @@ function applyViewFilter(viewId) {
         targetDate.setDate(today.getDate() + 6);
     }
 
-    // 3. Apply Date Filter (Hide Days outside range)
-    if (targetDate) {
-        sections.forEach(section => {
-            const rowsDiv = section.querySelector('.rows-container');
-            if (!rowsDiv) return;
+    // 3. Apply Filters sequentially
+    allRows.forEach(row => {
+        const rowDate = row.getAttribute('data-date');
+        const isOccupied = row.getAttribute('data-occupied') === 'true';
+        const rowIndex = parseInt(row.getAttribute('data-row-index'));
+        
+        // --- A. DATE FILTER (Look Ahead) ---
+        if (targetDate) {
+            if (rowDate < todayStr || rowDate > targetDate.toISOString().split('T')[0]) {
+                row.style.display = 'none';
+                return; // Move to next row
+            }
+        }
+
+        // --- B. AUTO-CLEAN (Hide empty past rows) ---
+        if (rowDate < todayStr && !isOccupied) {
+            row.style.display = 'none';
+            return;
+        }
+
+        // --- C. HIDE EXCESS ROWS (Rows 15-20) ---
+        if (!isOccupied && rowIndex >= 15) {
+            row.style.display = 'none';
+            return;
+        }
+
+        // --- D. MY ACTIVITIES FILTER ---
+        if (isMyActivitiesActive) {
+            const company = (window.userCompany || "").toLowerCase();
+            const col6 = row.querySelector('[id$="-c6"]');
+            const tradePartners = (col6?.getAttribute('data-selected') || col6?.value || "").toLowerCase();
             
-            const dateStr = rowsDiv.id.replace('rows-', '');
-            const [y, m, d] = dateStr.split('-').map(Number);
-            const sectionDate = new Date(y, m - 1, d);
-            sectionDate.setHours(0, 0, 0, 0);
-
-            if (sectionDate < today || sectionDate > targetDate) {
-                section.style.display = 'none';
-            }
-        });
-    }
-
-    // 4. Apply "My Activities" Filter (Hide Rows within visible days)
-    if (isMyActivitiesActive) {
-        const company = (window.userCompany || "").toLowerCase();
-        allRows.forEach(row => {
-            // Only process rows in sections that aren't already hidden by the date filter
-            if (row.closest('.section-container').style.display !== 'none') {
-                const col6 = row.querySelector('[id$="-c6"]');
-                const tradePartners = (col6?.getAttribute('data-selected') || col6?.value || "").toLowerCase();
-                
-                if (!tradePartners.includes(company)) {
-                    row.style.display = 'none';
-                }
-            }
-        });
-    }
-
-    // 5. Hide Days that became empty due to the row-level filter
-    sections.forEach(section => {
-        if (section.style.display !== 'none') {
-            const visibleRows = Array.from(section.querySelectorAll('.cell-row'))
-                                     .filter(r => r.style.display !== 'none');
-            if (visibleRows.length === 0) {
-                section.style.display = 'none';
+            if (!tradePartners.includes(company)) {
+                row.style.display = 'none';
             }
         }
     });
 
-    // 6. Clean up Week Accordions (Hide empty weeks and auto-expand filtered ones)
+    // 4. Hide empty Days and Weeks
+    sections.forEach(section => {
+        const visibleRows = Array.from(section.querySelectorAll('.cell-row'))
+                                 .filter(r => r.style.display !== 'none');
+        if (visibleRows.length === 0) section.style.display = 'none';
+    });
+
     weekContainers.forEach(week => {
         const visibleDays = Array.from(week.querySelectorAll('.section-container'))
                                  .filter(s => s.style.display !== 'none');
-        
         if (visibleDays.length === 0) {
             week.style.display = 'none';
         } else if (viewId !== 'view1' || isMyActivitiesActive) {
+            // Auto-expand weeks if a filter is active
             const content = week.querySelector('.week-content');
             const arrow = week.querySelector('.week-arrow');
             if (content) content.classList.remove('hidden');
@@ -2626,7 +2622,6 @@ function applyViewFilter(viewId) {
         }
     });
 
-    // Reset view1 to standard behavior if no filters active
     if (!targetDate && !isMyActivitiesActive && viewId === 'view1') {
         expandAllWeeks(); 
     }
@@ -2635,15 +2630,14 @@ function applyViewFilter(viewId) {
 async function switchView(viewId, buttonElement) {
     currentView = viewId;
     
-    // 1. Update Button Styles
     document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
     buttonElement.classList.add('active');
 
-    // 2. Apply Visibility Filter
-    applyViewFilter(viewId);
-
-    // 3. Optional: Sync data to ensure current view is fresh
+    // 1. Sync data first (loads but doesn't change visibility yet)
     await loadData();
+
+    // 2. Now apply the visibility filter
+    applyViewFilter(viewId);
 }
 
 // 1. Only targets the green Week bars
@@ -2840,7 +2834,6 @@ async function loadData(isSilent = false) {
                 const wrapper = document.getElementById(`row-wrapper-${row.id}`);
                 if (wrapper) {
                     wrapper.style.display = 'flex';
-                    wrapper.setAttribute('data-occupied', 'true');
                 }
 
                 for (let col = 1; col <= 8; col++) {
