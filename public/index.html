@@ -1343,33 +1343,6 @@ function toggleAdminPanel() {
     if (isOpening) refreshRequestList();
 }
 
-async function refreshRequestList() {
-    const listContainer = document.getElementById('request-list');
-    const { data, error } = await _supabase.from('access_requests').select('*');
-
-    if (error || !data || data.length === 0) {
-        listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No pending requests.</p>';
-        return;
-    }
-
-    listContainer.innerHTML = data.map(req => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f5f5f5;">
-            <span style="font-size: 13px; color: #333; overflow: hidden; text-overflow: ellipsis; max-width: 180px;" title="${req.email}">${req.email}</span>
-            <div style="display: flex; gap: 5px;">
-                <button onclick="admitUser('${req.email}', ${req.id})" 
-                        style="background: #2e7d32; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
-                    Admit
-                </button>
-                <button onclick="declineUser('${req.email}', ${req.id})" 
-        style="background: #d32f2f; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
-    Decline
-</button>
-                </button>
-            </div>
-        </div>
-    `).join('');
-}
-
 async function declineUser(email, requestId) { // Added email parameter here
     if (!confirm(`Are you sure you want to decline the request from ${email}?`)) return;
 
@@ -1389,10 +1362,40 @@ async function declineUser(email, requestId) { // Added email parameter here
     }
 }
 
-async function admitUser(email, requestId) {
+async function refreshRequestList() {
+    const listContainer = document.getElementById('request-list');
+    const { data, error } = await _supabase.from('access_requests').select('*');
+
+    if (error || !data || data.length === 0) {
+        listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No pending requests.</p>';
+        return;
+    }
+
+    listContainer.innerHTML = data.map(req => `
+        <div style="padding: 10px 0; border-bottom: 1px solid #f5f5f5;">
+            <div style="font-size: 13px; font-weight: bold; color: #333;">${req.email}</div>
+            <div style="font-size: 11px; color: #666; margin-bottom: 8px;">Company: ${req.company || 'Unknown'}</div>
+            <div style="display: flex; gap: 5px;">
+                <button onclick="admitUser('${req.email}', '${req.company}', ${req.id})" 
+                        style="background: #2e7d32; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
+                    Admit
+                </button>
+                <button onclick="declineUser('${req.email}', ${req.id})" 
+                        style="background: #d32f2f; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
+                    Decline
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function admitUser(email, company, requestId) {
     try {
-        // 1. Add to authorized_editors
-        const { error: addError } = await _supabase.from('authorized_editors').insert([{ email }]);
+        // 1. Add to authorized_editors including the company
+        const { error: addError } = await _supabase
+            .from('authorized_editors')
+            .insert([{ email: email.toLowerCase(), company: company }]);
+        
         if (addError) throw addError;
 
         // 2. Remove from access_requests
