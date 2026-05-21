@@ -1772,7 +1772,11 @@ async function logout() {
 window.onload = startApp;
 
 function refreshDropdowns() {
-    document.querySelectorAll('select').forEach(select => {
+    const allSelects = document.querySelectorAll('select:not(#setting-category-select):not(#request-company-select)');
+    
+    allSelects.forEach(select => {
+        const currentVal = select.value;
+        const colId = select.id.split('-').pop(); // e.g., 'c1', 'c2'
         const cellId = select.id;
         const parts = cellId.split('-c');
         if (parts.length < 2) return;
