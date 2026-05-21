@@ -872,6 +872,9 @@ html, body {
             <div class="subheader-item">
                 <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
                 <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
+                <button id="my-activities-btn" class="tool-btn" onclick="toggleMyActivitiesFilter()" style="display: inline-flex; align-items: center; gap: 8px;">
+        <span id="my-activities-check">☐</span> My Activities
+    </button>
                 <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
                     <input type="text" id="app-search-input" placeholder="Find in data..." 
                            style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
