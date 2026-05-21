@@ -872,6 +872,9 @@ html, body {
     <div class="subheader-item">
         <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
         <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
+        <button id="my-activities-btn" class="tool-btn" onclick="toggleMyActivitiesFilter()" style="display: inline-flex; align-items: center; gap: 8px;">
+        <span id="my-activities-check">☐</span> My Activities
+    </button>
         <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
         <input type="text" id="app-search-input" placeholder="Find in data..." 
                style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
@@ -1567,12 +1570,37 @@ async function handleForgotPin() {
 async function verifyPermission(email) {
     const { data, error } = await _supabase
         .from('authorized_editors')
-        .select('is_admin')
+        .select('is_admin, company') // Fetch company here
         .eq('email', email.toLowerCase())
         .single();
 
-    if (error || !data) return { isAuthorized: false, isAdmin: false };
-    return { isAuthorized: true, isAdmin: data.is_admin };
+    if (error || !data) return { isAuthorized: false, isAdmin: false, company: null };
+    
+    // Save it globally for the filter
+    window.userCompany = data.company; 
+    return { isAuthorized: true, isAdmin: data.is_admin, company: data.company };
+}
+
+let isMyActivitiesActive = false;
+
+function toggleMyActivitiesFilter() {
+    isMyActivitiesActive = !isMyActivitiesActive;
+    
+    const btn = document.getElementById('my-activities-btn');
+    const check = document.getElementById('my-activities-check');
+    
+    if (isMyActivitiesActive) {
+        btn.style.backgroundColor = "#e8f5e9";
+        btn.style.color = "#2e7d32";
+        check.innerText = "☑";
+    } else {
+        btn.style.backgroundColor = "";
+        btn.style.color = "";
+        check.innerText = "☐";
+    }
+
+    // Update row visibility without touching the headers
+    autoCleanUI();
 }
 
 // 2. Handle the "Verify & Enter" button click
@@ -2514,6 +2542,7 @@ function applyViewFilter(viewId) {
         // Standard behavior: make sure everything is expanded or follows default state
         expandAllWeeks(); 
     }
+    autoCleanUI();
 }
 
 async function switchView(viewId, buttonElement) {
@@ -2578,42 +2607,49 @@ function autoCleanUI() {
         String(now.getDate()).padStart(2, '0')
     ].join('-');
 
-    console.log("🧹 Protected Cleanup starting...");
-
-    const allRows = document.querySelectorAll('[data-date]');
+    const allRows = document.querySelectorAll('.cell-row');
     if (allRows.length === 0) return;
+
+    const company = (window.userCompany || "").toLowerCase();
 
     allRows.forEach(row => {
         const rowDate = row.getAttribute('data-date');
+        const rowIndex = parseInt(row.getAttribute('data-row-index') || "0");
+        const isOccupied = row.getAttribute('data-occupied') === 'true';
         
-        // 1. Is the row from a past date?
+        let shouldShow = true;
+        
+        // 1. AutoClean Logic (hide past empty rows, hide excess future rows)
         if (rowDate < todayStr) {
-            
-            // 2. Is this row "Occupied" by Supabase data?
-            const isOccupied = row.getAttribute('data-occupied') === 'true';
-
             if (!isOccupied) {
-                // 3. Secondary check: Are the columns actually still empty?
                 const col3 = row.querySelector(`[id$="-c3"]`);
                 const col4 = row.querySelector(`[id$="-c4"]`);
-                
                 const val3 = col3?.value?.toLowerCase() || "";
                 const val4 = col4?.value?.toLowerCase() || "";
-                
                 const isTrulyEmpty = (val3 === "" || val3.includes("select")) && 
                                      (val4 === "" || val4.includes("select"));
-
                 if (isTrulyEmpty) {
-                    row.style.display = 'none';
+                    shouldShow = false;
                 }
-            } else {
-                // Row has data! Ensure it is visible.
-                row.style.display = 'flex';
             }
         } else {
-            // Today or Future: Always visible.
-            row.style.display = 'flex';
+            // Hide blank placeholder rows beyond the standard 15
+            if (rowIndex > 14 && !isOccupied) {
+                shouldShow = false;
+            }
         }
+
+        // 2. "My Activities" Filter Logic
+        if (shouldShow && isMyActivitiesActive) {
+            const col6 = row.querySelector('[id$="-c6"]');
+            const tradePartners = (col6?.getAttribute('data-selected') || col6?.value || "").toLowerCase();
+            
+            if (!tradePartners.includes(company)) {
+                shouldShow = false;
+            }
+        }
+
+        row.style.display = shouldShow ? 'flex' : 'none';
     });
 }
 
@@ -2723,7 +2759,6 @@ async function loadData(isSilent = false) {
 
                 const wrapper = document.getElementById(`row-wrapper-${row.id}`);
                 if (wrapper) {
-                    wrapper.style.display = 'flex';
                     wrapper.setAttribute('data-occupied', 'true');
                 }
 
@@ -2760,6 +2795,7 @@ applyCellColor(el, content);
 }
                 }
             });
+            autoCleanUI();
             return true;
         }
     } catch (err) {
