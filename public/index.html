@@ -866,62 +866,52 @@ html, body {
         <div id="settings-container"></div>
     </div>
 
-    <div id="schedule-view">
+    <div id="schedule-view" style="height: 100%; overflow-y: auto; position: relative;">
 
-<div class="subheader">
-    <div class="subheader-item">
-        <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
-        <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
-        <button id="my-activities-btn" class="tool-btn" onclick="toggleMyActivitiesFilter()" style="display: inline-flex; align-items: center; gap: 8px;">
-        <span id="my-activities-check">☐</span> My Activities
-    </button>
-        <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
-        <input type="text" id="app-search-input" placeholder="Find in data..." 
-               style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
-        <span id="search-count" style="font-size: 11px; color: #666; margin: 0 5px; min-width: 30px;">0/0</span>
-        <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▲</button>
-        <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▼</button>
-    </div>
-    </div>
-        <div id="presence-list" style="display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 15px;">
-    </div>
-    <div class="subheader-item">
-        <span id="saveIndicator">Saved</span>
-        <button class="tool-btn" onclick="logout()">Logout</button>
-    </div>
-</div>
+        <div class="subheader">
+            <div class="subheader-item">
+                <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
+                <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
+                <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
+                    <input type="text" id="app-search-input" placeholder="Find in data..." 
+                           style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
+                    <span id="search-count" style="font-size: 11px; color: #666; margin: 0 5px; min-width: 30px;">0/0</span>
+                    <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▲</button>
+                    <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▼</button>
+                </div>
+            </div>
+            <div id="presence-list" style="display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 15px;">
+            </div>
+            <div class="subheader-item">
+                <span id="saveIndicator">Saved</span>
+                <button class="tool-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
 
-<div class="frozen-bar">
-    <div class="frozen-grid">
-        <div class="header-cell">Time</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Place</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Activity</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Asset</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Status</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Trade Partners</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Result</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Notes</div>
-        <div class="spacer"></div>
-    </div>
-</div>
-</div>
-<div id="main-content-area">
-    </div>
-</div>
-<div id="grid-container">
-    <table id="grid"></table>
-</div>
-<div id="main-content-area">
-    </div>
+        <div class="frozen-bar">
+            <div class="frozen-grid">
+                <div class="header-cell">Time</div>
+                <span class="sep">|</span>
+                <div class="header-cell">Place</div>
+                <span class="sep">|</span>
+                <div class="header-cell">Activity</div>
+                <span class="sep">|</span>
+                <div class="header-cell">Asset</div>
+                <span class="sep">|</span>
+                <div class="header-cell">Status</div>
+                <span class="sep">|</span>
+                <div class="header-cell">Trade Partners</div>
+                <span class="sep">|</span>
+                <div class="header-cell">Result</div>
+                <span class="sep">|</span>
+                <div class="header-cell">Notes</div>
+                <div class="spacer"></div>
+            </div>
+        </div>
 
-<div id="loading-overlay">
+        <div id="main-content-area"></div>
+
+    </div> </div> <div id="loading-overlay">
     <div id="loading-spinner-section" style="text-align: center;">
         <div class="ship-circle">
             <span class="rocket">🛠️🚀</span>
