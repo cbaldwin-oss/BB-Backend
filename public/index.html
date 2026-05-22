@@ -2760,21 +2760,14 @@ function autoCleanUI() {
                 shouldShow = false;
             }
         }
-        if (shouldShow && isMyActivitiesActive) {
-            const col6 = row.querySelector('[id$="-c6"]');
-            const tradePartners = (col6?.getAttribute('data-selected') || col6?.value || "").toLowerCase();
-            
-            if (!tradePartners.includes(company)) {
-                shouldShow = false;
-            }
-        }
 
-        // --- ADD: 3. "Places" Filter Logic ---
-        if (shouldShow && currentPlaceFilter !== 'All') {
+        // 3. "Places" Filter Logic (Multi-select)
+        // THE FIX: Check the length of the selectedPlaces array instead of the old variable
+        if (shouldShow && selectedPlaces.length > 0) {
             const col2 = row.querySelector('[id$="-c2"]');
-            const placeVal = (col2?.value || "").toLowerCase();
+            const placeVal = (col2?.value || "").toLowerCase().trim();
             
-           const isMatch = selectedPlaces.some(p => p.toLowerCase() === placeVal);
+            const isMatch = selectedPlaces.some(p => p.toLowerCase() === placeVal);
             
             if (!isMatch) {
                 shouldShow = false;
