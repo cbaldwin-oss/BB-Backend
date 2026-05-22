@@ -813,14 +813,48 @@ html, body {
     margin: 0;
     overflow: hidden; /* We handle scrolling inside the views */
 }
+/* Places Filter Buttons */
+.place-filter-btn {
+    background-color: #f1f3f4;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    padding: 5px 15px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #5f6368;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.place-filter-btn.active {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border-color: #2e7d32;
+}
+
+.place-filter-btn:hover {
+    background-color: #e0e0e0;
+}
+
+/* Ensure the header-left area can scroll if there are many places */
+.header-left {
+    overflow-x: auto;
+    gap: 8px; /* Spacing between buttons */
+    padding-right: 15px;
+}
+/* Hide scrollbar for cleaner look */
+.header-left::-webkit-scrollbar {
+    display: none;
+}
 </style>
 </head>
 <body>
 <div class="header">
     
-    <div class="header-left">
-        <img src="https://lh3.googleusercontent.com/u/0/d/1Wy_ftXtce-UG5jV-5vwS80lV1yt7QTbG" alt="Logo">
-    </div>
+   <div class="header-left" id="places-filter-container">
+    <button class="place-filter-btn active" onclick="setPlaceFilter('All', this)">All</button>
+</div>
     <div class="header-center">
         <span>LaunchPad</span>
     </div>
@@ -1134,6 +1168,50 @@ function switchMainView(viewType, btn) {
         if (subheader) subheader.style.display = 'flex';
         if (frozenBar) frozenBar.style.display = 'flex';
     }
+}
+
+// Add these to your global variables
+let currentPlaceFilter = 'All';
+
+/**
+ * Builds the Place filter buttons based on fetched Supabase data
+ */
+function renderPlacesFilterButtons() {
+    const container = document.getElementById('places-filter-container');
+    if (!container) return;
+
+    // Col2 corresponds to 'Places'
+    const places = window.dropdownData?.col2 || [];
+    
+    // Reset container with the default 'All' button
+    container.innerHTML = `
+        <button class="place-filter-btn ${currentPlaceFilter === 'All' ? 'active' : ''}" onclick="setPlaceFilter('All', this)">All</button>
+    `;
+
+    // Create a button for each non-empty place
+    places.forEach(place => {
+        if (place.trim() !== "") {
+            const btn = document.createElement('button');
+            btn.className = `place-filter-btn ${currentPlaceFilter === place ? 'active' : ''}`;
+            btn.innerText = place;
+            btn.onclick = () => setPlaceFilter(place, btn);
+            container.appendChild(btn);
+        }
+    });
+}
+
+/**
+ * Handles the selection of a Place filter
+ */
+function setPlaceFilter(place, btn) {
+    currentPlaceFilter = place;
+    
+    // Visually update active button
+    document.querySelectorAll('.place-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // Trigger the master visibility function to hide/show rows
+    autoCleanUI();
 }
 
 /**
@@ -1944,6 +2022,8 @@ async function fetchDropdownOptions() {
     window.dropdownData = newData;
     
     console.log("✅ Dropdown data synced.");
+
+    renderPlacesFilterButtons();
 }
 
 // Helper to create stable, short integers for Supabase int4
@@ -2638,6 +2718,25 @@ function autoCleanUI() {
             const tradePartners = (col6?.getAttribute('data-selected') || col6?.value || "").toLowerCase();
             
             if (!tradePartners.includes(company)) {
+                shouldShow = false;
+            }
+        }
+        if (shouldShow && isMyActivitiesActive) {
+            const col6 = row.querySelector('[id$="-c6"]');
+            const tradePartners = (col6?.getAttribute('data-selected') || col6?.value || "").toLowerCase();
+            
+            if (!tradePartners.includes(company)) {
+                shouldShow = false;
+            }
+        }
+
+        // --- ADD: 3. "Places" Filter Logic ---
+        if (shouldShow && currentPlaceFilter !== 'All') {
+            const col2 = row.querySelector('[id$="-c2"]');
+            const placeVal = (col2?.value || "").toLowerCase();
+            
+            // Hide row if the place dropdown doesn't match the selected filter exactly
+            if (placeVal !== currentPlaceFilter.toLowerCase()) {
                 shouldShow = false;
             }
         }
