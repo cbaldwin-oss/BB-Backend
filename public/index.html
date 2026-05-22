@@ -847,6 +847,17 @@ html, body {
 .header-left::-webkit-scrollbar {
     display: none;
 }
+#places-filter-container {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    gap: 8px;
+    padding-right: 15px;
+}
+
+#places-filter-container::-webkit-scrollbar {
+    display: none; /* Keeps it looking clean */
+}
 </style>
 </head>
 <body>
@@ -1170,8 +1181,8 @@ function switchMainView(viewType, btn) {
     }
 }
 
-// Add these to your global variables
-let currentPlaceFilter = 'All';
+// Track selected places. If array is empty, it means "All" is selected.
+let selectedPlaces = [];
 
 /**
  * Builds the Place filter buttons based on fetched Supabase data
@@ -1183,21 +1194,48 @@ function renderPlacesFilterButtons() {
     // Col2 corresponds to 'Places'
     const places = window.dropdownData?.col2 || [];
     
-    // Reset container with the default 'All' button
+    // Add the "Places:" label and the "All" button
+    const isAllActive = selectedPlaces.length === 0;
     container.innerHTML = `
-        <button class="place-filter-btn ${currentPlaceFilter === 'All' ? 'active' : ''}" onclick="setPlaceFilter('All', this)">All</button>
+        <span style="font-weight: bold; margin-right: 5px; color: #333; font-size: 14px;">Places:</span>
+        <button class="place-filter-btn ${isAllActive ? 'active' : ''}" onclick="togglePlaceFilter('All')">All</button>
     `;
 
     // Create a button for each non-empty place
     places.forEach(place => {
         if (place.trim() !== "") {
             const btn = document.createElement('button');
-            btn.className = `place-filter-btn ${currentPlaceFilter === place ? 'active' : ''}`;
+            const isActive = selectedPlaces.includes(place);
+            btn.className = `place-filter-btn ${isActive ? 'active' : ''}`;
             btn.innerText = place;
-            btn.onclick = () => setPlaceFilter(place, btn);
+            btn.onclick = () => togglePlaceFilter(place);
             container.appendChild(btn);
         }
     });
+}
+
+/**
+ * Handles toggling multiple Place filters
+ */
+function togglePlaceFilter(place) {
+    if (place === 'All') {
+        // Reset to show everything
+        selectedPlaces = [];
+    } else {
+        // Toggle the selected place in the array
+        const index = selectedPlaces.indexOf(place);
+        if (index > -1) {
+            selectedPlaces.splice(index, 1); // Remove if already selected
+        } else {
+            selectedPlaces.push(place); // Add if not selected
+        }
+    }
+    
+    // Re-render the buttons to update their colors
+    renderPlacesFilterButtons();
+
+    // Trigger the master visibility function to hide/show rows
+    autoCleanUI();
 }
 
 /**
@@ -2735,8 +2773,9 @@ function autoCleanUI() {
             const col2 = row.querySelector('[id$="-c2"]');
             const placeVal = (col2?.value || "").toLowerCase();
             
-            // Hide row if the place dropdown doesn't match the selected filter exactly
-            if (placeVal !== currentPlaceFilter.toLowerCase()) {
+           const isMatch = selectedPlaces.some(p => p.toLowerCase() === placeVal);
+            
+            if (!isMatch) {
                 shouldShow = false;
             }
         }
