@@ -944,83 +944,6 @@ html, body {
     overflow: hidden; 
     position: relative;
 }
-#filter-sidebar {
-    position: fixed;
-    right: 0;
-    top: 90px;
-    height: calc(100vh - 90px);
-    width: 36px;
-    background-color: #ffffff;
-    border-left: 1px solid #dcdcdc;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1500;
-    overflow: hidden;
-    display: flex;
-    flex-direction: row-reverse; /* Pins the vertical tab to the right edge */
-    box-shadow: -2px 0 10px rgba(0,0,0,0.05);
-}
-
-#filter-sidebar:hover {
-    width: 240px; /* Expands when hovered */
-}
-
-/* Vertical Filter Tab on the Right */
-.filter-header-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 15px 0;
-    width: 36px;
-    flex-shrink: 0;
-    color: #5f6368;
-    background-color: #f8f9fa;
-    border-left: 1px solid #eee;
-    cursor: default;
-}
-
-/* Container for the actual buttons */
-.filter-content {
-    flex-grow: 1;
-    padding: 15px;
-    display: flex;
-    flex-direction: column;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease;
-    min-width: 204px;
-    overflow-y: auto;
-}
-
-#filter-sidebar:hover .filter-content {
-    opacity: 1;
-    visibility: visible;
-}
-
-/* Vertical Filter Buttons */
-.place-filter-btn-vertical {
-    background-color: #f1f3f4;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 8px 10px;
-    font-size: 13px;
-    font-weight: bold;
-    color: #333;
-    cursor: pointer;
-    text-align: left;
-    transition: all 0.2s;
-    width: 100%;
-    margin-bottom: 5px;
-}
-
-.place-filter-btn-vertical.active {
-    background-color: #e8f5e9;
-    color: #1b8320;
-    border-color: #257e29;
-}
-
-.place-filter-btn-vertical:hover {
-    background-color: #e0e0e0;
-}
 </style>
 </head>
 <body>
@@ -1060,15 +983,8 @@ html, body {
 
 <div id="filter-sidebar">
     <div class="filter-header-item">
-        <span class="nav-icon" style="font-size: 16px; margin-bottom: 10px;">🔍</span>
-        <div class="nav-text" style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; font-size: 12px; font-weight: bold; color: #5f6368;">
-            <span>F</span>
-            <span>I</span>
-            <span>L</span>
-            <span>T</span>
-            <span>E</span>
-            <span>R</span>
-        </div>
+        <span class="nav-icon" style="font-size: 16px;">🔍</span>
+        <span class="nav-text">FILTER</span>
     </div>
     
     <div class="filter-content">
