@@ -949,9 +949,9 @@ html, body {
 <body>
 <div class="header">
     
-   <div class="header-left" id="places-filter-container">
-    <button class="place-filter-btn active" onclick="setPlaceFilter('All', this)">All</button>
-</div>
+   <div class="header-left">
+        <img src="https://lh3.googleusercontent.com/u/0/d/1Wy_ftXtce-UG5jV-5vwS80lV1yt7QTbG" alt="Logo">
+    </div>
     <div class="header-center">
         <span>LaunchPad</span>
     </div>
@@ -986,7 +986,11 @@ html, body {
         <span class="nav-icon">🔍</span>
         <span class="nav-text">Filters</span>
     </div>
-    <div class="filter-content" id="vertical-places-filter-container">
+    
+    <div class="filter-content" style="overflow-y: auto; padding-bottom: 40px; max-height: calc(100vh - 150px);">
+        <div id="vertical-places-filter-container"></div>
+        <div id="vertical-activities-filter-container" style="margin-top: 20px;"></div>
+        <div id="vertical-results-filter-container" style="margin-top: 20px;"></div>
     </div>
 </div>
 
@@ -1278,7 +1282,67 @@ function switchMainView(viewType, btn) {
 
 let currentPlaceFilter = 'All';
 // Track selected places. If array is empty, it means "All" is selected.
+// State Arrays
 let selectedPlaces = [];
+let selectedActivities = [];
+let selectedResults = [];
+
+/**
+ * Main function to build all sections in the Filter Sidebar
+ */
+function renderSidebarFilters() {
+    renderFilterSection('vertical-places-filter-container', 'Places', window.dropdownData?.col2 || [], selectedPlaces, 'togglePlaceFilter');
+    renderFilterSection('vertical-activities-filter-container', 'Activities', window.dropdownData?.col3 || [], selectedActivities, 'toggleActivityFilter');
+    renderFilterSection('vertical-results-filter-container', 'Results', window.dropdownData?.col7 || [], selectedResults, 'toggleResultFilter');
+}
+
+/**
+ * Reusable builder for filter sections
+ */
+function renderFilterSection(containerId, title, options, selectedArray, toggleFuncName) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    const isAllActive = selectedArray.length === 0;
+    
+    container.innerHTML = `
+        <div style="font-weight: bold; color: #333; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${title}</div>
+        <button class="place-filter-btn-vertical ${isAllActive ? 'active' : ''}" onclick="${toggleFuncName}('All')">All</button>
+    `;
+
+    options.forEach(opt => {
+        if (opt.trim() !== "") {
+            const btn = document.createElement('button');
+            const isActive = selectedArray.includes(opt);
+            btn.className = `place-filter-btn-vertical ${isActive ? 'active' : ''}`;
+            btn.innerText = opt;
+            // The function name is called dynamically from the window object
+            btn.onclick = () => window[toggleFuncName](opt);
+            container.appendChild(btn);
+        }
+    });
+}
+
+// Handlers for HTML onclick events
+function togglePlaceFilter(val) { toggleFilterArray(val, selectedPlaces); }
+function toggleActivityFilter(val) { toggleFilterArray(val, selectedActivities); }
+function toggleResultFilter(val) { toggleFilterArray(val, selectedResults); }
+
+/**
+ * Shared logic for toggling array values
+ */
+function toggleFilterArray(val, arr) {
+    if (val === 'All') {
+        arr.length = 0; // Clear the array
+    } else {
+        const index = arr.indexOf(val);
+        if (index > -1) arr.splice(index, 1); // Remove if selected
+        else arr.push(val); // Add if not selected
+    }
+    
+    renderSidebarFilters(); // Update UI colors
+    autoCleanUI();          // Run the visibility logic
+}
 
 function renderPlacesFilterButtons() {
     // Target the new container in the right sidebar
@@ -2157,7 +2221,7 @@ async function fetchDropdownOptions() {
     
     console.log("✅ Dropdown data synced.");
 
-    renderPlacesFilterButtons();
+    renderSidebarFilters();
 }
 
 // Helper to create stable, short integers for Supabase int4
@@ -2857,14 +2921,28 @@ function autoCleanUI() {
         }
 
         // 3. "Places" Filter Logic (Multi-select)
-        // THE FIX: Check the length of the selectedPlaces array instead of the old variable
         if (shouldShow && selectedPlaces.length > 0) {
             const col2 = row.querySelector('[id$="-c2"]');
             const placeVal = (col2?.value || "").toLowerCase().trim();
-            
-            const isMatch = selectedPlaces.some(p => p.toLowerCase() === placeVal);
-            
-            if (!isMatch) {
+            if (!selectedPlaces.some(p => p.toLowerCase() === placeVal)) {
+                shouldShow = false;
+            }
+        }
+
+        // 4. "Activities" Filter (Col 3)
+        if (shouldShow && selectedActivities.length > 0) {
+            const col3 = row.querySelector('[id$="-c3"]');
+            const actVal = (col3?.value || "").toLowerCase().trim();
+            if (!selectedActivities.some(a => a.toLowerCase() === actVal)) {
+                shouldShow = false;
+            }
+        }
+
+        // 5. "Results" Filter (Col 7)
+        if (shouldShow && selectedResults.length > 0) {
+            const col7 = row.querySelector('[id$="-c7"]');
+            const resVal = (col7?.value || "").toLowerCase().trim();
+            if (!selectedResults.some(r => r.toLowerCase() === resVal)) {
                 shouldShow = false;
             }
         }
