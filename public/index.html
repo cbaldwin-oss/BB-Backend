@@ -858,6 +858,92 @@ html, body {
 #places-filter-container::-webkit-scrollbar {
     display: none; /* Keeps it looking clean */
 }
+/* Right Filter Sidebar Container */
+#filter-sidebar {
+    position: fixed;
+    right: 0;
+    top: 90px; /* Matches the left sidebar */
+    height: calc(100vh - 90px);
+    width: 36px;
+    background-color: #ffffff;
+    border-left: 1px solid #dcdcdc;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1500;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+}
+
+#filter-sidebar:hover {
+    width: 220px;
+    overflow-y: auto; /* Allows scrolling if many places exist */
+}
+
+/* Filter Header Icon */
+.filter-header-item {
+    display: flex;
+    align-items: center;
+    padding: 15px 3px;
+    color: #5f6368;
+    white-space: nowrap;
+    cursor: default;
+}
+
+#filter-sidebar:hover .filter-header-item {
+    padding-left: 12px;
+}
+
+/* Container for the actual buttons */
+.filter-content {
+    padding: 15px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+#filter-sidebar:hover .filter-content {
+    display: flex;
+    opacity: 1;
+}
+
+/* Vertical Places Filter Buttons */
+.place-filter-btn-vertical {
+    background-color: #f1f3f4;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #333;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.place-filter-btn-vertical.active {
+    background-color: #e8f5e9;
+    color: #1b8320;
+    border-color: #257e29;
+}
+
+.place-filter-btn-vertical:hover {
+    background-color: #e0e0e0;
+}
+
+/* Ensure app-body leaves room for BOTH sidebars */
+#app-body {
+    margin-left: 36px; 
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    height: calc(100vh - 80px); 
+    width: calc(100% - 72px); /* Changed to account for 36px on both sides */
+    overflow: hidden; 
+    position: relative;
+}
 </style>
 </head>
 <body>
@@ -892,6 +978,15 @@ html, body {
     <div id="nav-settings" class="nav-item" onclick="switchMainView('settings', this)" style="display: none; margin-top: auto; border-top: 1px solid #eee;">
         <span class="nav-icon">⚙️</span>
         <span class="nav-text">Settings</span>
+    </div>
+</div>
+
+<div id="filter-sidebar">
+    <div class="filter-header-item">
+        <span class="nav-icon">🔍</span>
+        <span class="nav-text">Filters</span>
+    </div>
+    <div class="filter-content" id="vertical-places-filter-container">
     </div>
 </div>
 
@@ -1185,21 +1280,20 @@ let currentPlaceFilter = 'All';
 // Track selected places. If array is empty, it means "All" is selected.
 let selectedPlaces = [];
 
-/**
- * Builds the Place filter buttons based on fetched Supabase data
- */
 function renderPlacesFilterButtons() {
-    const container = document.getElementById('places-filter-container');
+    // Target the new container in the right sidebar
+    const container = document.getElementById('vertical-places-filter-container');
     if (!container) return;
 
     // Col2 corresponds to 'Places'
     const places = window.dropdownData?.col2 || [];
     
-    // Add the "Places:" label and the "All" button
     const isAllActive = selectedPlaces.length === 0;
+    
+    // Header label and "All" default button
     container.innerHTML = `
-        <span style="font-weight: bold; margin-right: 5px; color: #333; font-size: 14px;">Places:</span>
-        <button class="place-filter-btn ${isAllActive ? 'active' : ''}" onclick="togglePlaceFilter('All')">All</button>
+        <div style="font-weight: bold; color: #333; font-size: 14px; margin-bottom: 5px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Places:</div>
+        <button class="place-filter-btn-vertical ${isAllActive ? 'active' : ''}" onclick="togglePlaceFilter('All')">All</button>
     `;
 
     // Create a button for each non-empty place
@@ -1207,7 +1301,8 @@ function renderPlacesFilterButtons() {
         if (place.trim() !== "") {
             const btn = document.createElement('button');
             const isActive = selectedPlaces.includes(place);
-            btn.className = `place-filter-btn ${isActive ? 'active' : ''}`;
+            // Use the new vertical button class
+            btn.className = `place-filter-btn-vertical ${isActive ? 'active' : ''}`;
             btn.innerText = place;
             btn.onclick = () => togglePlaceFilter(place);
             container.appendChild(btn);
