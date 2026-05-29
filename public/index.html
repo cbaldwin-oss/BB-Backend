@@ -983,14 +983,18 @@ html, body {
 
 <div id="filter-sidebar">
     <div class="filter-header-item">
-        <span class="nav-icon">🔍</span>
-        <span class="nav-text">Filters</span>
+        <span class="nav-icon" style="font-size: 16px;">🔍</span>
+        <span class="nav-text">FILTER</span>
     </div>
     
-    <div class="filter-content" style="overflow-y: auto; padding-bottom: 40px; max-height: calc(100vh - 150px);">
+    <div class="filter-content">
+        <button onclick="resetAllFilters()" style="background: #d32f2f; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 20px; width: 100%; transition: background 0.2s;">
+            ✖ Reset All Filters
+        </button>
+
         <div id="vertical-places-filter-container"></div>
         <div id="vertical-activities-filter-container" style="margin-top: 20px;"></div>
-        <div id="vertical-results-filter-container" style="margin-top: 20px;"></div>
+        <div id="vertical-results-filter-container" style="margin-top: 20px; margin-bottom: 40px;"></div>
     </div>
 </div>
 
@@ -1202,6 +1206,19 @@ document.getElementById('app-search-input').addEventListener('input', (e) => {
 document.getElementById('app-search-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') navigateSearch(1);
 });
+
+function resetAllFilters() {
+    // 1. Empty all state arrays
+    selectedPlaces = [];
+    selectedActivities = [];
+    selectedResults = [];
+    
+    // 2. Re-render the sidebar to clear the green active button highlights
+    renderSidebarFilters();
+    
+    // 3. Trigger the master visibility check to un-hide the rows
+    autoCleanUI();
+}
 
 async function showCellHistory(e, rowId, colIndex) {
     e.preventDefault();
