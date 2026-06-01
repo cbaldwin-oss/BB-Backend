@@ -1335,11 +1335,6 @@ function resetAllFilters() {
     selectedPlaces = [];
     selectedActivities = [];
     selectedResults = [];
-    let searchState = {
-    results: [],
-    currentIndex: -1,
-    query: ""
-};
     
     // 2. Reset "My Activities" toggle
     isMyActivitiesActive = false;
@@ -1348,7 +1343,14 @@ function resetAllFilters() {
     if (myActBtn) myActBtn.classList.remove('active');
     if (myActCheck) myActCheck.innerText = "☐";
     
-    // 3. Re-render UI
+    // 3. NEW: Clear search bar and clear text highlights
+    const searchInput = document.getElementById('app-search-input');
+    if (searchInput) {
+        searchInput.value = "";
+        performSearch(""); // Erases matching text filters and yellow highlights
+    }
+    
+    // 4. Re-render UI
     renderSidebarFilters();
     autoCleanUI();
 }
