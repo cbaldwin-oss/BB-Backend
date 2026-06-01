@@ -1047,6 +1047,9 @@ html, body {
                     <span id="selected-count-label" style="font-size: 13px; font-weight: bold; color: #d32f2f;">0 Selected</span>
                     <button class="tool-btn" onclick="openBulkDateModal('move')" style="background: #fbc02d; color: #333; border-color: #fbc02d;">Move to</button>
                     <button class="tool-btn" onclick="openBulkDateModal('duplicate')" style="background: #f57f17; color: white; border-color: #f57f17;">Duplicate & Move</button>
+                    
+                    <button class="tool-btn" onclick="bulkDelete()" style="background: #d32f2f; color: white; border-color: #d32f2f;">Delete</button>
+                    
                     <button class="tool-btn" onclick="uncheckAll()" style="background: #e0e0e0; color: #333; border-color: #ccc;">Cancel</button>
                 </div>
 
@@ -1072,7 +1075,6 @@ html, body {
                 <div class="header-cell">Result</div>
                 <span class="sep">|</span>
                 <div class="header-cell">Notes</div>
-                <div class="spacer"></div>
             </div>
         </div>
 
@@ -2343,15 +2345,29 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
 
             rowDiv.appendChild(element);
         }
-        
-        const delBtn = document.createElement('button');
-        delBtn.className = 'delete-btn';
-        delBtn.innerHTML = '×'; 
-        delBtn.onclick = () => deleteFullRow(rowDiv.id);
-        rowDiv.appendChild(delBtn);
+
         container.appendChild(rowDiv);
     }
     if (anchorBtn) container.appendChild(anchorBtn);
+}
+
+async function bulkDelete() {
+    if (!confirm(`Are you sure you want to permanently delete these ${selectedRowIds.size} selected item(s)?`)) {
+        return;
+    }
+    
+    document.getElementById('saveIndicator').innerText = "Deleting...";
+    document.getElementById('saveIndicator').style.display = 'inline-block';
+
+    // Loop through all selected rows and delete them while bypassing the individual confirmation popup
+    for (const wrapperId of selectedRowIds) {
+        await deleteFullRow(wrapperId, true);
+    }
+    
+    // Clear selection UI
+    uncheckAll();
+    
+    document.getElementById('saveIndicator').innerText = "Saved";
 }
 
 function saveCell(cell, value, colIndex, isImmediate = false) {
