@@ -1262,66 +1262,36 @@ function toggleReadyActivities() {
     }
 }
 
-/**
- * Scrapes the schedule for Ready statuses and builds the list
- */
-function populateReadyActivities() {
+async function populateReadyActivities() {
     const listContainer = document.getElementById('ready-list-container');
-    const allOccupiedRows = document.querySelectorAll('.cell-row[data-occupied="true"]');
     
-    let readyItems = [];
+    // Show a loading indicator while fetching
+    listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">⏳ Loading from Google Sheets...</p>';
     
-    allOccupiedRows.forEach(row => {
-        const statusCell = row.querySelector('.status-cell');
-        
-        // Check if the status contains the word "Ready"
-        if (statusCell && statusCell.innerText.toLowerCase().includes('ready')) {
-            const activity = row.querySelector('[data-col-index="3"]')?.value || "Unknown Activity";
-            const asset = row.querySelector('[data-col-index="4"]')?.value || "Unknown Asset";
-            const date = row.getAttribute('data-date') || "Unknown Date";
-            
-            readyItems.push({ activity, asset, date, id: row.id });
+    try {
+        // Call the Google Script with a new 'getReady' action
+        const url = `${GOOGLE_SCRIPT_URL}?action=getReady`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data || !data.readyItems || data.readyItems.length === 0) {
+            listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No activities are currently marked as ready.</p>';
+            return;
         }
-    });
 
-    if (readyItems.length === 0) {
-        listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No activities are currently marked as ready.</p>';
-        return;
-    }
+        // Build the UI list (Notice the Date and jump click have been removed)
+        listContainer.innerHTML = data.readyItems.map(item => `
+            <div style="padding: 12px 10px; border-bottom: 1px solid #f5f5f5; transition: background 0.2s;" 
+                 onmouseover="this.style.backgroundColor='#f1f8e9'" 
+                 onmouseout="this.style.backgroundColor='transparent'">
+                <div style="font-size: 13px; font-weight: bold; color: #333;">${item.activity}</div>
+                <div style="font-size: 12px; color: #01579b; margin-top: 2px;">Asset: ${item.asset}</div>
+            </div>
+        `).join('');
 
-    // Build the UI list
-    listContainer.innerHTML = readyItems.map(item => `
-        <div style="padding: 12px 10px; border-bottom: 1px solid #f5f5f5; cursor: pointer; transition: background 0.2s;" 
-             onmouseover="this.style.backgroundColor='#f1f8e9'" 
-             onmouseout="this.style.backgroundColor='transparent'"
-             onclick="jumpToReadyRow('${item.id}')">
-            <div style="font-size: 13px; font-weight: bold; color: #333;">${item.activity}</div>
-            <div style="font-size: 12px; color: #01579b; margin-top: 2px;">Asset: ${item.asset}</div>
-            <div style="font-size: 10px; color: #999; margin-top: 4px;">Scheduled: ${item.date}</div>
-        </div>
-    `).join('');
-}
-
-/**
- * Jumps to the specific row when an item is clicked in the panel
- */
-function jumpToReadyRow(rowId) {
-    const row = document.getElementById(rowId);
-    if (row) {
-        // Use existing search logic to expand hidden weeks/days
-        const statusCell = row.querySelector('.status-cell');
-        if (statusCell) revealElement(statusCell);
-        
-        // Scroll down to the row
-        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
-        // Close the panel
-        document.getElementById('ready-activities-panel').style.display = 'none';
-        
-        // Briefly highlight the row so the user spots it
-        row.style.transition = "background-color 0.8s";
-        row.style.backgroundColor = "#fffde7"; // light yellow flash
-        setTimeout(() => row.style.backgroundColor = "white", 1500);
+    } catch (error) {
+        console.error("Google Sheets Fetch Error:", error);
+        listContainer.innerHTML = '<p style="color: #d32f2f; font-size: 13px; text-align: center; padding: 20px;">❌ Error loading data from Google Sheets.</p>';
     }
 }
 
