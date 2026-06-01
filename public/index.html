@@ -1384,7 +1384,7 @@ async function populateReadyActivities() {
     const listContainer = document.getElementById('ready-list-container');
     const filtersContainer = document.getElementById('ready-filters-container');
     
-    listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">⏳ Loading from Google Sheets...</p>';
+    listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">⏳ Loading from Database...</p>';
     if (filtersContainer) filtersContainer.innerHTML = ''; 
     
     try {
@@ -1414,8 +1414,8 @@ async function populateReadyActivities() {
 
         renderReadyList();
     } catch (error) {
-        console.error("Google Sheets Fetch Error:", error);
-        listContainer.innerHTML = '<p style="color: #d32f2f; font-size: 13px; text-align: center; padding: 20px;">❌ Error loading data from Google Sheets.</p>';
+        console.error("Database Fetch Error:", error);
+        listContainer.innerHTML = '<p style="color: #d32f2f; font-size: 13px; text-align: center; padding: 20px;">❌ Error loading data from Database.</p>';
     }
 }
 
