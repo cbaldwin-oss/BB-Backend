@@ -1190,12 +1190,19 @@ html, body {
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
         <div id="ready-filters-container" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; flex-grow: 1; margin-right: 10px;">
              </div>
-        
         <button onclick="toggleReadyActivities()" style="background: none; border: none; cursor: pointer; font-size: 20px; color: #999; line-height: 1;">×</button>
     </div>
 
-    <div id="ready-list-container" style="max-height: 300px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 5px;">
+    <div id="ready-list-container" style="max-height: 250px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 5px; margin-bottom: 5px;">
         </div>
+
+    <div id="ready-action-bar" style="display: none; border-top: 1px solid #eee; padding-top: 10px;">
+        <label style="font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 5px;">Move to Date:</label>
+        <input type="date" id="ready-target-date" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-bottom: 10px;">
+        <button id="ready-add-btn" onclick="addSelectedReadyItems()" style="width: 100%; background: #2e7d32; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s;">
+            Add to Schedule
+        </button>
+    </div>
 </div>
 <div id="history-menu" style="display:none; position:fixed; background:white; border:1px solid #ccc; box-shadow:0 4px 15px rgba(0,0,0,0.2); z-index:9999; width:280px; padding:0; border-radius:8px; overflow:hidden; font-family: sans-serif;">
     <div style="background:#2e7d32; color:white; padding:10px; font-size:14px; font-weight:bold; display:flex; justify-content:space-between;">
@@ -1275,6 +1282,11 @@ function resetAllFilters() {
     autoCleanUI();
 }
 
+// State variables for Ready Panel
+let cachedReadyItems = [];
+let currentReadyFilter = 'All';
+let selectedReadyItems = new Set(); // Tracks the checkboxes
+
 /**
  * Toggles the visibility of the Ready Activities panel
  */
@@ -1285,13 +1297,12 @@ function toggleReadyActivities() {
     panel.style.display = isOpening ? 'block' : 'none';
     
     if (isOpening) {
+        // Reset state when opening
+        selectedReadyItems.clear();
+        document.getElementById('ready-action-bar').style.display = 'none';
         populateReadyActivities();
     }
 }
-
-// State variables to hold the data so filtering is instant
-let cachedReadyItems = [];
-let currentReadyFilter = 'All';
 
 /**
  * Fetches the Ready activities directly from the Google Sheet and builds the UI
@@ -1313,25 +1324,22 @@ async function populateReadyActivities() {
             return;
         }
 
-        // Cache the data globally
-        cachedReadyItems = data.readyItems;
+        // Cache the data and inject a unique ID for each item for checkbox tracking
+        cachedReadyItems = data.readyItems.map((item, index) => ({ ...item, id: `ready-item-${index}` }));
         currentReadyFilter = 'All'; 
         
-        // Extract unique activity types from the fetched data
+        // Extract unique activity types
         const uniqueTypes = [...new Set(cachedReadyItems.map(item => item.activity.trim()))].filter(Boolean);
         
-        // Generate the Filter Buttons
+        // Generate Filter Buttons
         let filterHtml = `<button class="ready-filter-btn active" onclick="setReadyFilter('All', this)">All</button>`;
         uniqueTypes.forEach(type => {
-            // Escape any potential single quotes in the activity name for the onclick function
             const safeType = type.replace(/'/g, "\\'");
             filterHtml += `<button class="ready-filter-btn" onclick="setReadyFilter('${safeType}', this)">${type}</button>`;
         });
         filtersContainer.innerHTML = filterHtml;
 
-        // Draw the initial list
         renderReadyList();
-
     } catch (error) {
         console.error("Google Sheets Fetch Error:", error);
         listContainer.innerHTML = '<p style="color: #d32f2f; font-size: 13px; text-align: center; padding: 20px;">❌ Error loading data from Google Sheets.</p>';
@@ -1343,27 +1351,19 @@ async function populateReadyActivities() {
  */
 function setReadyFilter(type, btnElement) {
     currentReadyFilter = type;
-    
-    // Update the visual active state on the buttons
     const container = document.getElementById('ready-filters-container');
-    if (container) {
-        container.querySelectorAll('.ready-filter-btn').forEach(b => b.classList.remove('active'));
-    }
-    if (btnElement) {
-        btnElement.classList.add('active');
-    }
-    
+    if (container) container.querySelectorAll('.ready-filter-btn').forEach(b => b.classList.remove('active'));
+    if (btnElement) btnElement.classList.add('active');
     renderReadyList();
 }
 
 /**
- * Draws the list of items based on the currently selected filter
+ * Draws the list with Checkboxes
  */
 function renderReadyList() {
     const listContainer = document.getElementById('ready-list-container');
     if (!listContainer) return;
     
-    // Filter the items
     const filteredItems = currentReadyFilter === 'All' 
         ? cachedReadyItems 
         : cachedReadyItems.filter(item => item.activity.trim() === currentReadyFilter);
@@ -1373,15 +1373,113 @@ function renderReadyList() {
         return;
     }
     
-    // Output the HTML
     listContainer.innerHTML = filteredItems.map(item => `
-        <div style="padding: 12px 10px; border-bottom: 1px solid #f5f5f5; transition: background 0.2s;" 
-             onmouseover="this.style.backgroundColor='#f1f8e9'" 
-             onmouseout="this.style.backgroundColor='transparent'">
-            <div style="font-size: 13px; font-weight: bold; color: #333;">${item.activity}</div>
-            <div style="font-size: 12px; color: #01579b; margin-top: 2px;">Asset: ${item.asset}</div>
-        </div>
+        <label style="display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #f5f5f5; cursor: pointer; transition: background 0.2s;" 
+               onmouseover="this.style.backgroundColor='#f1f8e9'" 
+               onmouseout="this.style.backgroundColor='transparent'">
+            <input type="checkbox" style="margin-right: 12px; transform: scale(1.2); cursor: pointer;" 
+                   ${selectedReadyItems.has(item.id) ? 'checked' : ''} 
+                   onchange="toggleReadyItemSelection('${item.id}', this.checked)">
+            <div>
+                <div style="font-size: 13px; font-weight: bold; color: #333;">${item.activity}</div>
+                <div style="font-size: 12px; color: #01579b; margin-top: 2px;">Asset: ${item.asset}</div>
+            </div>
+        </label>
     `).join('');
+}
+
+/**
+ * Handles toggling of the checkboxes and showing the Action Bar
+ */
+function toggleReadyItemSelection(itemId, isChecked) {
+    if (isChecked) selectedReadyItems.add(itemId);
+    else selectedReadyItems.delete(itemId);
+    
+    const actionBar = document.getElementById('ready-action-bar');
+    const btn = document.getElementById('ready-add-btn');
+    
+    if (selectedReadyItems.size > 0) {
+        actionBar.style.display = 'block';
+        btn.innerText = `Add ${selectedReadyItems.size} Item(s) to Schedule`;
+    } else {
+        actionBar.style.display = 'none';
+    }
+}
+
+/**
+ * Injects the selected items directly into the specified day on the schedule
+ */
+async function addSelectedReadyItems() {
+    const targetDate = document.getElementById('ready-target-date').value;
+    if (!targetDate) return alert("Please select a target date.");
+    
+    const targetRowsDiv = document.getElementById(`rows-${targetDate}`);
+    if (!targetRowsDiv) return alert("The selected date is outside of the active schedule window.");
+    
+    // Ensure the rows are initialized for this day (reusing the logic from your Bulk Duplicate)
+    if (targetRowsDiv.innerHTML === '') {
+        const addBtn = document.createElement('button');
+        addBtn.className = 'add-rows-btn';
+        addBtn.innerText = "+ Add 5 Rows";
+        addBtn.onclick = (e) => {
+            e.stopPropagation();
+            const hiddenRows = Array.from(targetRowsDiv.querySelectorAll('.cell-row')).filter(r => r.style.display === 'none');
+            for (let i = 0; i < 5 && i < hiddenRows.length; i++) hiddenRows[i].style.display = 'flex';
+            if (hiddenRows.length <= 5) addBtn.style.display = 'none';
+        };
+        addRowsToContainer(targetRowsDiv, targetDate, addBtn);
+    }
+    
+    // Grab all empty rows
+    const targetEmptyRows = Array.from(targetRowsDiv.querySelectorAll('.cell-row:not([data-occupied="true"])'));
+    if (targetEmptyRows.length < selectedReadyItems.size) {
+        return alert(`Not enough empty rows on ${targetDate}. It only has ${targetEmptyRows.length} available slots.`);
+    }
+    
+    document.getElementById('saveIndicator').innerText = "Processing...";
+    document.getElementById('saveIndicator').style.display = 'inline-block';
+    
+    // Filter out our selected items
+    const itemsToAdd = cachedReadyItems.filter(item => selectedReadyItems.has(item.id));
+    
+    // Inject the data into the schedule
+    for (let i = 0; i < itemsToAdd.length; i++) {
+        const item = itemsToAdd[i];
+        const emptyRow = targetEmptyRows[i];
+        
+        emptyRow.setAttribute('data-occupied', 'true');
+        emptyRow.style.display = 'flex'; 
+        
+        const col3 = emptyRow.querySelector(`[data-col-index="3"]`); // Activity
+        const col4 = emptyRow.querySelector(`[data-col-index="4"]`); // Asset
+        
+        // Add Activity
+        if (col3) {
+            const exists = Array.from(col3.options || []).some(opt => opt.value === item.activity);
+            if (!exists && col3.tagName === 'SELECT') col3.add(new Option(item.activity, item.activity));
+            col3.value = item.activity;
+            applyCellColor(col3, item.activity);
+            saveCell(col3, item.activity, 3, true); // Save to Supabase
+        }
+        
+        // Add Asset
+        if (col4) {
+            const exists = Array.from(col4.options || []).some(opt => opt.value === item.asset);
+            if (!exists && col4.tagName === 'SELECT') col4.add(new Option(item.asset, item.asset));
+            col4.value = item.asset;
+            applyCellColor(col4, item.asset);
+            saveCell(col4, item.asset, 4, true); // Save to Supabase
+        }
+    }
+    
+    // Reset the UI
+    selectedReadyItems.clear();
+    document.getElementById('ready-action-bar').style.display = 'none';
+    document.getElementById('ready-target-date').value = "";
+    renderReadyList(); // Clear the checkboxes visually
+    
+    document.getElementById('saveIndicator').innerText = "Saved";
+    alert(`Successfully added ${itemsToAdd.length} item(s) to ${targetDate}.`);
 }
 
 async function showCellHistory(e, rowId, colIndex) {
