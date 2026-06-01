@@ -1335,6 +1335,11 @@ function resetAllFilters() {
     selectedPlaces = [];
     selectedActivities = [];
     selectedResults = [];
+    let searchState = {
+    results: [],
+    currentIndex: -1,
+    query: ""
+};
     
     // 2. Reset "My Activities" toggle
     isMyActivitiesActive = false;
