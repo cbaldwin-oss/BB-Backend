@@ -1023,20 +1023,18 @@ html, body {
     <div id="schedule-view" style="height: 100%; overflow-y: auto; position: relative;">
 
         <div class="subheader">
-            <div class="subheader-item">
-                <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
-                <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
-                <button id="my-activities-btn" class="tool-btn" onclick="toggleMyActivitiesFilter()" style="display: inline-flex; align-items: center; gap: 8px;">
-        <span id="my-activities-check">☐</span> My Activities
-    </button>
-                <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
-                    <input type="text" id="app-search-input" placeholder="Find in data..." 
-                           style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
-                    <span id="search-count" style="font-size: 11px; color: #666; margin: 0 5px; min-width: 30px;">0/0</span>
-                    <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▲</button>
-                    <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▼</button>
-                </div>
-            </div>
+            <div class="subheader-item" style="display: flex; align-items: center; gap: 10px;">
+    
+    <div id="bulk-actions-container" style="display: none; align-items: center; gap: 8px;">
+        <span id="selected-count-label" style="font-size: 13px; font-weight: bold; color: #d32f2f;">0 Selected</span>
+        <button class="tool-btn" onclick="openBulkDateModal('move')" style="background: #fbc02d; color: #333; border-color: #fbc02d;">Move to</button>
+        <button class="tool-btn" onclick="openBulkDateModal('duplicate')" style="background: #f57f17; color: white; border-color: #f57f17;">Duplicate & Move</button>
+        <button class="tool-btn" onclick="uncheckAll()" style="background: #e0e0e0; color: #333; border-color: #ccc;">Cancel</button>
+    </div>
+
+    <span id="saveIndicator">Saved</span>
+    <button class="tool-btn" onclick="logout()">Logout</button>
+</div>
             <div id="presence-list" style="display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 15px;">
             </div>
             <div class="subheader-item">
@@ -1044,8 +1042,9 @@ html, body {
 </div>
         </div>
 
-        <div class="frozen-bar">
-            <div class="frozen-grid">
+<div class="frozen-bar">
+    <div class="frozen-grid">
+        <div class="check-spacer" style="flex: 0 0 20px; text-align: center; margin: 0 5px;"></div>
                 <div class="header-cell">Time</div>
                 <span class="sep">|</span>
                 <div class="header-cell">Place</div>
@@ -2267,6 +2266,13 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
         rowDiv.setAttribute('data-row-index', r); // Helpful for ID lookups
         rowDiv.style.display = (r > 14) ? 'none' : 'flex';
 
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'row-checkbox';
+        cb.style.cssText = "margin: 0 5px; flex: 0 0 20px; cursor: pointer; transform: scale(1.2);";
+        cb.onchange = (e) => handleRowSelection(e, rowDiv.id);
+        rowDiv.appendChild(cb);
+
         for (let col = 1; col <= 8; col++) {
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
             let element;
@@ -2665,11 +2671,149 @@ async function updateMultiValue(rowNum, dayLabel, newValue) {
     element.value = ""; 
 }
 
-async function deleteFullRow(wrapperId) {
-    if (confirm("Delete this entire line?")) {
+// Bulk Selection State
+let selectedRowIds = new Set();
+let currentBulkAction = null; 
+
+function handleRowSelection(e, wrapperId) {
+    if (e.target.checked) selectedRowIds.add(wrapperId);
+    else selectedRowIds.delete(wrapperId);
+    updateBulkActionUI();
+}
+
+function updateBulkActionUI() {
+    const saveInd = document.getElementById('saveIndicator');
+    const bulkCont = document.getElementById('bulk-actions-container');
+    const lbl = document.getElementById('selected-count-label');
+
+    if (selectedRowIds.size > 0) {
+        saveInd.style.display = 'none';
+        bulkCont.style.display = 'flex';
+        lbl.innerText = `${selectedRowIds.size} Selected`;
+    } else {
+        saveInd.style.display = 'inline-block';
+        bulkCont.style.display = 'none';
+    }
+}
+
+function uncheckAll() {
+    selectedRowIds.clear();
+    document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+    updateBulkActionUI();
+}
+
+function openBulkDateModal(action) {
+    currentBulkAction = action;
+    document.getElementById('bulk-modal-title').innerText = action === 'move' ? "Move to Date" : "Duplicate to Date";
+    document.getElementById('bulk-date-input').value = "";
+    document.getElementById('bulk-date-modal').style.display = 'flex';
+}
+
+function closeBulkDateModal() {
+    document.getElementById('bulk-date-modal').style.display = 'none';
+}
+
+async function confirmBulkAction() {
+    const targetDate = document.getElementById('bulk-date-input').value;
+    if (!targetDate) { alert("Please select a date."); return; }
+    
+    const targetRowsDiv = document.getElementById(`rows-${targetDate}`);
+    if (!targetRowsDiv) {
+        alert("The selected date is outside of the active schedule window.");
+        return;
+    }
+
+    closeBulkDateModal();
+    
+    // Build target rows if they haven't been dynamically generated yet
+    if (targetRowsDiv.innerHTML === '') {
+        const addBtn = document.createElement('button');
+        addBtn.className = 'add-rows-btn';
+        addBtn.innerText = "+ Add 5 Rows";
+        addBtn.onclick = (e) => {
+            e.stopPropagation();
+            const hiddenRows = Array.from(targetRowsDiv.querySelectorAll('.cell-row')).filter(r => r.style.display === 'none');
+            for (let i = 0; i < 5 && i < hiddenRows.length; i++) hiddenRows[i].style.display = 'flex';
+            if (hiddenRows.length <= 5) addBtn.style.display = 'none';
+        };
+        addRowsToContainer(targetRowsDiv, targetDate, addBtn);
+    }
+    
+    // Scrape data from the selected rows
+    const rowsToProcess = [];
+    for (const wrapperId of selectedRowIds) {
+        const rowDiv = document.getElementById(wrapperId);
+        if (!rowDiv) continue;
+        
+        const rowData = {
+            col1: rowDiv.querySelector(`[data-col-index="1"]`)?.value || "",
+            col2: rowDiv.querySelector(`[data-col-index="2"]`)?.value || "",
+            col3: rowDiv.querySelector(`[data-col-index="3"]`)?.value || "",
+            col4: rowDiv.querySelector(`[data-col-index="4"]`)?.value || "",
+            col5: rowDiv.querySelector(`[data-col-index="5"]`)?.innerText || "",
+            col6: rowDiv.querySelector(`[data-col-index="6"]`)?.getAttribute('data-selected') || "",
+            col7: rowDiv.querySelector(`[data-col-index="7"]`)?.value || "",
+            col8: rowDiv.querySelector(`[data-col-index="8"]`)?.value || ""
+        };
+        rowsToProcess.push({ data: rowData, rowDiv });
+    }
+
+    // Ensure target date has enough blank rows
+    const targetEmptyRows = Array.from(targetRowsDiv.querySelectorAll('.cell-row:not([data-occupied="true"])'));
+    if (targetEmptyRows.length < rowsToProcess.length) {
+        alert(`Not enough empty rows on ${targetDate}. It only has ${targetEmptyRows.length} available slots, but you selected ${rowsToProcess.length} items. (Maximum 20 per day)`);
+        uncheckAll();
+        return;
+    }
+
+    document.getElementById('saveIndicator').innerText = "Processing...";
+    document.getElementById('saveIndicator').style.display = 'inline-block';
+
+    // Process and push the data
+    for (let i = 0; i < rowsToProcess.length; i++) {
+        const item = rowsToProcess[i];
+        const emptyRow = targetEmptyRows[i];
+        
+        emptyRow.setAttribute('data-occupied', 'true');
+        emptyRow.style.display = 'flex'; 
+
+        for (let col = 1; col <= 8; col++) {
+            const el = emptyRow.querySelector(`[data-col-index="${col}"]`);
+            if (!el) continue;
+            
+            const content = item.data[`col${col}`];
+            
+            if (col === 5) {
+                el.innerText = content;
+            } else if (col === 6) {
+                el.setAttribute('data-selected', content);
+                if (el.options && el.options[0]) el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
+            } else {
+                if (el.tagName === 'SELECT' && content !== "") {
+                    const exists = Array.from(el.options).some(opt => opt.value === content);
+                    if (!exists) el.add(new Option(content, content));
+                }
+                el.value = content;
+            }
+            applyCellColor(el, content);
+            saveCell(el, content, col, true); // Save to Supabase
+        }
+
+        // Wipe the old row if we are Moving
+        if (currentBulkAction === 'move') {
+            await deleteFullRow(item.rowDiv.id, true); 
+        }
+    }
+    
+    uncheckAll();
+    document.getElementById('saveIndicator').innerText = "Saved";
+    alert(`Successfully ${currentBulkAction === 'move' ? 'moved' : 'duplicated'} ${rowsToProcess.length} item(s) to ${targetDate}.`);
+}
+
+async function deleteFullRow(wrapperId, bypassConfirm = false) {
+    if (bypassConfirm || confirm("Delete this entire line?")) {
         const rowNumericId = parseInt(wrapperId.replace('row-wrapper-', ''));
         
-        // --- THE FIX: Lock this row so the sync ignores it ---
         deletingRows.add(rowNumericId);
 
         const rowElement = document.getElementById(wrapperId);
@@ -2683,19 +2827,16 @@ async function deleteFullRow(wrapperId) {
                 else cell.value = "";
                 applyCellColor(cell, "");
             });
+            // Ensure checkbox is cleared
+            const cb = rowElement.querySelector('.row-checkbox');
+            if (cb) cb.checked = false;
         }
 
         try {
-            const { error } = await _supabase
-                .from('BackEndData')
-                .delete()
-                .eq('id', rowNumericId);
-
+            const { error } = await _supabase.from('BackEndData').delete().eq('id', rowNumericId);
             if (error) throw error;
-            console.log(`✅ Row ${rowNumericId} permanently deleted.`);
         } catch (err) {
             console.error("Delete error:", err.message);
-            // If delete fails, unlock it so it can try again
             deletingRows.delete(rowNumericId);
         }
     }
@@ -3160,5 +3301,18 @@ async function runFailsafeSync() {
 }
 
     </script>
+    <div id="bulk-date-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; justify-content:center; align-items:center;">
+    <div style="background:white; padding:30px; border-radius:8px; width:350px; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+        <h2 id="bulk-modal-title" style="margin-top:0; color:#2e7d32;">Select Date</h2>
+        <p style="color:#666; font-size:14px; margin-bottom:20px;">Choose the destination date for the selected items.</p>
+        
+        <input type="date" id="bulk-date-input" style="padding:12px; width:100%; box-sizing:border-box; border:2px solid #eee; border-radius:6px; margin-bottom:25px; font-size:16px;">
+        
+        <div style="display:flex; justify-content:space-between; gap:10px;">
+            <button onclick="closeBulkDateModal()" style="flex:1; padding:12px; border:1px solid #ddd; background:#f5f5f5; border-radius:4px; cursor:pointer; font-weight:bold;">Cancel</button>
+            <button onclick="confirmBulkAction()" style="flex:1; padding:12px; background:#2e7d32; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Confirm</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
