@@ -264,26 +264,26 @@
     }
 
 .frozen-bar {
-position: sticky;
-        top: 50px;      /* Adjust to match your subheader height */
-        z-index: 999;
-        background-color: #00d134f1;
-        color: rgb(255, 255, 255);
-        height: 24px;
-        display: flex;
-        align-items: center;
+    position: sticky;
+    top: 50px;      /* Adjust to match your subheader height */
+    z-index: 999;
+    background-color: #00d134f1;
+    color: rgb(255, 255, 255);
+    height: 28px;   /* Slightly increased height to look cleaner with dividers */
+    display: flex;
+    align-items: center;
 
-        /* THE CENTERING MATH */
-        width: 90%;             /* 90% of screen width */
-        margin: 0 auto;         /* Centers the block itself */
-        left: 5%;               /* Required for sticky centering in some browsers */
-        
-        /* THE ALIGNMENT MATH */
-        padding: 0 15px;        /* Internal padding for labels */
-        border-radius: 4px;     /* Optional: makes it look like a floating bar */
-        border-bottom: 1px solid #1b5e20;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
+    /* THE CENTERING MATCH */
+    width: 95%;             /* Changed from 90% to match .week-container's 95% width */
+    margin: 0 auto;         /* Centers the block itself */
+    left: 2.5%;             /* Centering adjustment for 95% width */
+    
+    /* THE ALIGNMENT MATH */
+    padding: 0 30px;        /* Changed to match your row wrapper padding exactly */
+    border-radius: 4px;     
+    border-bottom: 1px solid #1b5e20;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 
     .frozen-grid {
         display: flex;
@@ -293,14 +293,16 @@ position: sticky;
     }
 
     .header-cell {
-        flex: 1; /* Match the flex: 1 of your inputs */
-        text-align: center;
-        font-size: 11px; /* Smaller font helps fit 8 labels across */
-        font-weight: bold;
-        text-transform: uppercase;
-        white-space: nowrap;
-        overflow: hidden;
-    }
+    flex: 1; 
+    min-width: 0; /* Prevents text overflow from expanding columns unevenly */
+    text-align: center;
+    font-size: 12px; 
+    font-weight: bold;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
     .sep {
         color: rgba(255, 255, 255, 0.4);
@@ -1142,24 +1144,25 @@ html, body {
 
 <div class="frozen-bar">
     <div class="frozen-grid">
-        <div class="check-spacer" style="flex: 0 0 20px; text-align: center; margin: 0 5px;"></div>
-                <div class="header-cell">Time</div>
-                <span class="sep">|</span>
-                <div class="header-cell">Place</div>
-                <span class="sep">|</span>
-                <div class="header-cell">Activity</div>
-                <span class="sep">|</span>
-                <div class="header-cell">Asset</div>
-                <span class="sep">|</span>
-                <div class="header-cell">Status</div>
-                <span class="sep">|</span>
-                <div class="header-cell">Trade Partners</div>
-                <span class="sep">|</span>
-                <div class="header-cell">Result</div>
-                <span class="sep">|</span>
-                <div class="header-cell">Notes</div>
-            </div>
-        </div>
+        <div class="check-spacer" style="flex: 0 0 30px;"></div>
+        
+        <div class="header-cell">Time</div>
+        <span class="sep">|</span>
+        <div class="header-cell">Place</div>
+        <span class="sep">|</span>
+        <div class="header-cell">Activity</div>
+        <span class="sep">|</span>
+        <div class="header-cell">Asset</div>
+        <span class="sep">|</span>
+        <div class="header-cell">Status</div>
+        <span class="sep">|</span>
+        <div class="header-cell">Trade Partners</div>
+        <span class="sep">|</span>
+        <div class="header-cell">Result</div>
+        <span class="sep">|</span>
+        <div class="header-cell">Notes</div>
+    </div>
+</div>
 
         <div id="main-content-area"></div>
 
