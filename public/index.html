@@ -1022,12 +1022,6 @@ html, body {
    <div class="header-left">
         <img src="https://lh3.googleusercontent.com/u/0/d/1Wy_ftXtce-UG5jV-5vwS80lV1yt7QTbG" alt="Logo">
     </div>
-    <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
-                    <input type="text" id="app-search-input" placeholder="Find in data..." style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
-                    <span id="search-count" style="font-size: 11px; color: #666; margin: 0 5px; min-width: 30px;">0/0</span>
-                    <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▲</button>
-                    <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▼</button>
-                </div>
     <div class="header-center">
         <span>LaunchPad</span>
     </div>
@@ -1083,6 +1077,12 @@ html, body {
             <button onclick="resetAllFilters()" style="background: #d32f2f; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 15px; width: 100%; transition: background 0.2s;">
                 ✖ Reset All Filters
             </button>
+            <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
+                    <input type="text" id="app-search-input" placeholder="Find in data..." style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
+                    <span id="search-count" style="font-size: 11px; color: #666; margin: 0 5px; min-width: 30px;">0/0</span>
+                    <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▲</button>
+                    <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▼</button>
+                </div>
 
             <button id="my-activities-btn" class="place-filter-btn-vertical" onclick="toggleMyActivitiesFilter()" style="display: flex; align-items: center; gap: 8px; margin-bottom: 25px; padding: 10px;">
                 <span id="my-activities-check" style="font-size: 15px; line-height: 1;">☐</span> My Activities
