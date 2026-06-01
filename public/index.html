@@ -944,6 +944,29 @@ html, body {
     overflow: hidden; 
     position: relative;
 }
+/* Ready Panel Filters */
+.ready-filter-btn {
+    background: #f1f3f4;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #555;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.ready-filter-btn.active {
+    background: #e3f2fd;
+    color: #01579b;
+    border-color: #01579b;
+}
+
+.ready-filter-btn:hover {
+    background: #e0e0e0;
+}
 </style>
 </head>
 <body>
@@ -1162,12 +1185,16 @@ html, body {
         <p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No pending requests.</p>
     </div>
 </div>
-<div id="ready-activities-panel" style="display: none; position: fixed; top: 140px; left: 220px; width: 320px; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 2000; padding: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h3 style="margin: 0; color: #01579b;">Ready to Go</h3>
-        <button onclick="toggleReadyActivities()" style="background: none; border: none; cursor: pointer; font-size: 20px;">×</button>
+<div id="ready-activities-panel" style="display: none; position: fixed; top: 140px; left: 220px; width: 340px; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 2000; padding: 15px;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+        <div id="ready-filters-container" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; flex-grow: 1; margin-right: 10px;">
+             </div>
+        
+        <button onclick="toggleReadyActivities()" style="background: none; border: none; cursor: pointer; font-size: 20px; color: #999; line-height: 1;">×</button>
     </div>
-    <div id="ready-list-container" style="max-height: 300px; overflow-y: auto; border-top: 1px solid #eee;">
+
+    <div id="ready-list-container" style="max-height: 300px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 5px;">
         </div>
 </div>
 <div id="history-menu" style="display:none; position:fixed; background:white; border:1px solid #ccc; box-shadow:0 4px 15px rgba(0,0,0,0.2); z-index:9999; width:280px; padding:0; border-radius:8px; overflow:hidden; font-family: sans-serif;">
@@ -1262,14 +1289,21 @@ function toggleReadyActivities() {
     }
 }
 
+// State variables to hold the data so filtering is instant
+let cachedReadyItems = [];
+let currentReadyFilter = 'All';
+
+/**
+ * Fetches the Ready activities directly from the Google Sheet and builds the UI
+ */
 async function populateReadyActivities() {
     const listContainer = document.getElementById('ready-list-container');
+    const filtersContainer = document.getElementById('ready-filters-container');
     
-    // Show a loading indicator while fetching
     listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">⏳ Loading from Google Sheets...</p>';
+    if (filtersContainer) filtersContainer.innerHTML = ''; 
     
     try {
-        // Call the Google Script with a new 'getReady' action
         const url = `${GOOGLE_SCRIPT_URL}?action=getReady`;
         const response = await fetch(url);
         const data = await response.json();
@@ -1279,20 +1313,75 @@ async function populateReadyActivities() {
             return;
         }
 
-        // Build the UI list (Notice the Date and jump click have been removed)
-        listContainer.innerHTML = data.readyItems.map(item => `
-            <div style="padding: 12px 10px; border-bottom: 1px solid #f5f5f5; transition: background 0.2s;" 
-                 onmouseover="this.style.backgroundColor='#f1f8e9'" 
-                 onmouseout="this.style.backgroundColor='transparent'">
-                <div style="font-size: 13px; font-weight: bold; color: #333;">${item.activity}</div>
-                <div style="font-size: 12px; color: #01579b; margin-top: 2px;">Asset: ${item.asset}</div>
-            </div>
-        `).join('');
+        // Cache the data globally
+        cachedReadyItems = data.readyItems;
+        currentReadyFilter = 'All'; 
+        
+        // Extract unique activity types from the fetched data
+        const uniqueTypes = [...new Set(cachedReadyItems.map(item => item.activity.trim()))].filter(Boolean);
+        
+        // Generate the Filter Buttons
+        let filterHtml = `<button class="ready-filter-btn active" onclick="setReadyFilter('All', this)">All</button>`;
+        uniqueTypes.forEach(type => {
+            // Escape any potential single quotes in the activity name for the onclick function
+            const safeType = type.replace(/'/g, "\\'");
+            filterHtml += `<button class="ready-filter-btn" onclick="setReadyFilter('${safeType}', this)">${type}</button>`;
+        });
+        filtersContainer.innerHTML = filterHtml;
+
+        // Draw the initial list
+        renderReadyList();
 
     } catch (error) {
         console.error("Google Sheets Fetch Error:", error);
         listContainer.innerHTML = '<p style="color: #d32f2f; font-size: 13px; text-align: center; padding: 20px;">❌ Error loading data from Google Sheets.</p>';
     }
+}
+
+/**
+ * Updates the selected filter and redraws the list
+ */
+function setReadyFilter(type, btnElement) {
+    currentReadyFilter = type;
+    
+    // Update the visual active state on the buttons
+    const container = document.getElementById('ready-filters-container');
+    if (container) {
+        container.querySelectorAll('.ready-filter-btn').forEach(b => b.classList.remove('active'));
+    }
+    if (btnElement) {
+        btnElement.classList.add('active');
+    }
+    
+    renderReadyList();
+}
+
+/**
+ * Draws the list of items based on the currently selected filter
+ */
+function renderReadyList() {
+    const listContainer = document.getElementById('ready-list-container');
+    if (!listContainer) return;
+    
+    // Filter the items
+    const filteredItems = currentReadyFilter === 'All' 
+        ? cachedReadyItems 
+        : cachedReadyItems.filter(item => item.activity.trim() === currentReadyFilter);
+        
+    if (filteredItems.length === 0) {
+        listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No items match this filter.</p>';
+        return;
+    }
+    
+    // Output the HTML
+    listContainer.innerHTML = filteredItems.map(item => `
+        <div style="padding: 12px 10px; border-bottom: 1px solid #f5f5f5; transition: background 0.2s;" 
+             onmouseover="this.style.backgroundColor='#f1f8e9'" 
+             onmouseout="this.style.backgroundColor='transparent'">
+            <div style="font-size: 13px; font-weight: bold; color: #333;">${item.activity}</div>
+            <div style="font-size: 12px; color: #01579b; margin-top: 2px;">Asset: ${item.asset}</div>
+        </div>
+    `).join('');
 }
 
 async function showCellHistory(e, rowId, colIndex) {
