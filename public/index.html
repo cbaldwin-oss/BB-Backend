@@ -1022,6 +1022,12 @@ html, body {
    <div class="header-left">
         <img src="https://lh3.googleusercontent.com/u/0/d/1Wy_ftXtce-UG5jV-5vwS80lV1yt7QTbG" alt="Logo">
     </div>
+    <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
+                    <input type="text" id="app-search-input" placeholder="Find in data..." style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
+                    <span id="search-count" style="font-size: 11px; color: #666; margin: 0 5px; min-width: 30px;">0/0</span>
+                    <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▲</button>
+                    <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▼</button>
+                </div>
     <div class="header-center">
         <span>LaunchPad</span>
     </div>
@@ -1116,13 +1122,6 @@ html, body {
                 <button id="ready-activities-btn" class="tool-btn" onclick="toggleReadyActivities()" style="background: #ffffff; color: #0c44fa; border-color: #0c44fa; display: inline-flex; align-items: center; gap: 8px;">
                     Ready Activities
                 </button>
-
-                <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
-                    <input type="text" id="app-search-input" placeholder="Find in data..." style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
-                    <span id="search-count" style="font-size: 11px; color: #666; margin: 0 5px; min-width: 30px;">0/0</span>
-                    <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▲</button>
-                    <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▼</button>
-                </div>
             </div>
 
             <div id="presence-list" style="display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 15px;">
