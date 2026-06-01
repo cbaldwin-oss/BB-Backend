@@ -1023,23 +1023,35 @@ html, body {
     <div id="schedule-view" style="height: 100%; overflow-y: auto; position: relative;">
 
         <div class="subheader">
-            <div class="subheader-item" style="display: flex; align-items: center; gap: 10px;">
-    
-    <div id="bulk-actions-container" style="display: none; align-items: center; gap: 8px;">
-        <span id="selected-count-label" style="font-size: 13px; font-weight: bold; color: #d32f2f;">0 Selected</span>
-        <button class="tool-btn" onclick="openBulkDateModal('move')" style="background: #fbc02d; color: #333; border-color: #fbc02d;">Move to</button>
-        <button class="tool-btn" onclick="openBulkDateModal('duplicate')" style="background: #f57f17; color: white; border-color: #f57f17;">Duplicate & Move</button>
-        <button class="tool-btn" onclick="uncheckAll()" style="background: #e0e0e0; color: #333; border-color: #ccc;">Cancel</button>
-    </div>
+            <div class="subheader-item">
+                <button class="tool-btn" onclick="expandAllWeeks()">Expand Weeks</button>
+                <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
+                
+                <button id="my-activities-btn" class="tool-btn" onclick="toggleMyActivitiesFilter()" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <span id="my-activities-check">☐</span> My Activities
+                </button>
 
-    <span id="saveIndicator">Saved</span>
-    <button class="tool-btn" onclick="logout()">Logout</button>
-</div>
+                <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 10px; border: 1px solid #ddd;">
+                    <input type="text" id="app-search-input" placeholder="Find in data..." style="border: none; background: transparent; outline: none; padding: 4px; width: 150px; font-size: 13px;">
+                    <span id="search-count" style="font-size: 11px; color: #666; margin: 0 5px; min-width: 30px;">0/0</span>
+                    <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▲</button>
+                    <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 4px;">▼</button>
+                </div>
+            </div>
+
             <div id="presence-list" style="display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 15px;">
             </div>
-            <div class="subheader-item">
-    <span id="saveIndicator">Saved</span>
-</div>
+
+            <div class="subheader-item" style="display: flex; align-items: center; gap: 10px;">
+                <div id="bulk-actions-container" style="display: none; align-items: center; gap: 8px;">
+                    <span id="selected-count-label" style="font-size: 13px; font-weight: bold; color: #d32f2f;">0 Selected</span>
+                    <button class="tool-btn" onclick="openBulkDateModal('move')" style="background: #fbc02d; color: #333; border-color: #fbc02d;">Move to</button>
+                    <button class="tool-btn" onclick="openBulkDateModal('duplicate')" style="background: #f57f17; color: white; border-color: #f57f17;">Duplicate & Move</button>
+                    <button class="tool-btn" onclick="uncheckAll()" style="background: #e0e0e0; color: #333; border-color: #ccc;">Cancel</button>
+                </div>
+
+                <span id="saveIndicator">Saved</span>
+            </div>
         </div>
 
 <div class="frozen-bar">
