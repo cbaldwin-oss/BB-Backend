@@ -975,9 +975,15 @@ html, body {
         <span class="nav-text">Dashboard</span>
     </div>
     
-    <div id="nav-settings" class="nav-item" onclick="switchMainView('settings', this)" style="display: none; margin-top: auto; border-top: 1px solid #eee;">
-        <span class="nav-icon">⚙️</span>
-        <span class="nav-text">Settings</span>
+    <div style="margin-top: auto; width: 100%;">
+        <div id="nav-settings" class="nav-item" onclick="switchMainView('settings', this)" style="display: none; border-top: 1px solid #eee;">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-text">Settings</span>
+        </div>
+        
+        <div class="nav-item" onclick="logout()" style="border-top: 1px solid #eee;">
+            <span class="nav-icon" style="color: #d32f2f;">🚪</span> <span class="nav-text" style="color: #d32f2f; font-weight: bold;">Logout</span>
+        </div>
     </div>
 </div>
 
@@ -1034,9 +1040,8 @@ html, body {
             <div id="presence-list" style="display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 15px;">
             </div>
             <div class="subheader-item">
-                <span id="saveIndicator">Saved</span>
-                <button class="tool-btn" onclick="logout()">Logout</button>
-            </div>
+    <span id="saveIndicator">Saved</span>
+</div>
         </div>
 
         <div class="frozen-bar">
