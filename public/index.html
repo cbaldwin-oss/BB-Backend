@@ -3644,19 +3644,28 @@ async function runFailsafeSync() {
 /**
  * Gathers all active/visible schedule line items matching screen filters
  * and outputs them directly to a clean browser print-to-PDF layout.
+ * ONLY includes rows from days that are currently expanded/opened.
  */
 function exportToPDF() {
     const rows = document.querySelectorAll('.cell-row');
     const shownRowsData = [];
     
     rows.forEach(row => {
-        // 1. Ensure the row is currently visible on the screen
-        const isVisible = row.style.display !== 'none' && window.getComputedStyle(row).display !== 'none';
+        // 1. Ensure the row is visible (not filtered out by a specific search)
+        const isRowVisible = row.style.display !== 'none' && window.getComputedStyle(row).display !== 'none';
         
         // 2. Ensure the row actually has user data saved in it
         const isOccupied = row.getAttribute('data-occupied') === 'true';
 
-        if (isVisible && isOccupied) {
+        // 3. NEW CRITERIA: Find its parent day section container and verify it is opened/expanded
+        const dayContainer = row.closest('.rows-container');
+        const isDayExpanded = dayContainer && !dayContainer.classList.contains('hidden');
+
+        // 4. NEW CRITERIA: Verify the week container isn't hidden either
+        const weekContainer = row.closest('.week-content');
+        const isWeekExpanded = weekContainer ? !weekContainer.classList.contains('hidden') : true;
+
+        if (isRowVisible && isOccupied && isDayExpanded && isWeekExpanded) {
             const rowDate = row.getAttribute('data-date') || "";
             const cols = [];
             
@@ -3686,7 +3695,7 @@ function exportToPDF() {
                 cols.push(val);
             }
             
-            // Double check that there is at least *some* textual data remaining
+            // Double check that there is at least some textual data remaining
             const hasText = cols.some(v => v !== "");
             if (hasText) {
                 shownRowsData.push({ date: rowDate, cols: cols });
@@ -3695,7 +3704,7 @@ function exportToPDF() {
     });
 
     if (shownRowsData.length === 0) {
-        alert("No visible data rows to export based on your current filters.");
+        alert("No data rows found to export. Make sure your target days are expanded/opened on the schedule!");
         return;
     }
 
@@ -3776,11 +3785,12 @@ function exportToPDF() {
                     setTimeout(function() { window.close(); }, 250);
                 }, 200);
             };
-        <\\/script> </body>
+        <\/script>
+    </body>
     </html>
     `;
 
-    // Removing the double backslash from the template literal for standard JS string parsing
+    // Strip escaping characters required for inline evaluation strings safely
     const finalHtmlContent = htmlContent.replace('<\\\\/script>', '<\\/script>');
     printWindow.document.write(finalHtmlContent);
     printWindow.document.close();
