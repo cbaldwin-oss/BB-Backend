@@ -1892,6 +1892,10 @@ function updateSearchUI() {
     }
 }
 
+/**
+ * Automatically rechecks statuses for rows within the 7-day targeted window.
+ * Performs a quiet background sync without clearing text or causing a visual flicker.
+ */
 async function triggerFullStatusRefresh() {
     // 1. Calculate the 7-day range using Local Time to match autoCleanUI
     const now = new Date();
@@ -1909,7 +1913,6 @@ async function triggerFullStatusRefresh() {
         String(endDate.getDate()).padStart(2, '0')
     ].join('-');
 
-
     console.log(`♻️ Starting Targeted Refresh: ${todayStr} to ${endStr}`);
     
     // Select all occupied rows (rows that have data)
@@ -1919,11 +1922,11 @@ async function triggerFullStatusRefresh() {
     for (const row of occupiedRows) {
         const rowDate = row.getAttribute('data-date');
 
-        // 2. Filter: Only proceed if the row is within the current 7-day window
+        // 2. Filter: Only proceed if the row falls within the targeted 7-day window
         if (rowDate >= todayStr && rowDate <= endStr) {
             const rowNum = parseInt(row.id.replace('row-wrapper-', ''));
             
-            // Search for the specific columns using the newly added data-col-index
+            // Search for the specific columns using the data-col-index attribute
             const col3 = row.querySelector('[data-col-index="3"]');
             const col4 = row.querySelector('[data-col-index="4"]');
             const col5 = row.querySelector('.status-cell');
@@ -1932,24 +1935,18 @@ async function triggerFullStatusRefresh() {
                 const val3 = col3.value.trim();
                 const val4 = col4.value.trim();
 
-                // Only redo lookup if both Place and Activity exist
+                // Only redo lookup if both Place and Activity fields are populated
                 if (val3 !== "" && val4 !== "") {
                     refreshCount++;
 
-                    // Wipe UI and show loading
-                    col5.innerText = "Refreshing...";
-                    applyCellColor(col5, "Checking...");
-
-                    // Wipe in Database (Wipe Col 5 only)
-                    await _supabase
-                        .from('BackEndData')
-                        .update({ col5: "" })
-                        .eq('id', rowNum);
-
-                    // Redo VLOOKUP (this calls saveCell automatically upon result)
+                    // THE REMOVED FLICKER FIX:
+                    // We no longer set col5.innerText = "Refreshing..." or clear Supabase beforehand.
+                    // This allows lookupColumn5Value to check the status seamlessly behind the scenes.
+                    
+                    // Trigger the background VLOOKUP check silently (isBackground = true)
                     lookupColumn5Value(rowNum, rowDate, true);
 
-                    // Small delay to prevent hitting Google rate limits
+                    // Small delay to pace requests out cleanly and prevent hitting rate limits
                     await new Promise(resolve => setTimeout(resolve, 100));
                 }
             }
