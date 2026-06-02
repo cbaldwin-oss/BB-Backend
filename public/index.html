@@ -1524,6 +1524,9 @@ async function addSelectedReadyItems() {
         emptyRow.setAttribute('data-occupied', 'true');
         emptyRow.style.display = 'flex'; 
         
+        // Grab the ID of this specific row to trigger the lookup
+        const rowNum = parseInt(emptyRow.id.replace('row-wrapper-', ''));
+        
         const col3 = emptyRow.querySelector(`[data-col-index="3"]`); // Activity
         const col4 = emptyRow.querySelector(`[data-col-index="4"]`); // Asset
         
@@ -1544,6 +1547,9 @@ async function addSelectedReadyItems() {
             applyCellColor(col4, item.asset);
             saveCell(col4, item.asset, 4, true); // Save to Supabase
         }
+        
+        // INSTANT LOOKUP: Force the row to fetch its status immediately
+        lookupColumn5Value(rowNum, targetDate, false);
     }
     
     // Reset the UI
@@ -3118,26 +3124,34 @@ async function confirmBulkAction() {
         
         emptyRow.setAttribute('data-occupied', 'true');
         emptyRow.style.display = 'flex'; 
+        
+        // Grab the ID of this specific row to trigger the lookup
+        const rowNum = parseInt(emptyRow.id.replace('row-wrapper-', ''));
 
         for (let col = 1; col <= 8; col++) {
             const el = emptyRow.querySelector(`[data-col-index="${col}"]`);
             if (!el) continue;
             
-            const content = item.data[`col${col}`];
+            let content = item.data[`col${col}`];
             
             if (col === 5) {
-                el.innerText = content;
+                // Initialize as checking so it doesn't show old/stale data while loading
+                el.innerText = "⏳ Checking...";
+                applyCellColor(el, "Checking...");
+                content = "⏳ Checking...";
             } else if (col === 6) {
                 el.setAttribute('data-selected', content);
                 if (el.options && el.options[0]) el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
+                applyCellColor(el, content);
             } else {
                 if (el.tagName === 'SELECT' && content !== "") {
                     const exists = Array.from(el.options).some(opt => opt.value === content);
                     if (!exists) el.add(new Option(content, content));
                 }
                 el.value = content;
+                applyCellColor(el, content);
             }
-            applyCellColor(el, content);
+            
             saveCell(el, content, col, true); // Save to Supabase
         }
 
@@ -3145,6 +3159,9 @@ async function confirmBulkAction() {
         if (currentBulkAction === 'move') {
             await deleteFullRow(item.rowDiv.id, true); 
         }
+        
+        // INSTANT LOOKUP: Force the row to fetch its status immediately
+        lookupColumn5Value(rowNum, targetDate, false);
     }
     
     uncheckAll();
