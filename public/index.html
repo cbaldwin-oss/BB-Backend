@@ -1140,6 +1140,7 @@ html, body {
 
                 <span id="saveIndicator">Saved</span>
                 <button class="tool-btn" onclick="exportToPDF()" style="background: #ffffff; color: #d6281c; border-color: #d6281c; margin-left: 5px; font-weight: bold;">PDF</button>
+                <button class="tool-btn" onclick="orderChronologically()" style="background: #9c27b0; color: white; border-color: #9c27b0; margin-left: 5px; font-weight: bold;">Order</button>
             </div>
         </div>
 
@@ -3812,6 +3813,116 @@ function exportToPDF() {
     const finalHtmlContent = htmlContent.replace('<\\\\/script>', '<\\/script>');
     printWindow.document.write(finalHtmlContent);
     printWindow.document.close();
+}
+
+/**
+ * Automatically sorts all populated rows within each day chronologically 
+ * based on the values in the "Time" column (Column 1).
+ */
+async function orderChronologically() {
+    document.getElementById('saveIndicator').innerText = "Ordering...";
+    document.getElementById('saveIndicator').style.display = 'inline-block';
+
+    const dayContainers = document.querySelectorAll('.rows-container');
+    let hasChanges = false;
+    
+    for (const container of dayContainers) {
+        const date = container.id.replace('rows-', '');
+        
+        // Grab only the rows that actually contain data
+        const occupiedRows = Array.from(container.querySelectorAll('.cell-row[data-occupied="true"]'));
+        if (occupiedRows.length < 2) continue; // Skip days with 0 or 1 items
+
+        // 1. Scrape the data from the current rows
+        const rowDataList = occupiedRows.map(row => {
+            const rowData = { timeStr: "", cols: {} };
+            for (let col = 1; col <= 8; col++) {
+                const el = row.querySelector(`[data-col-index="${col}"]`);
+                let val = "";
+                if (el) {
+                    if (col === 5) val = el.innerText || "";
+                    else if (col === 6) val = el.getAttribute('data-selected') || el.value || "";
+                    else val = el.value || "";
+                    
+                    if (val === "..." || val === "+ Add Multi" || val === "Select...") val = "";
+                }
+                rowData.cols[col] = { val: val };
+                if (col === 1) rowData.timeStr = val;
+            }
+            // Convert time string to comparable numerical minutes
+            rowData.minutes = parseTimeValue(rowData.timeStr);
+            return rowData;
+        });
+
+        // 2. Sort the scraped data by time (earliest to latest)
+        // Items without a valid time (9999 minutes) will automatically fall to the bottom of the day
+        rowDataList.sort((a, b) => a.minutes - b.minutes);
+
+        // 3. Re-inject the sorted data sequentially back into the DOM rows
+        for (let i = 0; i < occupiedRows.length; i++) {
+            const targetRow = occupiedRows[i];
+            const sourceData = rowDataList[i];
+            
+            for (let col = 1; col <= 8; col++) {
+                const targetEl = targetRow.querySelector(`[data-col-index="${col}"]`);
+                if (!targetEl) continue;
+                
+                let content = sourceData.cols[col].val;
+                
+                if (col === 5) {
+                    targetEl.innerText = content || "...";
+                    applyCellColor(targetEl, content);
+                } else if (col === 6) {
+                    targetEl.setAttribute('data-selected', content);
+                    if (targetEl.options && targetEl.options[0]) {
+                        targetEl.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
+                    }
+                    applyCellColor(targetEl, content);
+                } else {
+                    if (targetEl.tagName === 'SELECT' && content !== "") {
+                        const exists = Array.from(targetEl.options).some(opt => opt.value === content);
+                        if (!exists) targetEl.add(new Option(content, content));
+                    }
+                    targetEl.value = content;
+                    applyCellColor(targetEl, content);
+                }
+                
+                // Flag to the database sync queue that this cell has been updated
+                saveCell(targetEl, content, col, true);
+                hasChanges = true;
+            }
+        }
+    }
+    
+    if (!hasChanges) {
+        document.getElementById('saveIndicator').innerText = "Saved";
+        alert("Schedule is already ordered or there are no activities to sort.");
+        return;
+    }
+    
+    document.getElementById('saveIndicator').innerText = "Saved";
+    alert("Successfully ordered your daily activities chronologically!");
+}
+
+/**
+ * Helper function to convert 12hr/24hr time strings into numerical minutes for accurate sorting.
+ * E.g., "8:00 AM" -> 480, "1:00 PM" -> 780
+ */
+function parseTimeValue(timeStr) {
+    if (!timeStr) return 9999; // Push empty times to the bottom
+    
+    const match = timeStr.trim().match(/^(\d{1,2}):?(\d{2})?\s*(AM|PM|am|pm)?/i);
+    if (!match) return 9999;
+    
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2] || "0", 10);
+    const ampm = (match[3] || "").toUpperCase();
+    
+    // Adjust for 12-hour AM/PM boundaries
+    if (ampm === "PM" && hours < 12) hours += 12;
+    if (ampm === "AM" && hours === 12) hours = 0;
+    
+    return (hours * 60) + minutes;
 }
 
     </script>
