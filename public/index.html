@@ -3893,15 +3893,6 @@ async function orderChronologically() {
             }
         }
     }
-    
-    if (!hasChanges) {
-        document.getElementById('saveIndicator').innerText = "Saved";
-        alert("Schedule is already ordered or there are no activities to sort.");
-        return;
-    }
-    
-    document.getElementById('saveIndicator').innerText = "Saved";
-    alert("Successfully ordered your daily activities chronologically!");
 }
 
 /**
