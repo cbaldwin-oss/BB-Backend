@@ -1138,9 +1138,7 @@ html, body {
                     <button class="tool-btn" onclick="uncheckAll()" style="background: #e0e0e0; color: #333; border-color: #ccc;">Cancel</button>
                 </div>
 
-                <span id="saveIndicator">Saved</span>
-
-                <button class="tool-btn" onclick="exportToPDF()" style="background: #0288d1; color: white; border-color: #0288d1; margin-left: 5px; font-weight: bold;">Export</button>
+                <span id="saveIndicator">Saved</span>\<button class="tool-btn" onclick="exportToPDF()" style="background: #0288d1; color: white; border-color: #0288d1; margin-left: 5px; font-weight: bold;">Export</button>
             </div>
         </div>
 
@@ -1331,148 +1329,6 @@ document.getElementById('app-search-input').addEventListener('input', (e) => {
 document.getElementById('app-search-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') navigateSearch(1);
 });
-
-/**
- * Gathers all active/visible schedule line items matching screen filters
- * and outputs them directly to a clean browser print-to-PDF layout.
- */
-function exportToPDF() {
-    const rows = document.querySelectorAll('.cell-row');
-    const shownRowsData = [];
-    
-    rows.forEach(row => {
-        // 1. Ensure the row is currently visible on the screen (not hidden by active filters or collapsed tabs)
-        const isVisible = row.style.display !== 'none' && window.getComputedStyle(row).display !== 'none';
-        
-        // 2. Ensure the row actually has user data saved in it (not an empty placeholder slot)
-        const isOccupied = row.getAttribute('data-occupied') === 'true';
-
-        if (isVisible && isOccupied) {
-            const rowDate = row.getAttribute('data-date') || "";
-            const cols = [];
-            
-            for (let col = 1; col <= 8; col++) {
-                const el = row.querySelector(`[data-col-index="${col}"]`) || row.querySelector(`[id$="-c${col}"]`);
-                let val = "";
-                
-                if (el) {
-                    if (col === 5) {
-                        val = el.innerText || "";
-                        if (val === "...") val = ""; // Clean up default unassigned status dots
-                    } else if (col === 6) {
-                        val = el.getAttribute('data-selected') || el.value || "";
-                    } else {
-                        val = el.value || "";
-                    }
-                }
-                
-                // Final text clean-up: Strip out unassigned placeholder text
-                val = val.trim();
-                if (val.toLowerCase() === "select..." || val.toLowerCase() === "+ add multi") {
-                    val = "";
-                }
-                
-                cols.push(val);
-            }
-            
-            // Double check that there is at least *some* textual data remaining in the row to be safe
-            const hasText = cols.some(v => v !== "");
-            if (hasText) {
-                shownRowsData.push({ date: rowDate, cols: cols });
-            }
-        }
-    });
-
-    if (shownRowsData.length === 0) {
-        alert("No visible data rows to export based on your current filters.");
-        return;
-    }
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-        alert("Pop-up blocked! Please enable pop-ups for this dashboard to run reports.");
-        return;
-    }
-    
-    // String sanitation helper to ensure code injections don't break the PDF table
-    const escapeHtml = (str) => {
-        if (!str) return '';
-        return str.toString()
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    };
-
-    let tableBodyHtml = '';
-    shownRowsData.forEach(item => {
-        tableBodyHtml += `<tr>`;
-        tableBodyHtml += `<td style="font-weight: bold; color: #333;">${escapeHtml(item.date)}</td>`;
-        item.cols.forEach(colVal => {
-            tableBodyHtml += `<td>${escapeHtml(colVal)}</td>`;
-        });
-        tableBodyHtml += `</tr>`;
-    });
-
-    const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Schedule Report Export</title>
-        <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 25px; color: #222; line-height: 1.4; }
-            .report-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1b5e20; padding-bottom: 10px; margin-bottom: 20px; }
-            h1 { font-size: 22px; margin: 0; color: #1b5e20; font-weight: bold; }
-            .meta-stamp { font-size: 13px; color: #666; font-weight: 500; }
-            table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
-            th { background-color: #00d134; color: white; padding: 10px 5px; border: 1px solid #1b5e20; text-transform: uppercase; font-weight: bold; font-size: 10px; text-align: center; letter-spacing: 0.5px; }
-            td { padding: 8px 5px; border: 1px solid #e0e0e0; text-align: center; word-wrap: break-word; font-size: 11px; }
-            tr:nth-child(even) { background-color: #fcfcfc; }
-            @media print {
-                body { padding: 0; margin: 0; }
-                @page { margin: 1.2cm; }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="report-header">
-            <h1>Active Schedule Report</h1>
-            <div class="meta-stamp">Export Date: ${new Date().toLocaleDateString()}</div>
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 85px;">Date</th>
-                    <th style="width: 70px;">Time</th>
-                    <th style="width: 85px;">Place</th>
-                    <th>Activity</th>
-                    <th style="width: 90px;">Asset</th>
-                    <th style="width: 85px;">Status</th>
-                    <th>Trade Partners</th>
-                    <th style="width: 85px;">Result</th>
-                    <th style="width: 140px;">Notes</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${tableBodyHtml}
-            </tbody>
-        </table>
-        <script>
-            window.onload = function() {
-                setTimeout(function() {
-                    window.print();
-                    setTimeout(function() { window.close(); }, 250);
-                }, 200);
-            };
-        </script>
-    </body>
-    </html>
-    `;
-
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-}
 
 function resetAllFilters() {
     // 1. Clear dropdown filter arrays
@@ -3783,6 +3639,151 @@ async function runFailsafeSync() {
             saveCell(cell, value, 5, true); 
         }
     });
+}
+
+/**
+ * Gathers all active/visible schedule line items matching screen filters
+ * and outputs them directly to a clean browser print-to-PDF layout.
+ */
+function exportToPDF() {
+    const rows = document.querySelectorAll('.cell-row');
+    const shownRowsData = [];
+    
+    rows.forEach(row => {
+        // 1. Ensure the row is currently visible on the screen
+        const isVisible = row.style.display !== 'none' && window.getComputedStyle(row).display !== 'none';
+        
+        // 2. Ensure the row actually has user data saved in it
+        const isOccupied = row.getAttribute('data-occupied') === 'true';
+
+        if (isVisible && isOccupied) {
+            const rowDate = row.getAttribute('data-date') || "";
+            const cols = [];
+            
+            for (let col = 1; col <= 8; col++) {
+                const el = row.querySelector(`[data-col-index="${col}"]`) || row.querySelector(`[id$="-c${col}"]`);
+                let val = "";
+                
+                if (el) {
+                    if (col === 5) {
+                        val = el.innerText || "";
+                        if (val === "...") val = ""; // Clean up default unassigned status dots
+                    } else if (col === 6) {
+                        val = el.getAttribute('data-selected') || el.value || "";
+                    } else {
+                        val = el.value || "";
+                    }
+                }
+                
+                // Safe string conversion and trim
+                val = (val || "").toString().trim();
+                
+                // Final text clean-up: Strip out unassigned placeholder text
+                if (val.toLowerCase() === "select..." || val.toLowerCase() === "+ add multi") {
+                    val = "";
+                }
+                
+                cols.push(val);
+            }
+            
+            // Double check that there is at least *some* textual data remaining
+            const hasText = cols.some(v => v !== "");
+            if (hasText) {
+                shownRowsData.push({ date: rowDate, cols: cols });
+            }
+        }
+    });
+
+    if (shownRowsData.length === 0) {
+        alert("No visible data rows to export based on your current filters.");
+        return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert("Pop-up blocked! Please enable pop-ups for this dashboard to run reports.");
+        return;
+    }
+    
+    // String sanitation helper
+    const escapeHtml = (str) => {
+        if (!str) return '';
+        return str.toString()
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    };
+
+    let tableBodyHtml = '';
+    shownRowsData.forEach(item => {
+        tableBodyHtml += `<tr>`;
+        tableBodyHtml += `<td style="font-weight: bold; color: #333;">${escapeHtml(item.date)}</td>`;
+        item.cols.forEach(colVal => {
+            tableBodyHtml += `<td>${escapeHtml(colVal)}</td>`;
+        });
+        tableBodyHtml += `</tr>`;
+    });
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Schedule Report Export</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 25px; color: #222; line-height: 1.4; }
+            .report-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1b5e20; padding-bottom: 10px; margin-bottom: 20px; }
+            h1 { font-size: 22px; margin: 0; color: #1b5e20; font-weight: bold; }
+            .meta-stamp { font-size: 13px; color: #666; font-weight: 500; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+            th { background-color: #00d134; color: white; padding: 10px 5px; border: 1px solid #1b5e20; text-transform: uppercase; font-weight: bold; font-size: 10px; text-align: center; letter-spacing: 0.5px; }
+            td { padding: 8px 5px; border: 1px solid #e0e0e0; text-align: center; word-wrap: break-word; font-size: 11px; }
+            tr:nth-child(even) { background-color: #fcfcfc; }
+            @media print {
+                body { padding: 0; margin: 0; }
+                @page { margin: 1.2cm; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="report-header">
+            <h1>Active Schedule Report</h1>
+            <div class="meta-stamp">Export Date: ${new Date().toLocaleDateString()}</div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 85px;">Date</th>
+                    <th style="width: 70px;">Time</th>
+                    <th style="width: 85px;">Place</th>
+                    <th>Activity</th>
+                    <th style="width: 90px;">Asset</th>
+                    <th style="width: 85px;">Status</th>
+                    <th>Trade Partners</th>
+                    <th style="width: 85px;">Result</th>
+                    <th style="width: 140px;">Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableBodyHtml}
+            </tbody>
+        </table>
+        <script>
+            window.onload = function() {
+                setTimeout(function() {
+                    window.print();
+                    setTimeout(function() { window.close(); }, 250);
+                }, 200);
+            };
+        <\\/script> </body>
+    </html>
+    `;
+
+    // Removing the double backslash from the template literal for standard JS string parsing
+    const finalHtmlContent = htmlContent.replace('<\\\\/script>', '<\\/script>');
+    printWindow.document.write(finalHtmlContent);
+    printWindow.document.close();
 }
 
     </script>
