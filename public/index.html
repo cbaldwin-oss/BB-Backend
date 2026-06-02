@@ -1341,36 +1341,50 @@ function exportToPDF() {
     const shownRowsData = [];
     
     rows.forEach(row => {
-        // Capture only rows currently made visible by active filters/autoclean
-        if (row.style.display !== 'none' && window.getComputedStyle(row).display !== 'none') {
+        // 1. Ensure the row is currently visible on the screen (not hidden by active filters or collapsed tabs)
+        const isVisible = row.style.display !== 'none' && window.getComputedStyle(row).display !== 'none';
+        
+        // 2. Ensure the row actually has user data saved in it (not an empty placeholder slot)
+        const isOccupied = row.getAttribute('data-occupied') === 'true';
+
+        if (isVisible && isOccupied) {
             const rowDate = row.getAttribute('data-date') || "";
             const cols = [];
             
             for (let col = 1; col <= 8; col++) {
                 const el = row.querySelector(`[data-col-index="${col}"]`) || row.querySelector(`[id$="-c${col}"]`);
                 let val = "";
+                
                 if (el) {
                     if (col === 5) {
                         val = el.innerText || "";
+                        if (val === "...") val = ""; // Clean up default unassigned status dots
                     } else if (col === 6) {
                         val = el.getAttribute('data-selected') || el.value || "";
                     } else {
                         val = el.value || "";
                     }
                 }
-                cols.push(val.trim());
+                
+                // Final text clean-up: Strip out unassigned placeholder text
+                val = val.trim();
+                if (val.toLowerCase() === "select..." || val.toLowerCase() === "+ add multi") {
+                    val = "";
+                }
+                
+                cols.push(val);
             }
             
-            // Skip rows that are completely blank unassigned placeholders
-            const hasData = cols.some(v => v !== "" && v !== "Select...");
-            if (hasData) {
+            // Double check that there is at least *some* textual data remaining in the row to be safe
+            const hasText = cols.some(v => v !== "");
+            if (hasText) {
                 shownRowsData.push({ date: rowDate, cols: cols });
             }
         }
     });
 
     if (shownRowsData.length === 0) {
-        alert("No visible row items to export.");
+        alert("No visible data rows to export based on your current filters.");
         return;
     }
 
@@ -1380,9 +1394,9 @@ function exportToPDF() {
         return;
     }
     
-    // String sanitation helper to strip default selectors
+    // String sanitation helper to ensure code injections don't break the PDF table
     const escapeHtml = (str) => {
-        if (!str || str === "Select...") return '';
+        if (!str) return '';
         return str.toString()
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
@@ -1451,7 +1465,7 @@ function exportToPDF() {
                     setTimeout(function() { window.close(); }, 250);
                 }, 200);
             };
-        <\/script>
+        </script>
     </body>
     </html>
     `;
