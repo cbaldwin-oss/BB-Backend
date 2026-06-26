@@ -1987,6 +1987,14 @@ async function triggerFullStatusRefresh() {
 const ADMIN_EMAIL = "cbaldwin@criticalarccx.com"; // Change to your actual email
 
 function toggleAdminPanel() {
+    // 1. HARD SECURITY BLOCK: If they are not an admin in the database, stop immediately.
+    if (!window.isAdmin) {
+        console.warn("Unauthorized: Only Admins can manage access.");
+        document.getElementById('admin-share-btn').style.display = 'none'; // Force hide the button
+        return; 
+    }
+
+    // 2. If authorized, toggle the panel window normally
     const panel = document.getElementById('admin-panel');
     const isOpening = panel.style.display === 'none';
     panel.style.display = isOpening ? 'block' : 'none';
@@ -2342,9 +2350,6 @@ try {
             }
             const isAuth = await verifyPermission(user.email);
             if (isAuth) {
-                if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-            document.getElementById('admin-share-btn').style.display = 'inline-block';
-        }
                 window.isAuthorized = true;
 const permissions = await verifyPermission(user.email); 
 if (permissions.isAuthorized) { 
