@@ -355,7 +355,7 @@
         
         <div class="subheader-right">
             <div style="font-size: 13px; color: #2e7d32; font-weight: bold; margin-right: 5px; white-space: nowrap;" id="sync-status">Connecting Backend...</div>
-            <button class="setup-btn" onclick="openSettingsModal()">⚙️ Setup Config</button>
+            <button id="setup-config-btn" class="setup-btn" style="display: none;" onclick="openSettingsModal()">⚙️ Setup Config</button>
             <button onclick="clearAllFilters()" class="clear-filters-btn">
                 <span style="font-size: 14px;">🧹</span> Remove Filters
             </button>
@@ -1214,7 +1214,21 @@
             document.querySelector('.loading-subtext').innerText = 'Please refresh the page or check the console.';
         }
     }
-    window.onload = fetchTrackerData;
+    
+    window.onload = function() {
+    // 1. Boot up the tracker data as normal
+    fetchTrackerData();
+    
+    // 2. Check the parent window (your main index.html dashboard) for Admin status
+    try {
+        const setupBtn = document.getElementById('setup-config-btn');
+        if (setupBtn && window.parent && window.parent.isAdmin === true) {
+            setupBtn.style.display = 'flex'; // Reveals the button if they are an admin
+        }
+    } catch (error) {
+        console.warn("Could not verify admin status from parent window.");
+    }
+};
 
     function openSettingsModal() {
         document.getElementById('settings-modal').classList.add('active');
