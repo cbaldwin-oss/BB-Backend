@@ -1216,18 +1216,37 @@
     }
     
     window.onload = function() {
-    // 1. Boot up the tracker data as normal
+    // 1. Boot up the tracker data grid as normal
     fetchTrackerData();
     
-    // 2. Check the parent window (your main index.html dashboard) for Admin status
-    try {
-        const setupBtn = document.getElementById('setup-config-btn');
-        if (setupBtn && window.parent && window.parent.isAdmin === true) {
-            setupBtn.style.display = 'flex'; // Reveals the button if they are an admin
+    // 2. Patiently wait for the parent window to finish its Supabase auth check
+    let authCheckAttempts = 0;
+    const authCheckInterval = setInterval(() => {
+        try {
+            // Check if Supabase has finally returned the data to the parent
+            if (window.parent && typeof window.parent.isAdmin !== 'undefined') {
+                
+                // If they are an admin, reveal the setup button
+                if (window.parent.isAdmin === true) {
+                    const setupBtn = document.getElementById('setup-config-btn');
+                    if (setupBtn) setupBtn.style.display = 'flex';
+                }
+                
+                // Stop checking once we have a definitive answer from the parent
+                clearInterval(authCheckInterval);
+            }
+            
+            // Failsafe: Stop checking after 10 seconds (20 attempts) so it doesn't run forever
+            authCheckAttempts++;
+            if (authCheckAttempts > 20) {
+                clearInterval(authCheckInterval);
+            }
+            
+        } catch (error) {
+            console.warn("Could not verify admin status from parent window.");
+            clearInterval(authCheckInterval);
         }
-    } catch (error) {
-        console.warn("Could not verify admin status from parent window.");
-    }
+    }, 500); // Check twice a second until Supabase responds
 };
 
     function openSettingsModal() {
