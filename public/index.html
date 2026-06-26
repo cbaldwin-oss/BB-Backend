@@ -1027,11 +1027,16 @@ html, body {
     </div>
     <div class="header-right">
         <button id="admin-share-btn" class="view-btn" style="display: none; color: #01579b;" onclick="toggleAdminPanel()">
-        👤 Manage Access
-    </button>
-        <button class="view-btn" onclick="switchView('view1', this)">Overall Schedule</button>
-        <button class="view-btn active" onclick="switchView('view2', this)">3 Day Look Ahead</button>
-        <button class="view-btn" onclick="switchView('view3', this)">1 Week Look Ahead</button>
+            👤 Manage Access
+        </button>
+        
+        <div id="schedule-header-controls" style="display: flex; gap: 8px;">
+            <button class="view-btn" onclick="switchView('view1', this)">Overall Schedule</button>
+            <button class="view-btn active" onclick="switchView('view2', this)">3 Day Look Ahead</button>
+            <button class="view-btn" onclick="switchView('view3', this)">1 Week Look Ahead</button>
+        </div>
+
+        <img id="alternate-header-img" src="https://lh3.googleusercontent.com/u/0/d/1hO2lUezgCX-RhDS6e1Ssa0Ys8URVOvItmargin-left: 15px;">
     </div>
 </div>
 
