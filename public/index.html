@@ -1631,6 +1631,10 @@ function switchMainView(viewType, btn) {
     const sched = document.getElementById('schedule-view');
     const equipmentView = document.getElementById('equipment-tracker-view'); 
     
+    // NEW: Target the top right header elements
+    const schedControls = document.getElementById('schedule-header-controls');
+    const altImage = document.getElementById('alternate-header-img');
+    
     // For the schedule specifically
     const mainContent = document.getElementById('main-content-area');
     const subheader = document.querySelector('.subheader');
@@ -1649,6 +1653,10 @@ function switchMainView(viewType, btn) {
     if (mainContent) mainContent.style.display = 'none';
     if (subheader) subheader.style.display = 'none';
     if (frozenBar) frozenBar.style.display = 'none';
+    
+    // By default, hide the schedule buttons and show the image on non-schedule views
+    if (schedControls) schedControls.style.display = 'none';
+    if (altImage) altImage.style.display = 'block';
 
     // Route view choice
     if (viewType === 'dashboard') {
@@ -1656,9 +1664,13 @@ function switchMainView(viewType, btn) {
     } else if (viewType === 'settings') {
         sett.style.display = 'block';
         Settings.init(); 
-    } else if (viewType === 'equipment') { // Matches the button we just added
+    } else if (viewType === 'equipment') { 
         if (equipmentView) equipmentView.style.display = 'block'; 
     } else {
+        // IF VIEWING SCHEDULE: Bring back the buttons, hide the image
+        if (schedControls) schedControls.style.display = 'flex';
+        if (altImage) altImage.style.display = 'none';
+        
         sched.style.display = 'block';
         if (mainContent) mainContent.style.display = 'block';
         if (subheader) subheader.style.display = 'flex';
