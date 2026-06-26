@@ -3934,6 +3934,14 @@ function parseTimeValue(timeStr) {
     return (hours * 60) + minutes;
 }
 
+window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'REQUEST_AUTH_STATUS') {
+        // If Supabase has finished loading and we know they are an admin, send it back!
+        if (typeof window.isAdmin !== 'undefined') {
+            event.source.postMessage({ type: 'AUTH_STATUS', isAdmin: window.isAdmin }, '*');
+        }
+    }
+});
     </script>
     <div id="bulk-date-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; justify-content:center; align-items:center;">
     <div style="background:white; padding:30px; border-radius:8px; width:350px; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">

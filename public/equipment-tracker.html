@@ -1215,39 +1215,34 @@
         }
     }
     
-    window.onload = function() {
-    // 1. Boot up the tracker data grid as normal
-    fetchTrackerData();
-    
-    // 2. Patiently wait for the parent window to finish its Supabase auth check
-    let authCheckAttempts = 0;
-    const authCheckInterval = setInterval(() => {
-        try {
-            // Check if Supabase has finally returned the data to the parent
-            if (window.parent && typeof window.parent.isAdmin !== 'undefined') {
-                
-                // If they are an admin, reveal the setup button
-                if (window.parent.isAdmin === true) {
-                    const setupBtn = document.getElementById('setup-config-btn');
-                    if (setupBtn) setupBtn.style.display = 'flex';
-                }
-                
-                // Stop checking once we have a definitive answer from the parent
-                clearInterval(authCheckInterval);
-            }
-            
-            // Failsafe: Stop checking after 10 seconds (20 attempts) so it doesn't run forever
-            authCheckAttempts++;
-            if (authCheckAttempts > 20) {
-                clearInterval(authCheckInterval);
-            }
-            
-        } catch (error) {
-            console.warn("Could not verify admin status from parent window.");
-            clearInterval(authCheckInterval);
+window.onload = function() {
+        // 1. Boot up the tracker data grid as normal
+        fetchTrackerData();
+        
+        // 2. Ask the parent window for admin status using a secure message
+        if (window.parent) {
+            window.parent.postMessage({ type: 'REQUEST_AUTH_STATUS' }, '*');
         }
-    }, 500); // Check twice a second until Supabase responds
-};
+        
+        // Keep asking every 1 second just in case Supabase is taking a moment to log the user in
+        let authCheckAttempts = 0;
+        const authCheckInterval = setInterval(() => {
+            if (window.parent) window.parent.postMessage({ type: 'REQUEST_AUTH_STATUS' }, '*');
+            authCheckAttempts++;
+            if (authCheckAttempts > 15) clearInterval(authCheckInterval); // Stop trying after 15 seconds
+        }, 1000);
+    };
+
+    // 3. Listen for the secure reply from index.html
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'AUTH_STATUS') {
+            // Unhide the config button if they are an admin!
+            if (event.data.isAdmin === true) {
+                const setupBtn = document.getElementById('setup-config-btn');
+                if (setupBtn) setupBtn.style.display = 'flex';
+            }
+        }
+    });
 
     function openSettingsModal() {
         document.getElementById('settings-modal').classList.add('active');
