@@ -1637,10 +1637,11 @@ function switchMainView(viewType, btn) {
     const altImage = document.getElementById('alternate-header-img');
     const filterSidebar = document.getElementById('filter-sidebar');
     
-    // 3. Target schedule layout wrappers
+    // 3. Target schedule layout wrappers & app body
     const mainContent = document.getElementById('main-content-area');
     const subheader = document.querySelector('.subheader');
     const frozenBar = document.querySelector('.frozen-bar');
+    const appBody = document.getElementById('app-body'); // NEW: Target the main wrapper
     
     // Update active UI state on the clicked button
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
@@ -1659,21 +1660,27 @@ function switchMainView(viewType, btn) {
     // By default, hide schedule-specific tools and show the alternate image
     if (schedControls) schedControls.style.display = 'none';
     if (altImage) altImage.style.display = 'block';
-    if (filterSidebar) filterSidebar.style.display = 'none'; // Hides the right filter bar
+    if (filterSidebar) filterSidebar.style.display = 'none';
 
     // Route view choice
     if (viewType === 'dashboard') {
         dash.style.display = 'block';
+        if (appBody) appBody.style.width = 'calc(100% - 36px)'; // Stretches to right edge
     } else if (viewType === 'settings') {
         sett.style.display = 'block';
+        if (appBody) appBody.style.width = 'calc(100% - 36px)'; // Stretches to right edge
         Settings.init(); 
     } else if (viewType === 'equipment') { 
         if (equipmentView) equipmentView.style.display = 'block'; 
+        if (appBody) appBody.style.width = 'calc(100% - 36px)'; // Stretches to right edge
     } else {
         // IF VIEWING SCHEDULE: Bring back all schedule-specific elements
         if (schedControls) schedControls.style.display = 'flex';
         if (altImage) altImage.style.display = 'none';
-        if (filterSidebar) filterSidebar.style.display = 'flex'; // Brings back the right filter bar
+        if (filterSidebar) filterSidebar.style.display = 'flex'; 
+        
+        // Squeeze the screen back to make room for the right-hand filter bar
+        if (appBody) appBody.style.width = 'calc(100% - 72px)';
         
         sched.style.display = 'block';
         if (mainContent) mainContent.style.display = 'block';
