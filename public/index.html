@@ -1106,6 +1106,8 @@ html, body {
         allowfullscreen>
     </iframe>
 </div>
+<div id="equipment-tracker-view" style="display: none; height: 100%; width: 100%;">
+        </div>
 <div id="settings-view" style="display:none; height:100%; padding: 30px; background: #f8f9fa; overflow-y: auto;">
         <h2 style="color: #2e7d32; margin-top: 0;">Admin Control Panel</h2>
         <p style="color: #666;">Manage system data, refresh statuses, and user access.</p>
@@ -1330,6 +1332,61 @@ document.getElementById('app-search-input').addEventListener('input', (e) => {
 // Trigger search on Enter key
 document.getElementById('app-search-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') navigateSearch(1);
+});
+
+async function loadCustomComponent(filePath, targetDivId) {
+    const targetDiv = document.getElementById(targetDivId);
+    if (!targetDiv) return;
+
+    try {
+        const response = await fetch(filePath);
+        if (!response.ok) throw new Error(`Could not load ${filePath}`);
+        
+        const htmlText = await response.text();
+        
+        // Create a temporary DOM element to parse the incoming HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlText;
+
+        // 1. Extract and inject the HTML / CSS
+        targetDiv.innerHTML = '';
+        while (tempDiv.childNodes.length > 0) {
+            let child = tempDiv.childNodes[0];
+            
+            // Skip script tags for now, we handle them separately
+            if (child.tagName !== 'SCRIPT') {
+                targetDiv.appendChild(child);
+            } else {
+                tempDiv.removeChild(child);
+            }
+        }
+
+        // 2. Extract and manually execute the scripts to bypass browser security blocks
+        const scripts = tempDiv.querySelectorAll('script'); // Catch any scripts still left
+        const rawScripts = htmlText.match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi);
+        
+        if (rawScripts) {
+            rawScripts.forEach(scriptTagString => {
+                const newScript = document.createElement('script');
+                
+                // Extract inner text using a regex
+                const scriptContent = scriptTagString.replace(/<script\b[^>]*>|<\/script>/gi, '');
+                newScript.textContent = scriptContent;
+                
+                // Append it to the body to execute it natively
+                document.body.appendChild(newScript);
+            });
+        }
+        
+    } catch (error) {
+        console.error("Component Load Error:", error);
+        targetDiv.innerHTML = `<h3 style="color:red; padding: 20px;">Error loading custom module: ${error.message}</h3>`;
+    }
+}
+
+// Trigger the load as soon as the main dashboard boots up
+window.addEventListener('DOMContentLoaded', () => {
+    loadCustomComponent('equipment-tracker.html', 'equipment-tracker-view');
 });
 
 function resetAllFilters() {
@@ -1612,31 +1669,27 @@ function switchMainView(viewType, btn) {
     const dash = document.getElementById('dashboard-view');
     const sett = document.getElementById('settings-view');
     const sched = document.getElementById('schedule-view');
-    const mainContent = document.getElementById('main-content-area');
-    const subheader = document.querySelector('.subheader');
-    const frozenBar = document.querySelector('.frozen-bar');
+    const equipmentView = document.getElementById('equipment-tracker-view'); // Target Div Wrapper
     
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     btn.classList.add('active');
 
-    // Hide all major views first
+    // Reset visibility states
     dash.style.display = 'none';
     sett.style.display = 'none';
     sched.style.display = 'none';
-    if (mainContent) mainContent.style.display = 'none';
-    if (subheader) subheader.style.display = 'none';
-    if (frozenBar) frozenBar.style.display = 'none';
+    if (equipmentView) equipmentView.style.display = 'none';
 
+    // Route view choice
     if (viewType === 'dashboard') {
         dash.style.display = 'block';
     } else if (viewType === 'settings') {
         sett.style.display = 'block';
-        Settings.init(); // Initialize the settings page
+        Settings.init(); 
+    } else if (viewType === 'custom-page') {
+        if (equipmentView) equipmentView.style.display = 'block'; 
     } else {
         sched.style.display = 'block';
-        if (mainContent) mainContent.style.display = 'block';
-        if (subheader) subheader.style.display = 'flex';
-        if (frozenBar) frozenBar.style.display = 'flex';
     }
 }
 
