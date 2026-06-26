@@ -37,7 +37,7 @@
         .setup-btn { background: #f1f3f4; border: 1px solid #dcdcdc; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; color: #555; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
         .setup-btn:hover { background: #e0e0e0; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
 
-        #app-body { display: flex; flex-direction: column; height: calc(100vh - 90px); width: 100%; background: #f8f9fa;}
+        #app-body { display: flex; flex-direction: column; height: 100vh; width: 100%; background: #f8f9fa;}
         
         /* RESPONSIVE SUBHEADER */
         .subheader { flex: 0 0 auto; min-height: 50px; background-color: #f1f3f4; display: flex; align-items: center; padding: 10px 30px; border-bottom: 1px solid #dcdcdc; justify-content: space-between; z-index: 1000; flex-wrap: wrap; gap: 10px; }
@@ -302,9 +302,6 @@
 
         /* --- MEDIA QUERIES FOR IPAD / TABLET DYNAMIC RESPONSIVENESS --- */
         @media (max-width: 1024px) {
-            .header { height: 75px; padding: 0 15px; }
-            .app-logo { height: 50px; }
-            .app-logo2 { height: 60px; }
             .subheader { padding: 10px 15px; flex-wrap: wrap; height: auto; min-height: 50px;}
             .global-search-wrapper { margin-left: 0; margin-top: 5px; width: 100%; }
             .global-search-wrapper input { flex: 1; }
@@ -342,14 +339,6 @@
     <div class="loading-subtext">Connecting to Database</div>
 </div>
 
-<div class="header">
-    <div class="header-left">
-        <img src="https://lh3.googleusercontent.com/u/0/d/1hO2lUezgCX-RhDS6e1Ssa0Ys8URVOvIt" alt="Logo 1" id="app-logo-1" class="app-logo2">
-    </div>
-    <div class="header-right">
-        <img src="https://lh3.googleusercontent.com/u/0/d/1Wy_ftXtce-UG5jV-5vwS80lV1yt7QTbG" alt="Logo 2" id="app-logo-2" class="app-logo">
-    </div>
-</div>
 
 <div id="app-body">
     <div class="subheader">
