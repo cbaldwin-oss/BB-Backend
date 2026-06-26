@@ -1626,16 +1626,18 @@ document.addEventListener('click', (e) => {
 });
 
 function switchMainView(viewType, btn) {
+    // 1. Target the main view containers
     const dash = document.getElementById('dashboard-view');
     const sett = document.getElementById('settings-view');
     const sched = document.getElementById('schedule-view');
     const equipmentView = document.getElementById('equipment-tracker-view'); 
     
-    // NEW: Target the top right header elements
+    // 2. Target the specific UI tools (Header buttons, Image, and Filter Sidebar)
     const schedControls = document.getElementById('schedule-header-controls');
     const altImage = document.getElementById('alternate-header-img');
+    const filterSidebar = document.getElementById('filter-sidebar');
     
-    // For the schedule specifically
+    // 3. Target schedule layout wrappers
     const mainContent = document.getElementById('main-content-area');
     const subheader = document.querySelector('.subheader');
     const frozenBar = document.querySelector('.frozen-bar');
@@ -1644,7 +1646,7 @@ function switchMainView(viewType, btn) {
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     btn.classList.add('active');
 
-    // Hide everything first
+    // Hide EVERYTHING first
     dash.style.display = 'none';
     sett.style.display = 'none';
     sched.style.display = 'none';
@@ -1654,9 +1656,10 @@ function switchMainView(viewType, btn) {
     if (subheader) subheader.style.display = 'none';
     if (frozenBar) frozenBar.style.display = 'none';
     
-    // By default, hide the schedule buttons and show the image on non-schedule views
+    // By default, hide schedule-specific tools and show the alternate image
     if (schedControls) schedControls.style.display = 'none';
     if (altImage) altImage.style.display = 'block';
+    if (filterSidebar) filterSidebar.style.display = 'none'; // Hides the right filter bar
 
     // Route view choice
     if (viewType === 'dashboard') {
@@ -1667,9 +1670,10 @@ function switchMainView(viewType, btn) {
     } else if (viewType === 'equipment') { 
         if (equipmentView) equipmentView.style.display = 'block'; 
     } else {
-        // IF VIEWING SCHEDULE: Bring back the buttons, hide the image
+        // IF VIEWING SCHEDULE: Bring back all schedule-specific elements
         if (schedControls) schedControls.style.display = 'flex';
         if (altImage) altImage.style.display = 'none';
+        if (filterSidebar) filterSidebar.style.display = 'flex'; // Brings back the right filter bar
         
         sched.style.display = 'block';
         if (mainContent) mainContent.style.display = 'block';
