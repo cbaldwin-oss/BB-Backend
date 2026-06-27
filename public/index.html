@@ -1032,8 +1032,8 @@ html, body {
         
         <div id="schedule-header-controls" style="display: flex; gap: 8px;">
             <button class="view-btn" onclick="switchView('view1', this)">Overall Schedule</button>
-            <button class="view-btn active" onclick="switchView('view2', this)">3 Day Look Ahead</button>
-            <button class="view-btn" onclick="switchView('view3', this)">1 Week Look Ahead</button>
+            <button class="view-btn active" onclick="switchView('view2', this)">1 Week Look Ahead</button>
+            <button class="view-btn" onclick="switchView('view3', this)">3 Week Look Ahead</button>
         </div>
 
         <img id="alternate-header-img" src="https://lh3.googleusercontent.com/u/0/d/1hO2lUezgCX-RhDS6e1Ssa0Ys8URVOvIt" alt="View Logo" style="display: none; height: 50px; object-fit: contain; margin-left: 15px;">
@@ -3380,11 +3380,11 @@ function applyViewFilter(viewId) {
     if (viewId === 'view2') {
         // 3 Day Look Ahead (Today + 2)
         targetDate = new Date(today);
-        targetDate.setDate(today.getDate() + 2);
+        targetDate.setDate(today.getDate() + 6);
     } else if (viewId === 'view3') {
         // 1 Week Look Ahead (Today + 6)
         targetDate = new Date(today);
-        targetDate.setDate(today.getDate() + 6);
+        targetDate.setDate(today.getDate() + 20);
     }
 
     // 3. Apply the filter if a Look Ahead view is selected
