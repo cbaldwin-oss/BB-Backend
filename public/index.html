@@ -1109,6 +1109,18 @@ html, body {
 </div>
 
 <div id="app-body">
+    <div class="modal-overlay" id="schedule-config-modal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background: white; width: 400px; padding: 20px; border-radius: 8px;">
+        <h2 style="margin-top:0;">Schedule Layout Settings</h2>
+        <p style="font-size:12px; color:#666;">Drag to reorder columns, or check to show/hide them.</p>
+        <div id="schedule-col-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+            </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="document.getElementById('schedule-config-modal').style.display='none'" style="padding: 8px 12px; cursor: pointer;">Cancel</button>
+            <button onclick="saveNewConfigOrder()" style="padding: 8px 12px; background: #2e7d32; color: white; cursor: pointer; border: none; border-radius: 4px;">Save & Reload</button>
+        </div>
+    </div>
+</div>
 <div id="dashboard-view">
     <iframe 
         id="streamlit-iframe"
@@ -1156,32 +1168,15 @@ html, body {
                     
                     <button class="tool-btn" onclick="uncheckAll()" style="background: #e0e0e0; color: #333; border-color: #ccc;">Cancel</button>
                 </div>
-
+<button class="tool-btn" onclick="openScheduleConfigModal()" style="background: #f1f3f4; border-color: #dcdcdc; color: #555;">⚙️ Setup Config</button>
                 <span id="saveIndicator">Saved</span>
                 <button class="tool-btn" onclick="exportToPDF()" style="background: #ffffff; color: #d6281c; border-color: #d6281c; margin-left: 5px; font-weight: bold;">PDF</button>
             </div>
         </div>
 
 <div class="frozen-bar">
-    <div class="frozen-grid">
-        <div class="check-spacer" style="flex: 0 0 16px;"></div>
-        
-        <div class="header-cell">Time</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Place</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Activity</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Asset</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Status</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Trade Partners</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Result</div>
-        <span class="sep">|</span>
-        <div class="header-cell">Notes</div>
-    </div>
+    <div class="frozen-grid" id="dynamic-frozen-grid">
+        </div>
 </div>
 
         <div id="main-content-area"></div>
@@ -1295,6 +1290,25 @@ html, body {
 </div>
 
 <script>
+    // --- SCHEDULE SETUP CONFIGURATION ---
+const defaultScheduleConfig = [
+    { id: 1, name: 'Time', visible: true },
+    { id: 2, name: 'Place', visible: true },
+    { id: 3, name: 'Activity', visible: true },
+    { id: 4, name: 'Asset', visible: true },
+    { id: 5, name: 'Status', visible: true },
+    { id: 6, name: 'Trade Partners', visible: true },
+    { id: 7, name: 'Result', visible: true },
+    { id: 8, name: 'Notes', visible: true }
+];
+
+let scheduleColConfig = JSON.parse(localStorage.getItem('userScheduleConfig')) || defaultScheduleConfig;
+
+function saveScheduleConfig() {
+    localStorage.setItem('userScheduleConfig', JSON.stringify(scheduleColConfig));
+    location.reload(); // Reload to apply changes cleanly
+}
+
 const activeSyncs = new Set(); // Track which rows are currently uploading
 const START_DATE = "2026-04-20"; // A Monday
 const WEEKS_TO_SHOW = 60; 
@@ -1704,6 +1718,27 @@ function renderSidebarFilters() {
     renderFilterSection('vertical-places-filter-container', 'Places', window.dropdownData?.col2 || [], selectedPlaces, 'togglePlaceFilter');
     renderFilterSection('vertical-activities-filter-container', 'Activities', window.dropdownData?.col3 || [], selectedActivities, 'toggleActivityFilter');
     renderFilterSection('vertical-results-filter-container', 'Results', window.dropdownData?.col7 || [], selectedResults, 'toggleResultFilter');
+}
+
+function renderDynamicHeaders() {
+    const headerGrid = document.getElementById('dynamic-frozen-grid');
+    headerGrid.innerHTML = '<div class="check-spacer" style="flex: 0 0 16px;"></div>';
+    
+    scheduleColConfig.forEach(col => {
+        if (!col.visible) return; // Skip hidden columns
+        
+        // Add the column header
+        const cell = document.createElement('div');
+        cell.className = 'header-cell';
+        cell.innerText = col.name;
+        headerGrid.appendChild(cell);
+        
+        // Add the vertical separator
+        const sep = document.createElement('span');
+        sep.className = 'sep';
+        sep.innerText = '|';
+        headerGrid.appendChild(sep);
+    });
 }
 
 /**
@@ -2523,6 +2558,47 @@ function refreshDropdowns() {
     });
 }
 
+function openScheduleConfigModal() {
+    const list = document.getElementById('schedule-col-list');
+    list.innerHTML = '';
+    
+    scheduleColConfig.forEach((col, index) => {
+        const item = document.createElement('div');
+        item.style.cssText = "display: flex; align-items: center; padding: 10px; background: #f8f9fa; border: 1px solid #ddd; cursor: grab;";
+        
+        // Simple Up/Down arrows for reordering
+        const moveUp = index > 0 ? `<span style="cursor:pointer; margin-right:5px;" onclick="moveCol(${index}, -1)">🔼</span>` : `<span style="margin-right:24px;"></span>`;
+        const moveDown = index < scheduleColConfig.length - 1 ? `<span style="cursor:pointer; margin-right:15px;" onclick="moveCol(${index}, 1)">🔽</span>` : `<span style="margin-right:34px;"></span>`;
+        
+        item.innerHTML = `
+            ${moveUp} ${moveDown}
+            <input type="checkbox" id="cfg-col-${col.id}" ${col.visible ? 'checked' : ''} style="margin-right:10px;">
+            <label for="cfg-col-${col.id}" style="font-weight:bold;">${col.name}</label>
+        `;
+        list.appendChild(item);
+    });
+    
+    document.getElementById('schedule-config-modal').style.display = 'flex';
+}
+
+// Helper to swap array items
+function moveCol(index, direction) {
+    const target = index + direction;
+    const temp = scheduleColConfig[index];
+    scheduleColConfig[index] = scheduleColConfig[target];
+    scheduleColConfig[target] = temp;
+    openScheduleConfigModal(); // Re-render the modal list
+}
+
+// Grabs the checkbox statuses and saves
+function saveNewConfigOrder() {
+    scheduleColConfig.forEach(col => {
+        const checkbox = document.getElementById(`cfg-col-${col.id}`);
+        if (checkbox) col.visible = checkbox.checked;
+    });
+    saveScheduleConfig();
+}
+
 function applyCellColor(element, value) {
     if (!element) return;
     
@@ -2673,10 +2749,16 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
         cb.onchange = (e) => handleRowSelection(e, rowDiv.id);
         rowDiv.appendChild(cb);
 
-        for (let col = 1; col <= 8; col++) {
+      // Loop through the dynamic configuration instead of a hardcoded 1-8
+        for (let i = 0; i < scheduleColConfig.length; i++) {
+            const colConfig = scheduleColConfig[i];
+            if (!colConfig.visible) continue; // Skip if user hid this column
+            
+            const col = colConfig.id; // Get the original database column ID (1-8)
             const cellId = `${dayLabel}-r${rowNumericId}-c${col}`;
             let element;
 
+            // Generate the specific element based on its original column ID
             if (col === 5) {
                 element = document.createElement('span');
                 element.id = cellId;
@@ -2693,7 +2775,7 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                 opts.forEach(t => { element.appendChild(new Option(t, t)); });
                 element.onchange = () => updateMultiValue(rowNumericId, dayLabel, element.value);
             } 
-           else if ([1, 2, 3, 4, 7].includes(col)) {
+            else if ([1, 2, 3, 4, 7].includes(col)) {
                 element = document.createElement('select');
                 element.id = cellId;
                 element.setAttribute('data-col-index', col);
@@ -2705,28 +2787,18 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
                     applyCellColor(element, element.value); 
                     saveCell(element, element.value, col, true);
                     
-                    // --- NEW: AUTO-POPULATE PLACE BASED ON ASSET ---
-                    // If they just changed an Asset (Col 4) and we know its Place...
+                    // Auto-Populate logic for Place
                     if (col === 4 && window.assetToPlaceMap && window.assetToPlaceMap[element.value]) {
                         const newPlace = window.assetToPlaceMap[element.value];
-                        const placeColIndex = 2; // Column 2 is Place
-                        const placeElId = `${dayLabel}-r${rowNumericId}-c${placeColIndex}`;
-                        const placeEl = document.getElementById(placeElId);
-                        
+                        const placeEl = document.getElementById(`${dayLabel}-r${rowNumericId}-c2`);
                         if (placeEl) {
-                            // Ensure the option actually exists in the dropdown (if not, add it)
                             const exists = Array.from(placeEl.options).some(opt => opt.value === newPlace);
-                            if (!exists) {
-                                placeEl.add(new Option(newPlace, newPlace));
-                            }
-                            
-                            // Change the value, update colors, and instantly save the Place to the database
+                            if (!exists) placeEl.add(new Option(newPlace, newPlace));
                             placeEl.value = newPlace;
                             applyCellColor(placeEl, newPlace);
-                            saveCell(placeEl, newPlace, placeColIndex, true);
+                            saveCell(placeEl, newPlace, 2, true);
                         }
                     }
-                    
                     if (col === 3 || col === 4) lookupColumn5Value(rowNumericId, dayLabel, false);
                 };
             }
@@ -2742,17 +2814,16 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null) {
             }
 
             // --- HISTORY LISTENERS ---
-            // 1. Capture value before edit (for Inputs/Selects)
-            if (element.tagName !== 'SPAN') {
-                element.onfocus = (e) => {
-                    const current = e.target.getAttribute('data-selected') || e.target.value;
-                    e.target.setAttribute('data-before-edit', current || "");
-                };
-            }
+            element.addEventListener('focus', function() {
+                this.dataset.previousValue = this.value || '';
+            });
+            element.addEventListener('blur', function() {
+                const prev = this.dataset.previousValue || '';
+                const curr = this.value || '';
+                if (prev !== curr) logEditHistory(rowNumericId, dayLabel, col, prev, curr);
+            });
 
-            // 2. Right-click context menu for History
-            element.oncontextmenu = (e) => showCellHistory(e, rowNumericId, col);
-
+            // FINALLY: Add the element to the row in the configured order!
             rowDiv.appendChild(element);
         }
 
