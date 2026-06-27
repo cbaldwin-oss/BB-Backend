@@ -1110,11 +1110,17 @@ html, body {
 
 <div id="app-body">
     <div class="modal-overlay" id="schedule-config-modal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
-    <div style="background: white; width: 400px; padding: 20px; border-radius: 8px;">
+    <div style="background: white; width: 600px; padding: 20px; border-radius: 8px;"> 
         <h2 style="margin-top:0;">Schedule Layout Settings</h2>
         <p style="font-size:12px; color:#666;">Drag to reorder columns, or check to show/hide them.</p>
         <div id="schedule-col-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
             </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="document.getElementById('schedule-config-modal').style.display='none'" style="padding: 8px 12px; cursor: pointer;">Cancel</button>
+            <button onclick="saveNewConfigOrder()" style="padding: 8px 12px; background: #2e7d32; color: white; cursor: pointer; border: none; border-radius: 4px;">Save & Reload</button>
+        </div>
+    </div>
+</div>
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
             <button onclick="document.getElementById('schedule-config-modal').style.display='none'" style="padding: 8px 12px; cursor: pointer;">Cancel</button>
             <button onclick="saveNewConfigOrder()" style="padding: 8px 12px; background: #2e7d32; color: white; cursor: pointer; border: none; border-radius: 4px;">Save & Reload</button>
@@ -1740,6 +1746,8 @@ function renderDynamicHeaders() {
         headerGrid.appendChild(sep);
     });
 }
+
+document.addEventListener('DOMContentLoaded', renderDynamicHeaders);
 
 /**
  * Reusable builder for filter sections
@@ -2562,18 +2570,56 @@ function openScheduleConfigModal() {
     const list = document.getElementById('schedule-col-list');
     list.innerHTML = '';
     
+    // Change list layout to a horizontal wrapping flexbox
+    list.style.display = 'flex';
+    list.style.flexDirection = 'row';
+    list.style.flexWrap = 'wrap';
+    list.style.gap = '10px';
+    
     scheduleColConfig.forEach((col, index) => {
         const item = document.createElement('div');
-        item.style.cssText = "display: flex; align-items: center; padding: 10px; background: #f8f9fa; border: 1px solid #ddd; cursor: grab;";
+        // Styled like a draggable tag
+        item.style.cssText = "display: flex; align-items: center; padding: 10px 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; cursor: grab; user-select: none;";
         
-        // Simple Up/Down arrows for reordering
-        const moveUp = index > 0 ? `<span style="cursor:pointer; margin-right:5px;" onclick="moveCol(${index}, -1)">🔼</span>` : `<span style="margin-right:24px;"></span>`;
-        const moveDown = index < scheduleColConfig.length - 1 ? `<span style="cursor:pointer; margin-right:15px;" onclick="moveCol(${index}, 1)">🔽</span>` : `<span style="margin-right:34px;"></span>`;
+        // HTML5 Drag and Drop logic
+        item.draggable = true;
         
+        item.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', index);
+            item.style.opacity = '0.5';
+        });
+        
+        item.addEventListener('dragend', () => {
+            item.style.opacity = '1';
+            document.querySelectorAll('#schedule-col-list > div').forEach(el => el.style.border = '1px solid #ddd');
+        });
+        
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Required to allow dropping
+            item.style.border = '2px dashed #2e7d32'; // Highlights where it will drop
+        });
+        
+        item.addEventListener('dragleave', () => {
+            item.style.border = '1px solid #ddd';
+        });
+        
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
+            const targetIndex = index;
+            
+            // Swap the items in the configuration array
+            const draggedItem = scheduleColConfig.splice(draggedIndex, 1)[0];
+            scheduleColConfig.splice(targetIndex, 0, draggedItem);
+            
+            openScheduleConfigModal(); // Re-render the modal instantly to show the new order
+        });
+        
+        // Build the checkbox and drag handle (braille dots icon)
         item.innerHTML = `
-            ${moveUp} ${moveDown}
-            <input type="checkbox" id="cfg-col-${col.id}" ${col.visible ? 'checked' : ''} style="margin-right:10px;">
-            <label for="cfg-col-${col.id}" style="font-weight:bold;">${col.name}</label>
+            <span style="margin-right: 8px; cursor: grab; color: #999; font-size: 16px;">⣿</span>
+            <input type="checkbox" id="cfg-col-${col.id}" ${col.visible ? 'checked' : ''} style="margin-right:8px; cursor: pointer; transform: scale(1.2);">
+            <label for="cfg-col-${col.id}" style="font-weight:bold; cursor: pointer; color:#333;">${col.name}</label>
         `;
         list.appendChild(item);
     });
