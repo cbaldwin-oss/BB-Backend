@@ -2612,10 +2612,16 @@ function openScheduleConfigModal() {
         });
         
         // Build the checkbox and drag handle (braille dots icon)
+        // Build the checkbox, drag handle, and editable text input
         item.innerHTML = `
-            <span style="margin-right: 8px; cursor: grab; color: #999; font-size: 16px;">⣿</span>
-            <input type="checkbox" id="cfg-col-${col.id}" ${col.visible ? 'checked' : ''} style="margin-right:8px; cursor: pointer; transform: scale(1.2);">
-            <label for="cfg-col-${col.id}" style="font-weight:bold; cursor: pointer; color:#333;">${col.name}</label>
+            <span style="margin-right: 8px; cursor: grab; color: #999; font-size: 16px;" title="Drag to reorder">⣿</span>
+            <input type="checkbox" id="cfg-col-${col.id}" ${col.visible ? 'checked' : ''} style="margin-right:8px; cursor: pointer; transform: scale(1.2);" title="Show/Hide">
+            <input type="text" id="cfg-name-${col.id}" value="${col.name}" 
+                style="font-weight:bold; color:#333; border: 1px solid transparent; background: transparent; padding: 4px; width: 110px; border-radius: 3px; outline: none; transition: 0.2s;" 
+                onfocus="this.style.border='1px solid #2e7d32'; this.style.background='#fff'" 
+                onblur="this.style.border='1px solid transparent'; this.style.background='transparent'" 
+                onmousedown="this.focus(); event.stopPropagation();"
+                title="Click to Edit Column Name">
         `;
         list.appendChild(item);
     });
@@ -2632,13 +2638,21 @@ function moveCol(index, direction) {
     openScheduleConfigModal(); // Re-render the modal list
 }
 
-// Grabs the checkbox statuses and saves
+// Grabs the checkbox statuses, new names, and saves
 function saveNewConfigOrder() {
     scheduleColConfig.forEach(col => {
+        // 1. Get the checkbox to see if it's hidden or shown
         const checkbox = document.getElementById(`cfg-col-${col.id}`);
         if (checkbox) col.visible = checkbox.checked;
+        
+        // 2. Get the text box to save any custom name changes
+        const nameInput = document.getElementById(`cfg-name-${col.id}`);
+        if (nameInput && nameInput.value.trim() !== '') {
+            col.name = nameInput.value.trim(); 
+        }
     });
-    saveScheduleConfig();
+    
+    saveScheduleConfig(); // Saves to local storage and reloads the page
 }
 
 function applyCellColor(element, value) {
